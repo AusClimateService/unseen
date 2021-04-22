@@ -3,6 +3,7 @@ import pdb
 import numpy as np
 import pandas as pd
 import xarray as xr
+from skimage.util.shape import view_as_windows
 
 
 #AUS_BOX = [-46, -9, 111, 157]
@@ -42,7 +43,7 @@ def get_region(da, box):
     return da
 
 
-def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
+def stack_by_init_date_old(da, init_dates, N_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format. 
     
     Returns nans if requested times lie outside of the available range.
@@ -56,8 +57,6 @@ def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
     
     times_np = times_np.astype(f'datetime64[{freq}]')
     init_dates_np = init_dates.astype(f'datetime64[{freq}]')
-
-    #pdb.set_trace()
     
     init_list = []
     for i in range(len(init_dates)):
@@ -80,3 +79,30 @@ def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
     stacked['lead_time'].attrs['units'] = freq
     
     return stacked
+
+
+def stack_by_init_date_new(da, init_dates, N_lead_steps, freq='D'):
+    """Stack timeseries array in inital date / lead time format. 
+    
+    Returns nans if requested times lie outside of the available range.
+    
+    """
+    
+    if xr.core.common.contains_cftime_datetimes(da['time']):
+        times_np = xr.coding.times.cftime_to_nptime(da['time'])
+    else:
+        times_np = da['time']
+    
+    times_np = times_np.astype(f'datetime64[{freq}]')
+    init_dates_np = init_dates.astype(f'datetime64[{freq}]')
+    
+    start_index = np.where(times_np == init_dates_np[0])[0][0]
+    end_index = start_index + N_lead_steps + (365 * (len(init_dates) - 1))
+    array = da.values[start_index:end_index, ::]
+    target_shape = list(array.shape)
+    target_shape[0] = N_lead_steps
+    stacked_data = view_as_windows(da.values[start_index:end_index, ::],
+                                   target_shape, step=365).squeeze()
+                                   # (init_date, lead_time, lat, lon)
+
+    pdb.set_trace()

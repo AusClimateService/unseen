@@ -81,12 +81,8 @@ def stack_by_init_date_old(da, init_dates, N_lead_steps, freq='D'):
     return stacked
 
 
-def stack_by_init_date_new(da, init_dates, N_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format. 
-    
-    Returns nans if requested times lie outside of the available range.
-    
-    """
+def stack_by_init_date_skimage(da, init_dates, N_lead_steps, freq='D'):
+    """Stack timeseries array in inital date / lead time format."""
     
     if xr.core.common.contains_cftime_datetimes(da['time']):
         times_np = xr.coding.times.cftime_to_nptime(da['time'])
@@ -105,4 +101,37 @@ def stack_by_init_date_new(da, init_dates, N_lead_steps, freq='D'):
                                    target_shape, step=365).squeeze()
                                    # (init_date, lead_time, lat, lon)
 
-    pdb.set_trace()
+        
+def stack_by_init_date_xr(da, init_dates, N_lead_steps, freq='D'):
+    """Stack timeseries array in inital date / lead time format. 
+    
+    
+    
+    """
+    
+    da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
+    
+    rounded_times = da['time'].dt.floor(freq).values
+    
+    time2d = np.empty((len(init_dates), N_lead_steps), 'datetime64[ns]')
+    init_date_indexes = []
+    offset = N_lead_steps - 1  # xarray rolling puts nans at the front
+                               # and labels each window according to last value
+                               # so an offset is needed
+    for ndate, date in enumerate(init_dates):
+        start_index = np.where(rounded_times == date)[0][0]
+        end_index = start_index + N_lead_steps
+        time2d[ndate, :] = da['time'][start_index:end_index].values
+        init_date_indexes.append(start_index + offset)
+
+    da = da.rolling(time=N_lead_steps, min_periods=1).construct("lead_time")
+    da = da.assign_coords({'lead_time': da['lead_time'].values})
+    da = da.rename({'time': 'init_date'})
+    da = da[init_date_indexes, ::]
+    da = da.assign_coords({'init_date': time2d[:, 0]})
+    da = da.assign_coords({'time': (['init_date', 'lead_time'], time2d)})
+    da['lead_time'].attrs['units'] = freq
+    
+    # TODO: Return nans if requested times lie outside of the available range
+    
+    return da

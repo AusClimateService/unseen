@@ -3,7 +3,6 @@ import pdb
 import numpy as np
 import pandas as pd
 import xarray as xr
-from skimage.util.shape import view_as_windows
 
 
 #AUS_BOX = [-46, -9, 111, 157]
@@ -42,65 +41,6 @@ def get_region(da, box):
 
     return da
 
-
-def stack_by_init_date_old(da, init_dates, N_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format. 
-    
-    Returns nans if requested times lie outside of the available range.
-    
-    """
-
-    if xr.core.common.contains_cftime_datetimes(da['time']):
-        times_np = xr.coding.times.cftime_to_nptime(da['time'])
-    else:
-        times_np = da['time']
-    
-    times_np = times_np.astype(f'datetime64[{freq}]')
-    init_dates_np = init_dates.astype(f'datetime64[{freq}]')
-    
-    init_list = []
-    for i in range(len(init_dates)):
-        start_index = np.where(times_np == init_dates_np[i])[0]
-        start_index = start_index.item()
-        end_index = min([start_index + N_lead_steps, len(times_np)])
-        lead_times = np.arange(0, end_index - start_index)
-        
-        da_slice = da.isel({'time': range(start_index, end_index)})
-        time_slice = da_slice['time'].expand_dims({'init_date': [init_dates[i]]})
-        da_slice = da_slice.expand_dims({'init_date': [init_dates[i]]})
-        da_slice = da_slice.assign_coords({'time_new': time_slice})
-        da_slice = da_slice.assign_coords({'time': lead_times})
-        da_slice = da_slice.rename({'time': 'lead_time'})
-        da_slice = da_slice.rename({'time_new': 'time'})
-        
-        init_list.append(da_slice)
-            
-    stacked = xr.concat(init_list, dim='init_date')
-    stacked['lead_time'].attrs['units'] = freq
-    
-    return stacked
-
-
-#def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
-#    """Stack timeseries array in inital date / lead time format."""
-#    
-#    if xr.core.common.contains_cftime_datetimes(da['time']):
-#        times_np = xr.coding.times.cftime_to_nptime(da['time'])
-#    else:
-#        times_np = da['time']
-#    
-#    times_np = times_np.astype(f'datetime64[{freq}]')
-#    init_dates_np = init_dates.astype(f'datetime64[{freq}]')
-#    
-#    start_index = np.where(times_np == init_dates_np[0])[0][0]
-#    end_index = start_index + N_lead_steps + (365 * (len(init_dates) - 1))
-#    array = da.values[start_index:end_index, ::]
-#    target_shape = list(array.shape)
-#    target_shape[0] = N_lead_steps
-#    stacked_data = view_as_windows(da.values[start_index:end_index, ::],
-#                                   target_shape, step=365).squeeze()
-#                                   # (init_date, lead_time, lat, lon)
-
         
 def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format. """
@@ -133,3 +73,28 @@ def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
     #       the data is the same.
     
     return da
+
+
+def reindex_forecast(ds, dropna=False):
+    """Switch out lead_time axis for time axis (or vice versa) in a forecast dataset."""
+    
+    if 'lead_time' in ds.dims:
+        index_dim = 'lead_time'
+        reindex_dim = 'time'
+    elif 'time' in ds.dims:
+        index_dim = 'time'
+        reindex_dim = 'lead_time'
+    else:
+        raise ValueError("Neither a time nor lead_time dimension can be found")
+    swap = {index_dim: reindex_dim}
+    to_concat = []
+    for init_date in ds['init_date']:
+        fcst = ds.sel({'init_date': init_date})
+        fcst = fcst.where(fcst[reindex_dim].notnull(), drop=True)
+        fcst = fcst.assign_coords({'lead_time': fcst['lead_time'].astype(int)})
+        to_concat.append(fcst.swap_dims(swap))
+    concat = xr.concat(to_concat, dim='init_date')
+    if dropna:
+        return concat.where(concat.notnull(), drop=True)
+    else:
+        return concat

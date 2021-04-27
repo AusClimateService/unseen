@@ -81,33 +81,29 @@ def stack_by_init_date_old(da, init_dates, N_lead_steps, freq='D'):
     return stacked
 
 
-def stack_by_init_date_skimage(da, init_dates, N_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format."""
-    
-    if xr.core.common.contains_cftime_datetimes(da['time']):
-        times_np = xr.coding.times.cftime_to_nptime(da['time'])
-    else:
-        times_np = da['time']
-    
-    times_np = times_np.astype(f'datetime64[{freq}]')
-    init_dates_np = init_dates.astype(f'datetime64[{freq}]')
-    
-    start_index = np.where(times_np == init_dates_np[0])[0][0]
-    end_index = start_index + N_lead_steps + (365 * (len(init_dates) - 1))
-    array = da.values[start_index:end_index, ::]
-    target_shape = list(array.shape)
-    target_shape[0] = N_lead_steps
-    stacked_data = view_as_windows(da.values[start_index:end_index, ::],
-                                   target_shape, step=365).squeeze()
-                                   # (init_date, lead_time, lat, lon)
+#def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
+#    """Stack timeseries array in inital date / lead time format."""
+#    
+#    if xr.core.common.contains_cftime_datetimes(da['time']):
+#        times_np = xr.coding.times.cftime_to_nptime(da['time'])
+#    else:
+#        times_np = da['time']
+#    
+#    times_np = times_np.astype(f'datetime64[{freq}]')
+#    init_dates_np = init_dates.astype(f'datetime64[{freq}]')
+#    
+#    start_index = np.where(times_np == init_dates_np[0])[0][0]
+#    end_index = start_index + N_lead_steps + (365 * (len(init_dates) - 1))
+#    array = da.values[start_index:end_index, ::]
+#    target_shape = list(array.shape)
+#    target_shape[0] = N_lead_steps
+#    stacked_data = view_as_windows(da.values[start_index:end_index, ::],
+#                                   target_shape, step=365).squeeze()
+#                                   # (init_date, lead_time, lat, lon)
 
         
-def stack_by_init_date_xr(da, init_dates, N_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format. 
-    
-    
-    
-    """
+def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
+    """Stack timeseries array in inital date / lead time format. """
     
     da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
     
@@ -133,5 +129,7 @@ def stack_by_init_date_xr(da, init_dates, N_lead_steps, freq='D'):
     da['lead_time'].attrs['units'] = freq
     
     # TODO: Return nans if requested times lie outside of the available range
+    # TODO: Make a time selection from the original and final array and check
+    #       the data is the same.
     
     return da

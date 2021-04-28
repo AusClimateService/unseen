@@ -14,31 +14,34 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
-def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
+def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format. """
     
     rounded_times = da['time'].dt.floor(freq).values
-    
-    time2d = np.empty((len(init_dates), N_lead_steps), 'datetime64[ns]')
+    ref_time = np.datetime_as_string(init_dates[0], unit='D')
+    ref_array = da.sel(time=ref_time).values    
+
+    time2d = np.empty((len(init_dates), n_lead_steps), 'datetime64[ns]')
     init_date_indexes = []
-    offset = N_lead_steps - 1
+    offset = n_lead_steps - 1
     for ndate, date in enumerate(init_dates):
         start_index = np.where(rounded_times == date)[0][0]
-        end_index = start_index + N_lead_steps
+        end_index = start_index + n_lead_steps
         time2d[ndate, :] = da['time'][start_index:end_index].values
         init_date_indexes.append(start_index + offset)
 
-    da = da.rolling(time=N_lead_steps, min_periods=1).construct("lead_time")
+    da = da.rolling(time=n_lead_steps, min_periods=1).construct("lead_time")
     da = da.assign_coords({'lead_time': da['lead_time'].values})
     da = da.rename({'time': 'init_date'})
     da = da[init_date_indexes, ::]
     da = da.assign_coords({'init_date': time2d[:, 0]})
     da = da.assign_coords({'time': (['init_date', 'lead_time'], time2d)})
     da['lead_time'].attrs['units'] = freq
+
+    actual_array = da.sel({'init_date': ref_time, 'lead_time': 0}).values
+    np.testing.assert_allclose(actual_array, ref_array)
     
     # TODO: Return nans if requested times lie outside of the available range
-    # TODO: Make a time selection from the original and final array and check
-    #       the data is the same.
     
     return da
 

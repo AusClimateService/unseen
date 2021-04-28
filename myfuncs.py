@@ -5,8 +5,7 @@ import pandas as pd
 import xarray as xr
 
 
-#AUS_BOX = [-46, -9, 111, 157]
-AUS_BOX = [-44, -11, 113, 154]
+box_regions = {'aus': [-44, -11, 113, 154]}
 
 
 def get_region(da, box):
@@ -39,39 +38,6 @@ def get_region(da, box):
     #    da = da.sortby(lat_name).sortby(lon_name)
     #da.sel({'lat': slice(box[0], box[1]), 'lon': slice(box[2], box[3])})
 
-    return da
-
-        
-def stack_by_init_date(da, init_dates, N_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format. """
-    
-    da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-    
-    rounded_times = da['time'].dt.floor(freq).values
-    
-    time2d = np.empty((len(init_dates), N_lead_steps), 'datetime64[ns]')
-    init_date_indexes = []
-    offset = N_lead_steps - 1  # xarray rolling puts nans at the front
-                               # and labels each window according to last value
-                               # so an offset is needed
-    for ndate, date in enumerate(init_dates):
-        start_index = np.where(rounded_times == date)[0][0]
-        end_index = start_index + N_lead_steps
-        time2d[ndate, :] = da['time'][start_index:end_index].values
-        init_date_indexes.append(start_index + offset)
-
-    da = da.rolling(time=N_lead_steps, min_periods=1).construct("lead_time")
-    da = da.assign_coords({'lead_time': da['lead_time'].values})
-    da = da.rename({'time': 'init_date'})
-    da = da[init_date_indexes, ::]
-    da = da.assign_coords({'init_date': time2d[:, 0]})
-    da = da.assign_coords({'time': (['init_date', 'lead_time'], time2d)})
-    da['lead_time'].attrs['units'] = freq
-    
-    # TODO: Return nans if requested times lie outside of the available range
-    # TODO: Make a time selection from the original and final array and check
-    #       the data is the same.
-    
     return da
 
 

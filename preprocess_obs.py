@@ -84,6 +84,9 @@ def main(args):
     if args.chunk_size:
         da = da.chunk({'time': args.chunk_size})
 
+    if args.outvar == 'precip':
+        da = myfuncs.convert_pr_units(da)
+        
     check_dates(args.init_dates)
     init_dates = np.array(args.init_dates, dtype='datetime64[ns]')
     da = stack_by_init_date(da, init_dates, args.n_lead_steps)

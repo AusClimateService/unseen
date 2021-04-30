@@ -29,6 +29,9 @@ def open_and_clip(infile, var, region=None, no_leap_days=False):
     if region:
         region = myfuncs.box_regions[region]
         da = myfuncs.get_region(da, region)
+    
+    if var == 'precip':
+        da = myfuncs.convert_pr_units(da)
 
     lead_time = range(len(da['time']))
     init_date = np.datetime64(da['time'].values[0].strftime('%Y-%m-%d'))
@@ -64,8 +67,7 @@ def main(args):
     new_log = cmdprov.new_log(code_url=repo_url)
     ds.attrs['history'] = new_log
 
-    ds = ds.chunk({'init_date': -1, 'lead_time': -1,
-                   'lat': -1, 'lon': -1})
+    ds = ds.chunk({'init_date': 1, 'lead_time': 50})
     ds.to_zarr(args.outfile, mode='w')
 
 

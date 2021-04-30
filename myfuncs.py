@@ -41,6 +41,27 @@ def get_region(da, box):
     return da
 
 
+def convert_pr_units(da):
+    """Convert kg m-2 s-1 to mm day-1.
+    
+    Args:
+      da (xarray.DataArray): Precipitation data
+   
+    """
+   
+    if da.units in ['kg m-2 s-1', 'kg/m2/s']:
+        da = da * 86400
+        da.attrs['units'] = 'mm/day'
+    
+    if da.units == 'mm':
+        da.attrs['units'] = 'mm/day'
+    
+    assert da.units == 'mm/day'
+
+    return da
+
+
+
 def reindex_forecast(ds, dropna=False):
     """Switch out lead_time axis for time axis (or vice versa) in a forecast dataset."""
     

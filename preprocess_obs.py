@@ -14,6 +14,35 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
+def read_obs(infile, invar, outvar,
+             dataset=None, no_leap_days=True,
+             region=None, chunk_size=None):
+    """Read and sanity check observational data."""
+    
+    ds = xr.open_zarr(infile, consolidated=True)
+    da = ds[invar]
+
+    da = da.rename(outvar)
+    if dataset == 'JRA-55':
+        da = fix_jra55(da)
+    da = da.transpose('time', 'lat', 'lon')
+
+    if no_leap_days:
+        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
+
+    if region:
+        region = myfuncs.box_regions[region]
+        da = myfuncs.get_region(da, region)
+
+    if chunk_size:
+        da = da.chunk({'time': chunk_size})
+
+    if outvar == 'precip':
+        da = myfuncs.convert_pr_units(da)
+
+    return da
+
+
 def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format. """
     
@@ -66,27 +95,12 @@ def check_dates(date_list):
 def main(args):
     """Run the command line program."""
 
-    ds = xr.open_zarr(args.infile, consolidated=True)
-    da = ds[args.invar]
-
-    da = da.rename(args.outvar)
-    if args.dataset == 'JRA-55':
-        da = fix_jra55(da)
-    da = da.transpose('time', 'lat', 'lon')
-
-    if args.no_leap_days:
-        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-
-    if args.region:
-        region = myfuncs.box_regions[args.region]
-        da = myfuncs.get_region(da, region)
-
-    if args.chunk_size:
-        da = da.chunk({'time': args.chunk_size})
-
-    if args.outvar == 'precip':
-        da = myfuncs.convert_pr_units(da)
-        
+    da = read_obs(args.infile, args.invar, args.outvar,
+                  dataset=args.dataset,
+                  no_leap_days=aegs.no_leap_days,
+                  region=args.region,
+                  chunk_size=args.chunk_size)
+            
     check_dates(args.init_dates)
     init_dates = np.array(args.init_dates, dtype='datetime64[ns]')
     da = stack_by_init_date(da, init_dates, args.n_lead_steps)
@@ -128,4 +142,3 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     main(args)
-

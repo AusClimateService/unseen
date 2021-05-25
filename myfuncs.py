@@ -4,11 +4,42 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+regions = {'AUS-BOX': [-44, -11, 113, 154],
+           'MEL-POINT': (-37.81, 144.96),
+           'TAS-POINT': (-42, 146.5),
+           }
 
-box_regions = {'aus': [-44, -11, 113, 154]}
+
+def select_region(da, region):
+    """Select region."""
+    
+    ## TODO: Add shapefile region selection
+    if len(region) == 4:
+        da = select_box_region(da, region)
+    elif len(region) == 2:
+        da = select_point_region(da, region)
+    else:
+        raise ValueError('region is not a box (4 values) or point (2 values)')
+    
+    return da
 
 
-def get_region(da, box):
+def select_point_region(da, point):
+    """Select a single grid point.
+    
+    Args:
+      da (xarray DataArray)
+      point (array-like) : [lat, lon]
+    
+    """
+    
+    lat, lon = point
+    da = da.sel({'lat': lat, 'lon': lon}, method='nearest', drop=True)
+    
+    return da
+    
+    
+def select_box_region(da, box):
     """Select grid points that fall within a lat/lon box.
     
     Args:

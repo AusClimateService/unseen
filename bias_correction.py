@@ -12,19 +12,21 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
+# TODO: Clarify how the monthly climatology works at:
+# https://github.com/dougiesquire/hydro_tasmania/blob/main/2020/myfuncs.py#L242
+
+
 def main(args):
     """Run the command line program."""
 
     ds_model = xr.open_zarr(args.model_file)
     da_model = ds_model[args.var]
     model_clim = da_model.mean(['ensemble', 'init_date'])
-    model_clim = model_clim.transpose('lead_time', 'lat', 'lon')
     
     ds_obs = xr.open_zarr(args.obs_file)
     da_obs = ds_obs[args.var]
     obs_clim = da_obs.mean('init_date')
-    obs_clim = obs_clim.transpose('lead_time', 'lat', 'lon')
-    
+
     if args.method == 'additive':
         bias = model_clim - obs_clim
         corrected_model = da_model - bias
@@ -39,7 +41,7 @@ def main(args):
     new_log = cmdprov.new_log(code_url=repo_url)
     ds.attrs['history'] = new_log
 
-#    ds = ds.chunk({'init_date': 1, 'lead_time': 50})
+    ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     ds.to_zarr(args.outfile, mode='w')
 
 

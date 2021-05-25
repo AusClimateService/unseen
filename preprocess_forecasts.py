@@ -25,10 +25,10 @@ def open_and_clip(infile, var, region=None, no_leap_days=False):
     
     if no_leap_days:
         da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-
+        
     if region:
-        region = myfuncs.box_regions[region]
-        da = myfuncs.get_region(da, region)
+        region = myfuncs.regions[region]
+        da = myfuncs.select_region(da, region)
     
     if var == 'precip':
         da = myfuncs.convert_pr_units(da)
@@ -67,7 +67,7 @@ def main(args):
     new_log = cmdprov.new_log(code_url=repo_url)
     ds.attrs['history'] = new_log
 
-    ds = ds.chunk({'init_date': 1, 'lead_time': 50})
+    ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     ds.to_zarr(args.outfile, mode='w')
 
 
@@ -79,8 +79,8 @@ if __name__ == '__main__':
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("outfile", type=str, help="Output file")
     
-    parser.add_argument("--region", type=str, choices=myfuncs.box_regions.keys(),
-                        help="Select spatial region from data")
+    parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
+                        help="Select region from data")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
 

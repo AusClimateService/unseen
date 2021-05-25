@@ -29,11 +29,11 @@ def read_obs(infile, invar, outvar,
 
     if no_leap_days:
         da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-
+        
     if region:
-        region = myfuncs.box_regions[region]
-        da = myfuncs.get_region(da, region)
-
+        region = myfuncs.regions[region]
+        da = myfuncs.select_region(da, region)
+        
     if chunk_size:
         da = da.chunk({'time': chunk_size})
 
@@ -78,7 +78,7 @@ def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
 def fix_jra55(da):
     """Custom metadata handling for JRA-55."""
 
-    da = da.rename({'initial_time0_hours': 'time'})
+    da = da.rename({'initial_time0_hours': 'time'}) #'lv_ISBL1': 'level'
 
     return da
 
@@ -97,7 +97,7 @@ def main(args):
 
     da = read_obs(args.infile, args.invar, args.outvar,
                   dataset=args.dataset,
-                  no_leap_days=aegs.no_leap_days,
+                  no_leap_days=args.no_leap_days,
                   region=args.region,
                   chunk_size=args.chunk_size)
             
@@ -112,8 +112,7 @@ def main(args):
     new_log = cmdprov.new_log(code_url=repo_url)
     ds.attrs['history'] = new_log
 
-    ds = ds.chunk({'init_date': -1, 'lead_time': -1,
-                   'lat': -1, 'lon': -1})
+    ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     ds.to_zarr(args.outfile, mode='w')
 
 
@@ -133,7 +132,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--dataset", type=str, choices=('JRA-55', 'AWAP'),
                         help="Dataset name for custom metadata handling")
-    parser.add_argument("--region", type=str, choices=myfuncs.box_regions.keys(),
+    parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select spatial region from data")
     parser.add_argument("--chunk_size", type=int, default=None,
                         help="Set the chunk size (along the time axis)")

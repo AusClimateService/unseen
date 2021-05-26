@@ -44,7 +44,14 @@ def read_obs(infile, invar, outvar,
 
 
 def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format. """
+    """Stack timeseries array in inital date / lead time format.
+
+    Args:
+      da (xarray DataArray)
+      init_dates (numpy ndarray) : Initial dates in datetime64[ns] format
+      n_lead_steps (int) : Maximum lead time
+      freq (str) : Time-step frequency
+    """
     
     rounded_times = da['time'].dt.floor(freq).values
     ref_time = np.datetime_as_string(init_dates[0], unit='D')
@@ -92,7 +99,7 @@ def check_dates(date_list):
             'Date format must be YYYY-MM-DD'
 
 
-def main(args):
+def _main(args):
     """Run the command line program."""
 
     da = read_obs(args.infile, args.invar, args.outvar,
@@ -106,7 +113,6 @@ def main(args):
     da = stack_by_init_date(da, init_dates, args.n_lead_steps)
 
     ds = da.to_dataset()
-
     repo = git.Repo(repo_dir)
     repo_url = repo.remotes[0].url.split('.git')[0]
     new_log = cmdprov.new_log(code_url=repo_url)
@@ -129,7 +135,6 @@ if __name__ == '__main__':
                         help="Number of lead time steps")
     parser.add_argument("--init_dates", type=str, nargs='*', required=True,
                         help="Initial dates (YYYY-MM-DD format)")
-
     parser.add_argument("--dataset", type=str, choices=('JRA-55', 'AWAP'),
                         help="Dataset name for custom metadata handling")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
@@ -140,4 +145,4 @@ if __name__ == '__main__':
                         help="Remove leap days from time series [default=False]")
 
     args = parser.parse_args()
-    main(args)
+    _main(args)

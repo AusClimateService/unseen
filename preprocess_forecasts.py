@@ -13,9 +13,9 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
-def open_and_clip(infile, var, region=None, no_leap_days=False):
-    """Open file and select region"""
-    
+def open_forecast(infile, var, region=None, no_leap_days=False):
+    """Open a single forcast file."""
+
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
     
     da = ds['precip']
@@ -42,14 +42,14 @@ def open_and_clip(infile, var, region=None, no_leap_days=False):
     return da
 
 
-def main(args):
-    """Run the command line program."""
+def open_mfforecast(infiles, var, region=None, no_leap_days=False):
+    """Open multi-file forecast."""
 
     datasets = []
-    for infile in args.infiles:
-        da = open_and_clip(infile, args.var,
-                           region=args.region,
-                           no_leap_days=args.no_leap_days)
+    for infile in infiles:
+        da = open_forecast(infile, var,
+                           region=region,
+                           no_leap_days=no_leap_days)
         datasets.append(da)
     da = xr.concat(datasets, dim='init_date')
 
@@ -60,8 +60,17 @@ def main(args):
     da = da.assign_coords({'time': time_dimension})
     da['lead_time'].attrs['units'] = 'D'
 
-    ds = da.to_dataset()
+    return da
 
+
+def _main(args):
+    """Run the command line program."""
+
+    da = open_mfforecast(args.infiles, args.var,
+                         region=args.region,
+                         no_leap_days=args.no_leap_days)
+
+    ds = da.to_dataset()
     repo = git.Repo(repo_dir)
     repo_url = repo.remotes[0].url.split('.git')[0]
     new_log = cmdprov.new_log(code_url=repo_url)
@@ -73,17 +82,14 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-                                     
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)                                     
     parser.add_argument("infiles", type=str, nargs='*', help="Input files")
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("outfile", type=str, help="Output file")
-    
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select region from data")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
-
     args = parser.parse_args()
-    main(args)
+    _main(args)
 

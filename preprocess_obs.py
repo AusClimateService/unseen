@@ -14,35 +14,6 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
-def read_obs(infile, invar, outvar,
-             dataset=None, no_leap_days=True,
-             region=None, chunk_size=None):
-    """Read and sanity check observational data."""
-    
-    ds = xr.open_zarr(infile, consolidated=True)
-    da = ds[invar]
-
-    da = da.rename(outvar)
-    if dataset == 'JRA-55':
-        da = fix_jra55(da)
-    da = da.transpose('time', 'lat', 'lon')
-
-    if no_leap_days:
-        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-        
-    if region:
-        region = myfuncs.regions[region]
-        da = myfuncs.select_region(da, region)
-        
-    if chunk_size:
-        da = da.chunk({'time': chunk_size})
-
-    if outvar == 'precip':
-        da = myfuncs.convert_pr_units(da)
-
-    return da
-
-
 def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format.
 
@@ -82,14 +53,6 @@ def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
     return da
 
 
-def fix_jra55(da):
-    """Custom metadata handling for JRA-55."""
-
-    da = da.rename({'initial_time0_hours': 'time'}) #'lv_ISBL1': 'level'
-
-    return da
-
-
 def check_dates(date_list):
     """Check for YYYY-MM-DD format."""
 
@@ -102,11 +65,12 @@ def check_dates(date_list):
 def _main(args):
     """Run the command line program."""
 
-    da = read_obs(args.infile, args.invar, args.outvar,
-                  dataset=args.dataset,
-                  no_leap_days=args.no_leap_days,
-                  region=args.region,
-                  chunk_size=args.chunk_size)
+    da = myfuncs.open_file(args.infile, args.invar,
+                           outvar=args.outvar,
+                           dataset=args.dataset,
+                           no_leap_days=args.no_leap_days,
+                           region=args.region,
+                           units=args.units)
             
     check_dates(args.init_dates)
     init_dates = np.array(args.init_dates, dtype='datetime64[ns]')
@@ -139,10 +103,10 @@ if __name__ == '__main__':
                         help="Dataset name for custom metadata handling")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select spatial region from data")
-    parser.add_argument("--chunk_size", type=int, default=None,
-                        help="Set the chunk size (along the time axis)")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
+    parser.add_argument("--units", type=str, default=None,
+                        help="Convert to these units")
 
     args = parser.parse_args()
     _main(args)

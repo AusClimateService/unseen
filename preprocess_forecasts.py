@@ -13,25 +13,8 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
-def open_forecast(infile, var, region=None, no_leap_days=False):
-    """Open a single forcast file."""
-
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
-    
-    da = ds['precip']
-    for drop_coord in ['average_DT', 'average_T1', 'average_T2', 'zsurf', 'area']:
-        if drop_coord in da.coords:
-            da = da.drop(drop_coord)
-    
-    if no_leap_days:
-        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-        
-    if region:
-        region = myfuncs.regions[region]
-        da = myfuncs.select_region(da, region)
-    
-    if var == 'precip':
-        da = myfuncs.convert_pr_units(da)
+def to_init_lead(da):
+    """Switch out time axis for init_date and lead_time."""
 
     lead_time = range(len(da['time']))
     init_date = np.datetime64(da['time'].values[0].strftime('%Y-%m-%d'))
@@ -42,14 +25,13 @@ def open_forecast(infile, var, region=None, no_leap_days=False):
     return da
 
 
-def open_mfforecast(infiles, var, region=None, no_leap_days=False):
+def open_mfforecast(infiles, var, **kwargs):
     """Open multi-file forecast."""
 
     datasets = []
     for infile in infiles:
-        da = open_forecast(infile, var,
-                           region=region,
-                           no_leap_days=no_leap_days)
+        da = myfuncs.open_file(infile, var, **kwargs)
+        da = to_init_lead(da)
         datasets.append(da)
     da = xr.concat(datasets, dim='init_date')
 
@@ -68,7 +50,9 @@ def _main(args):
 
     da = open_mfforecast(args.infiles, args.var,
                          region=args.region,
-                         no_leap_days=args.no_leap_days)
+                         no_leap_days=args.no_leap_days,
+                         dataset=args.dataset,
+                         units=args.units)
 
     ds = da.to_dataset()
     repo = git.Repo(repo_dir)
@@ -86,6 +70,10 @@ if __name__ == '__main__':
     parser.add_argument("infiles", type=str, nargs='*', help="Input files")
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("outfile", type=str, help="Output file")
+    parser.add_argument("--dataset", type=str, choices=('cafe'),
+                        help="Dataset name for custom metadata handling")
+    parser.add_argument("--units", type=str, default=None,
+                        help="Convert to these units")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select region from data")
     parser.add_argument("--no_leap_days", action="store_true", default=False,

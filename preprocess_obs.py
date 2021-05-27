@@ -5,13 +5,44 @@ repo_dir = sys.path[0]
 import pdb
 import argparse
 import re
+from datetime import datetime
 
 import git
 import numpy as np
 import xarray as xr
+import cftime
 import cmdline_provenance as cmdprov
 
 import myfuncs
+
+
+def check_date_format(date_list):
+    """Check for YYYY-MM-DD format."""
+
+    date_pattern = '([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})'
+    for date in date_list:
+        assert re.search(date_pattern, date), \
+            'Date format must be YYYY-MM-DD'
+
+def check_cftime(time_dim):
+    """Check that time dimension is cftime.
+
+    Args:
+      time_dim (xarray DataArray) : Time dimension
+    """
+
+    t0 = time_dim.values[0]
+    assert type(t0) in cftime._cftime.DATE_TYPES.values(), \
+        'Time dimension must use cftime objects'
+
+
+def str_to_cftime(datestring, calendar):
+    """Convert a date string to cftime object"""
+    
+    dt = datetime.strptime(datestring, '%Y-%m-%d')
+    cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
+     
+    return cfdt
 
 
 def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
@@ -19,20 +50,25 @@ def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
 
     Args:
       da (xarray DataArray)
-      init_dates (numpy ndarray) : Initial dates in datetime64[ns] format
+      init_dates (list) : Initial dates in YYYY-MM-DD format
       n_lead_steps (int) : Maximum lead time
       freq (str) : Time-step frequency
     """
-    
+
+    check_date_format(init_dates)
+    check_cftime(da['time'])
+
     rounded_times = da['time'].dt.floor(freq).values
-    ref_time = np.datetime_as_string(init_dates[0], unit='D')
+    ref_time = init_dates[0]
+    ref_calendar = rounded_times[0].calendar
     ref_array = da.sel(time=ref_time).values    
 
-    time2d = np.empty((len(init_dates), n_lead_steps), 'datetime64[ns]')
+    time2d = np.empty((len(init_dates), n_lead_steps), 'object')
     init_date_indexes = []
     offset = n_lead_steps - 1
     for ndate, date in enumerate(init_dates):
-        start_index = np.where(rounded_times == date)[0][0]
+        date_cf = str_to_cftime(date, ref_calendar)
+        start_index = np.where(rounded_times == date_cf)[0][0]
         end_index = start_index + n_lead_steps
         time2d[ndate, :] = da['time'][start_index:end_index].values
         init_date_indexes.append(start_index + offset)
@@ -53,15 +89,6 @@ def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
     return da
 
 
-def check_dates(date_list):
-    """Check for YYYY-MM-DD format."""
-
-    date_pattern = '([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})'
-    for date in date_list:
-        assert re.search(date_pattern, date), \
-            'Date format must be YYYY-MM-DD'
-
-
 def _main(args):
     """Run the command line program."""
 
@@ -71,10 +98,8 @@ def _main(args):
                            no_leap_days=args.no_leap_days,
                            region=args.region,
                            units=args.units)
-            
-    check_dates(args.init_dates)
-    init_dates = np.array(args.init_dates, dtype='datetime64[ns]')
-    da = stack_by_init_date(da, init_dates, args.n_lead_steps)
+       
+    da = stack_by_init_date(da, args.init_dates, args.n_lead_steps)
 
     ds = da.to_dataset()
     repo = git.Repo(repo_dir)

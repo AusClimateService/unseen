@@ -3,8 +3,12 @@ import pdb
 import numpy as np
 import pandas as pd
 import xarray as xr
+import geopandas as gp
+import regionmask
+
 
 regions = {'AUS-BOX': [-44, -11, 113, 154],
+           'AUS-SHAPE': 'NRM_regions_2020.zip',
            'MEL-POINT': (-37.81, 144.96),
            'TAS-POINT': (-42, 146.5),
            }
@@ -115,14 +119,30 @@ def reindex_forecast(ds, dropna=False):
 def select_region(da, region):
     """Select region."""
     
-    ## TODO: Add shapefile region selection
-    if len(region) == 4:
+    if type(region) == str:
+        da = select_shapefile_region(da, region)
+    elif len(region) == 4:
         da = select_box_region(da, region)
     elif len(region) == 2:
         da = select_point_region(da, region)
     else:
         raise ValueError('region is not a box (4 values) or point (2 values)')
     
+    return da
+
+
+def select_shapefile_region(da, shapefile):
+    """Select region using a shapefile"""
+
+    lon = da['lon'].values
+    lat = da['lat'].values
+
+    regions_gp = gp.read_file(shapefile)
+    regions_xr = regionmask.mask_geopandas(regions_gp, lon, lat)
+
+    mask = xr.where(regions_xr.notnull(), True, False)
+    da = da.where(mask)
+
     return da
 
 

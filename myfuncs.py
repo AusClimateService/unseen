@@ -16,6 +16,7 @@ regions = {'AUS-BOX': [-44, -11, 113, 154],
 
 def open_file(infile, invar, outvar=None,
               dataset=None, no_leap_days=True,
+              rolling_sum=None,
               region=None, units=None):
     """Create an xarray DataArray from an input zarr file.
 
@@ -25,6 +26,8 @@ def open_file(infile, invar, outvar=None,
       outvar (str) : Change variable name to this
       dataset (str) : Apply dataset-specific metadata fixes
       no_leap_days (bool) : Remove leap days from data
+      rolling_mean (int) : Window width for rolling mean along time axis
+      rolling_sum (int) : Window width for rolling sum along time axis
       region (str) : Spatial subset (extract this region)
       units (str) : Convert data to these units
     """
@@ -32,18 +35,23 @@ def open_file(infile, invar, outvar=None,
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
     da = ds[invar]
 
+    # Metadata
     if outvar:
         da = da.rename(outvar)
-
     if dataset:
         da = clean_metadata(da, dataset)
 
-    if no_leap_days:
-        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
-      
+    # Spatial subsetting and aggregation
     if region:
         da = select_region(da, regions[region])
 
+    # Temporal subsetting and aggregation
+    if no_leap_days:
+        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
+    if rolling_sum:
+        da = da.rolling(time=rolling_sum).sum()
+
+    # Units
     if units:
         da = convert_units(da, units)
 
@@ -55,7 +63,6 @@ def convert_units(da, target_units):
     
     Args:
       da (xarray.DataArray): Precipitation data
-   
     """
 
     #TODO: Consider using the pint-xarray package for unit conversion
@@ -152,7 +159,6 @@ def select_box_region(da, box):
     Args:
       da (xarray DataArray)
       box (array-like) : [south bound, north bound, east bound, west bound]
-    
     """
 
     lat_south_bound, lat_north_bound, lon_east_bound, lon_west_bound = box
@@ -185,7 +191,6 @@ def select_point_region(da, point):
     Args:
       da (xarray DataArray)
       point (array-like) : [lat, lon]
-    
     """
     
     lat, lon = point

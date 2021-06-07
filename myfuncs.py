@@ -1,3 +1,4 @@
+import re
 import pdb
 
 import numpy as np
@@ -12,6 +13,15 @@ regions = {'AUS-BOX': [-44, -11, 113, 154],
            'MEL-POINT': (-37.81, 144.96),
            'TAS-POINT': (-42, 146.5),
            }
+
+
+def check_date_format(date_list):
+    """Check for YYYY-MM-DD format."""
+
+    date_pattern = '([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})'
+    for date in date_list:
+        assert re.search(date_pattern, date), \
+            'Date format must be YYYY-MM-DD'
 
 
 def open_file(infile, invar, outvar=None,

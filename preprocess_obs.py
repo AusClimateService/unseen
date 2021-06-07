@@ -16,14 +16,6 @@ import cmdline_provenance as cmdprov
 import myfuncs
 
 
-def check_date_format(date_list):
-    """Check for YYYY-MM-DD format."""
-
-    date_pattern = '([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})'
-    for date in date_list:
-        assert re.search(date_pattern, date), \
-            'Date format must be YYYY-MM-DD'
-
 def check_cftime(time_dim):
     """Check that time dimension is cftime.
 
@@ -55,7 +47,7 @@ def stack_by_init_date(da, init_dates, n_lead_steps, freq='D'):
       freq (str) : Time-step frequency
     """
 
-    check_date_format(init_dates)
+    myfuncs.check_date_format(init_dates)
     check_cftime(da['time'])
 
     rounded_times = da['time'].dt.floor(freq).values

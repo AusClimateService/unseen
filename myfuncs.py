@@ -1,11 +1,15 @@
+import sys
+repo_dir = sys.path[0]
 import re
 import pdb
 
+import git
 import numpy as np
 import pandas as pd
 import xarray as xr
-import geopandas as gp
-import regionmask
+#import geopandas as gp
+#import regionmask
+import cmdline_provenance as cmdprov
 
 
 regions = {'AUS-BOX': [-44, -11, 113, 154],
@@ -106,6 +110,24 @@ def clean_metadata(da, dataset):
         raise ValueError('Unrecognised dataset')
 
     return da
+
+
+def get_new_log(infile_logs=None):
+    """Generate command log for output file.
+
+    infile_logs (dict) : keys are file names,
+      values are the command log
+    """
+
+    try:
+        repo = git.Repo(repo_dir)
+        repo_url = repo.remotes[0].url.split('.git')[0]
+    except git.exc.InvalidGitRepositoryError:
+        repo_url = None
+    new_log = cmdprov.new_log(code_url=repo_url,
+                              infile_logs=infile_logs)
+
+    return new_log
 
 
 def reindex_forecast(ds, dropna=False):

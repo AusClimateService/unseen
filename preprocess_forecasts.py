@@ -1,14 +1,10 @@
 """Collect forecast data into an ensemble."""
 
-import sys
-repo_dir = sys.path[0]
 import pdb
 import argparse
 
-import git
 import numpy as np
 import xarray as xr
-import cmdline_provenance as cmdprov
 
 import myfuncs
 
@@ -55,10 +51,7 @@ def _main(args):
                          units=args.units)
 
     ds = da.to_dataset()
-    repo = git.Repo(repo_dir)
-    repo_url = repo.remotes[0].url.split('.git')[0]
-    new_log = cmdprov.new_log(code_url=repo_url)
-    ds.attrs['history'] = new_log
+    ds.attrs['history'] = myfuncs.get_new_log()
 
     ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     ds.to_zarr(args.outfile, mode='w')

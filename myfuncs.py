@@ -1,6 +1,7 @@
 import sys
 repo_dir = sys.path[0]
 import re
+import argparse
 import pdb
 
 import git
@@ -19,6 +20,14 @@ regions = {'AUS-BOX': [-44, -11, 113, 154],
            }
 
 
+class store_dict(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, dict())
+        for value in values:
+            key, val = value.split('=')
+            getattr(namespace, self.dest)[key] = val
+
+
 def check_date_format(date_list):
     """Check for YYYY-MM-DD format."""
 
@@ -28,95 +37,112 @@ def check_date_format(date_list):
             'Date format must be YYYY-MM-DD'
 
 
-def open_file(infile, invar, outvar=None,
-              dataset=None, no_leap_days=True,
+def open_file(infile,
+              dataset=None,
+              new_names={},
+              no_leap_days=True,
+              region=None,
               rolling_sum=None,
-              region=None, units=None):
-    """Create an xarray DataArray from an input zarr file.
+              units={},
+              variables=None):
+    """Create an xarray Dataset from an input zarr file.
 
     Args:
       infile (str) : Input file path
-      invar (str) : Variable of interest
-      outvar (str) : Change variable name to this
       dataset (str) : Apply dataset-specific metadata fixes
       no_leap_days (bool) : Remove leap days from data
-      rolling_mean (int) : Window width for rolling mean along time axis
-      rolling_sum (int) : Window width for rolling sum along time axis
       region (str) : Spatial subset (extract this region)
-      units (str) : Convert data to these units
+      new_names (dict) : Rename original variable/s (keys) to new names (values)
+      rolling_sum (int) : Window width for rolling sum along time axis
+      units (dict) : Variable/s (keys) and desired units (values)
+      variables (list) : Variables of interest
     """
 
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
-    da = ds[invar]
+    if variables:
+        ds = ds[variables]
+    assert type(ds) == xr.core.dataset.Dataset
 
     # Metadata
-    if outvar:
-        da = da.rename(outvar)
+    if new_names:
+        ds = ds.rename(new_names)
     if dataset:
-        da = clean_metadata(da, dataset)
+        ds = clean_metadata(ds, dataset)
 
     # Spatial subsetting and aggregation
     if region:
-        da = select_region(da, regions[region])
+        ds = select_region(ds, regions[region])
 
     # Temporal subsetting and aggregation
     if no_leap_days:
-        da = da.sel(time=~((da['time'].dt.month == 2) & (da['time'].dt.day == 29)))
+        ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if rolling_sum:
-        da = da.rolling(time=rolling_sum).sum()
+        ds = ds.rolling(time=rolling_sum).sum()
 
     # Units
-    if units:
-        da = convert_units(da, units)
+    for var, target_units in units.items():
+        ds[var] = convert_units(ds[var], target_units)
 
-    return da
+    return ds
 
 
 def convert_units(da, target_units):
     """Convert kg m-2 s-1 to mm day-1.
     
     Args:
-      da (xarray.DataArray): Precipitation data
+      da (xarray DataArray): Precipitation data
     """
 
     #TODO: Consider using the pint-xarray package for unit conversion
-    assert target_units == 'mm/day', "Invalid target units"
-   
-    if da.units in ['kg m-2 s-1', 'kg/m2/s']:
+    
+    if da.units == target_units:
+        pass
+    elif da.units in ['kg m-2 s-1', 'kg/m2/s']:
+        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
         da = da * 86400
         da.attrs['units'] = target_units
     elif da.units == 'mm':
+        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
         da.attrs['units'] = target_units
     else:
-        raise ValueError("Unrecognised input units")
+        raise ValueError(f"Unrecognised input units: {da.units}")
     
     assert da.units == target_units
+    da.attrs['units'] == target_units
 
     return da
 
 
-def clean_metadata(da, dataset):
-    """Edit the attributes of an xarray DataArray."""
+def clean_metadata(ds, dataset):
+    """Edit the attributes of an xarray Dataset.
+    
+    ds (xarray Dataset or DataArray)
+    dataset (str) : Name of dataset
+      (for dataset-specific metadata edits)
+    
+    """
 
     if dataset == 'JRA-55':
-        da = da.rename({'initial_time0_hours': 'time'})
+        ds = ds.rename({'initial_time0_hours': 'time'})
                        #'lv_ISBL1': 'level'
     elif dataset == 'cafe':
-        unused_coords = ['average_DT', 'average_T1', 'average_T2', 'zsurf', 'area']
+        unused_coords = ['average_DT', 'average_T1',
+                         'average_T2', 'zsurf', 'area']
         for drop_coord in unused_coords:
-            if drop_coord in da.coords:
-                da = da.drop(drop_coord)
+            if drop_coord in ds.coords:
+                ds = ds.drop(drop_coord)
     else:
         raise ValueError('Unrecognised dataset')
 
-    return da
+    return ds
 
 
 def get_new_log(infile_logs=None):
     """Generate command log for output file.
 
-    infile_logs (dict) : keys are file names,
-      values are the command log
+    Args:
+      infile_logs (dict) : keys are file names,
+        values are the command log
     """
 
     try:
@@ -155,42 +181,47 @@ def reindex_forecast(ds, dropna=False):
     return concat
 
 
-def select_region(da, region):
-    """Select region."""
+def select_region(ds, region):
+    """Select region.
+    
+    Args:
+      ds (xarray Dataset or DataArray)
+      region (str) : Region name
+    """
     
     if type(region) == str:
-        da = select_shapefile_region(da, region)
+        ds = select_shapefile_region(ds, region)
     elif len(region) == 4:
-        da = select_box_region(da, region)
+        ds = select_box_region(ds, region)
     elif len(region) == 2:
-        da = select_point_region(da, region)
+        ds = select_point_region(ds, region)
     else:
         raise ValueError('region is not a box (4 values) or point (2 values)')
     
-    return da
+    return ds
 
 
-def select_shapefile_region(da, shapefile):
+def select_shapefile_region(ds, shapefile):
     """Select region using a shapefile"""
 
-    lon = da['lon'].values
-    lat = da['lat'].values
+    lon = ds['lon'].values
+    lat = ds['lat'].values
 
     regions_gp = gp.read_file(shapefile)
     regions_xr = regionmask.mask_geopandas(regions_gp, lon, lat)
 
     mask = xr.where(regions_xr.notnull(), True, False)
-    da = da.where(mask)
+    ds = ds.where(mask)
 
-    return da
+    return ds
 
 
-def select_box_region(da, box):
+def select_box_region(ds, box):
     """Select grid points that fall within a lat/lon box.
     
     Args:
-      da (xarray DataArray)
-      box (array-like) : [south bound, north bound, east bound, west bound]
+      ds (xarray Dataset or DataArray)
+      box (list) : [south bound, north bound, east bound, west bound]
     """
 
     lat_south_bound, lat_north_bound, lon_east_bound, lon_west_bound = box
@@ -200,33 +231,33 @@ def select_box_region(da, box):
     assert 0 <= lon_east_bound < 360, "Valid longitude range is [0, 360)"
     assert 0 <= lon_west_bound < 360, "Valid longitude range is [0, 360)"
     
-    da = da.assign_coords({'lon': (da['lon'] + 360)  % 360})
+    ds = ds.assign_coords({'lon': (da['lon'] + 360)  % 360})
         
-    mask_lat = (da['lat'] > lat_south_bound) & (da['lat'] < lat_north_bound)
+    mask_lat = (ds['lat'] > lat_south_bound) & (ds['lat'] < lat_north_bound)
     if lon_east_bound < lon_west_bound:
-        mask_lon = (da['lon'] > lon_east_bound) & (da['lon'] < lon_west_bound)
+        mask_lon = (ds['lon'] > lon_east_bound) & (ds['lon'] < lon_west_bound)
     else:
-        mask_lon = (da['lon'] > lon_east_bound) | (da['lon'] < lon_west_bound)
+        mask_lon = (ds['lon'] > lon_east_bound) | (ds['lon'] < lon_west_bound)
     
-    da = da.where(mask_lat & mask_lon, drop=True) 
+    ds = ds.where(mask_lat & mask_lon, drop=True) 
         
     #if sort:
     #    da = da.sortby(lat_name).sortby(lon_name)
     #da.sel({'lat': slice(box[0], box[1]), 'lon': slice(box[2], box[3])})
 
-    return da
+    return ds
 
 
-def select_point_region(da, point):
+def select_point_region(ds, point):
     """Select a single grid point.
     
     Args:
-      da (xarray DataArray)
-      point (array-like) : [lat, lon]
+      ds (xarray Dataset or DataArray)
+      point (list) : [lat, lon]
     """
     
     lat, lon = point
-    da = da.sel({'lat': lat, 'lon': lon}, method='nearest', drop=True)
+    ds = ds.sel({'lat': lat, 'lon': lon}, method='nearest', drop=True)
     
-    return da
+    return ds
 

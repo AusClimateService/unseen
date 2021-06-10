@@ -9,68 +9,74 @@ import xarray as xr
 import myfuncs
 
 
-def to_init_lead(da):
+def to_init_lead(ds):
     """Switch out time axis for init_date and lead_time."""
 
-    lead_time = range(len(da['time']))
-    init_date = np.datetime64(da['time'].values[0].strftime('%Y-%m-%d'))
+    lead_time = range(len(ds['time']))
+    init_date = np.datetime64(ds['time'].values[0].strftime('%Y-%m-%d'))
     new_coords = {'lead_time': lead_time, 'init_date': init_date}
-    da = da.rename({'time': 'lead_time'})
-    da = da.assign_coords(new_coords)
+    ds = ds.rename({'time': 'lead_time'})
+    ds = ds.assign_coords(new_coords)
 
-    return da
+    return ds
 
 
-def open_mfforecast(infiles, var, **kwargs):
+def open_mfforecast(infiles, **kwargs):
     """Open multi-file forecast."""
 
     datasets = []
     for infile in infiles:
-        da = myfuncs.open_file(infile, var, **kwargs)
-        da = to_init_lead(da)
-        datasets.append(da)
-    da = xr.concat(datasets, dim='init_date')
+        pdb.set_trace()
+        ds = myfuncs.open_file(infile, **kwargs)
+        ds = to_init_lead(ds)
+        datasets.append(ds)
+    ds = xr.concat(datasets, dim='init_date')
 
-    time_values = [da.get_index('init_date').shift(int(lead), 'D') for lead in da['lead_time']]
+    time_values = [ds.get_index('init_date').shift(int(lead), 'D') for lead in ds['lead_time']]
     time_dimension = xr.DataArray(time_values,
-                                  dims={'lead_time': da['lead_time'],
-                                        'init_date': da['init_date']})
-    da = da.assign_coords({'time': time_dimension})
-    da['lead_time'].attrs['units'] = 'D'
+                                  dims={'lead_time': ds['lead_time'],
+                                        'init_date': ds['init_date']})
+    ds = ds.assign_coords({'time': time_dimension})
+    ds['lead_time'].attrs['units'] = 'D'
 
-    return da
+    return ds
 
 
 def _main(args):
     """Run the command line program."""
 
-    da = open_mfforecast(args.infiles, args.var,
-                         region=args.region,
-                         no_leap_days=args.no_leap_days,
+    ds = open_mfforecast(args.infiles,
                          dataset=args.dataset,
-                         units=args.units)
-
-    ds = da.to_dataset()
+                         new_names=args.new_names,
+                         no_leap_days=args.no_leap_days,
+                         region=args.region,
+                         units=args.units,
+                         variables=args.variables)
     ds.attrs['history'] = myfuncs.get_new_log()
-
     ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     ds.to_zarr(args.outfile, mode='w')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)                                     
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
     parser.add_argument("infiles", type=str, nargs='*', help="Input files")
-    parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("outfile", type=str, help="Output file")
+    
     parser.add_argument("--dataset", type=str, choices=('cafe'),
                         help="Dataset name for custom metadata handling")
-    parser.add_argument("--units", type=str, default=None,
-                        help="Convert to these units")
-    parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
-                        help="Select region from data")
+    parser.add_argument("--new_names", type=str, nargs='*', action=myfuncs.store_dict, 
+                        help="Variable / new name pairs (e.g. precip=pr temp=tas)")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
+    parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
+                        help="Select region from data")
+    parser.add_argument("--units", type=str, nargs='*', action=myfuncs.store_dict,
+                        help="Variable / new unit pairs (e.g. precip=mm/day)")
+    parser.add_argument("--variables", type=str, nargs='*',
+                        help="Variables to select")
+
     args = parser.parse_args()
     _main(args)
 

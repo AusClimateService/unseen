@@ -26,7 +26,6 @@ def open_mfforecast(infiles, **kwargs):
 
     datasets = []
     for infile in infiles:
-        pdb.set_trace()
         ds = myfuncs.open_file(infile, **kwargs)
         ds = to_init_lead(ds)
         datasets.append(ds)

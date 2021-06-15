@@ -1,0 +1,12 @@
+# CAFE required metadata changes
+
+rename:
+  precip: pr
+
+drop_coords:
+  - average_DT
+  - average_T1
+  - average_T2
+  - zsurf
+  - area
+

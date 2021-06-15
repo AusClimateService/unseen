@@ -81,8 +81,7 @@ def _main(args):
     """Run the command line program."""
 
     ds = myfuncs.open_file(args.infile,
-                           dataset=args.dataset,
-                           new_names=args.new_names,
+                           metadata_file=args.metadata_file,
                            no_leap_days=args.no_leap_days,
                            region=args.region,
                            units=args.units,
@@ -105,10 +104,8 @@ if __name__ == '__main__':
     parser.add_argument("--n_lead_steps", type=int, required=True,
                         help="Number of lead time steps")
 
-    parser.add_argument("--dataset", type=str, choices=('JRA-55', 'AWAP'),
-                        help="Dataset name for custom metadata handling")
-    parser.add_argument("--new_names", type=str, nargs='*', action=myfuncs.store_dict, 
-                        help="Variable / new name pairs (e.g. precip=pr temp=tas)")
+    parser.add_argument("--metadata_file", type=str,
+                        help="YAML file specifying required file metadata changes")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),

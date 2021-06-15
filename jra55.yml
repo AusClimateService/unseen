@@ -1,0 +1,7 @@
+# JRA-55 required metadata changes
+
+rename:
+  initial_time0_hours: time
+  lv_ISBL1: level
+  TPRAT_GDS0_SFC: pr
+

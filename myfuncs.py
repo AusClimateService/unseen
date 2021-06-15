@@ -5,11 +5,12 @@ import argparse
 import pdb
 
 import git
+import yaml
 import numpy as np
 import pandas as pd
 import xarray as xr
-#import geopandas as gp
-#import regionmask
+import geopandas as gp
+import regionmask
 import cmdline_provenance as cmdprov
 
 
@@ -38,8 +39,7 @@ def check_date_format(date_list):
 
 
 def open_file(infile,
-              dataset=None,
-              new_names={},
+              metadata_file=None,
               no_leap_days=True,
               region=None,
               rolling_sum=None,
@@ -49,25 +49,23 @@ def open_file(infile,
 
     Args:
       infile (str) : Input file path
-      dataset (str) : Apply dataset-specific metadata fixes
+      metadata_file (str) : YAML file specifying required file metadata changes
       no_leap_days (bool) : Remove leap days from data
       region (str) : Spatial subset (extract this region)
-      new_names (dict) : Rename original variable/s (keys) to new names (values)
       rolling_sum (int) : Window width for rolling sum along time axis
       units (dict) : Variable/s (keys) and desired units (values)
       variables (list) : Variables of interest
     """
 
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
-    if variables:
-        ds = ds[variables]
-    assert type(ds) == xr.core.dataset.Dataset
 
     # Metadata
-    if new_names:
-        ds = ds.rename(new_names)
-    if dataset:
-        ds = clean_metadata(ds, dataset)
+    if metadata_file:
+        ds = fix_metadata(ds, metadata_file)
+
+    # Variable selection
+    if variables:
+        ds = ds[variables]
 
     # Spatial subsetting and aggregation
     if region:
@@ -82,6 +80,8 @@ def open_file(infile,
     # Units
     for var, target_units in units.items():
         ds[var] = convert_units(ds[var], target_units)
+
+    assert type(ds) == xr.core.dataset.Dataset
 
     return ds
 
@@ -113,26 +113,28 @@ def convert_units(da, target_units):
     return da
 
 
-def clean_metadata(ds, dataset):
+def fix_metadata(ds, metadata_file):
     """Edit the attributes of an xarray Dataset.
     
     ds (xarray Dataset or DataArray)
-    dataset (str) : Name of dataset
-      (for dataset-specific metadata edits)
-    
+    metadata_file (str) : YAML file specifying required file metadata changes
     """
+ 
+    with open(metadata_file, 'r') as reader:
+        metadata_dict = yaml.load(reader, Loader=yaml.BaseLoader)
 
-    if dataset == 'JRA-55':
-        ds = ds.rename({'initial_time0_hours': 'time'})
-                       #'lv_ISBL1': 'level'
-    elif dataset == 'cafe':
-        unused_coords = ['average_DT', 'average_T1',
-                         'average_T2', 'zsurf', 'area']
-        for drop_coord in unused_coords:
+    valid_keys = ['rename', 'drop_coords']
+    for key in metadata_dict.keys():
+        if not key in valid_keys:
+            raise KeyError(f'Invalid metadata key: {key}')
+
+    if 'rename' in metadata_dict:
+        ds = ds.rename(metadata_dict['rename'])
+
+    if 'drop_coords' in metadata_dict:
+        for drop_coord in metadata_dict['drop_coords']:
             if drop_coord in ds.coords:
                 ds = ds.drop(drop_coord)
-    else:
-        raise ValueError('Unrecognised dataset')
 
     return ds
 

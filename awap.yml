@@ -1,0 +1,5 @@
+# AWAP required metadata changes
+
+rename:
+  precip: pr
+

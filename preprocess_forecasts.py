@@ -45,8 +45,7 @@ def _main(args):
     """Run the command line program."""
 
     ds = open_mfforecast(args.infiles,
-                         dataset=args.dataset,
-                         new_names=args.new_names,
+                         metadata_file=args.metadata_file,
                          no_leap_days=args.no_leap_days,
                          region=args.region,
                          units=args.units,
@@ -63,10 +62,8 @@ if __name__ == '__main__':
     parser.add_argument("infiles", type=str, nargs='*', help="Input files")
     parser.add_argument("outfile", type=str, help="Output file")
     
-    parser.add_argument("--dataset", type=str, choices=('cafe'),
-                        help="Dataset name for custom metadata handling")
-    parser.add_argument("--new_names", type=str, nargs='*', action=myfuncs.store_dict, 
-                        help="Variable / new name pairs (e.g. precip=pr temp=tas)")
+    parser.add_argument("--metadata_file", type=str,
+                        help="YAML file specifying required file metadata changes")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),

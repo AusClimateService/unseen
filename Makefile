@@ -16,7 +16,7 @@ ifeq (${OBS}, awap)
   OBS_METADATA=config/awap.yml
 else ifeq (${OBS}, jra55)
   OBS_DATA=/g/data/xv83/ds0092/data/csiro-dcfp-jra55/surface_daily_cafe-grid.zarr/
-  OBS_METADATA=config/jra.yml
+  OBS_METADATA=config/jra55.yml
 endif
 
 ## process-obs : preprocessing of observational data

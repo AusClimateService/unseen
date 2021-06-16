@@ -35,20 +35,25 @@ def convert_units(da, target_units):
     """
 
     #TODO: Consider using the pint-xarray package for unit conversion
-    
+
+    xr.set_options(keep_attrs=True)
+    error_msg = f'{da.units} to {target_units} conversion not supported'
+
     if da.units == target_units:
         pass
     elif da.units in ['kg m-2 s-1', 'kg/m2/s']:
-        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
+        assert target_units == 'mm/day', error_msg
         da = da * 86400
-        da.attrs['units'] = target_units
     elif da.units == 'mm':
-        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
-        da.attrs['units'] = target_units
+        assert target_units == 'mm/day', error_msg
+    elif da.units == 'K':
+        assert target_units == 'C', error_msg
+        da = da - 273.15
+    elif da.units == 'm/s':
+        assert target_units == 'km/h', error_msg
+        da = da * 3.6
     else:
         raise ValueError(f"Unrecognised input units: {da.units}")
-    
-    assert da.units == target_units
     da.attrs['units'] == target_units
 
     return da
@@ -86,6 +91,7 @@ def str_to_cftime(datestring, calendar):
      
     return cfdt
 
+
 def cftime_to_str(time_dim):
     """Convert cftime array to YYY-MM-DD strings."""
 
@@ -104,7 +110,7 @@ def open_file(infile,
               region=None,
               rolling_sum=None,
               units={},
-              variables=None):
+              variables=[]):
     """Create an xarray Dataset from an input zarr file.
 
     Args:
@@ -121,7 +127,7 @@ def open_file(infile,
 
     # Metadata
     if metadata_file:
-        ds = fix_metadata(ds, metadata_file)
+        ds = fix_metadata(ds, metadata_file, variables)
 
     # Variable selection
     if variables:
@@ -166,11 +172,12 @@ def open_mfforecast(infiles, **kwargs):
     return ds
 
 
-def fix_metadata(ds, metadata_file):
+def fix_metadata(ds, metadata_file, variables):
     """Edit the attributes of an xarray Dataset.
     
     ds (xarray Dataset or DataArray)
     metadata_file (str) : YAML file specifying required file metadata changes
+    variables (list): Variables to rename (provide target name)
     """
  
     with open(metadata_file, 'r') as reader:
@@ -182,7 +189,10 @@ def fix_metadata(ds, metadata_file):
             raise KeyError(f'Invalid metadata key: {key}')
 
     if 'rename' in metadata_dict:
-        ds = ds.rename(metadata_dict['rename'])
+        valid_vars = variables + ['time']
+        for orig_var, target_var in metadata_dict['rename'].items():
+            if target_var in valid_vars:
+                ds = ds.rename({orig_var: target_var})
 
     if 'drop_coords' in metadata_dict:
         for drop_coord in metadata_dict['drop_coords']:

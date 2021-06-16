@@ -1,4 +1,4 @@
-"""Preprocess data (e.g. select variables, regions, units, etc)."""
+"""Calculate the Forest Fire Danger Index."""
 
 import pdb
 import argparse
@@ -12,19 +12,26 @@ def _main(args):
     kwargs = {'metadata_file': args.metadata_file,
               'no_leap_days': args.no_leap_days,
               'region': args.region,
-              'units': args.units,
-              'variables': args.variables,
+              'units': {'pr': 'mm/day',
+                        'tasmax': 'C',
+                        'uas': 'km/h',
+                        'vas': 'km/h',
+                        'hur': '%'},
+              'variables': ['pr', 'hur', 'tasmax', 'uas', 'vas'],
              }
 
     if args.data_type == 'obs':
         assert len(args.infiles) == 1
         ds = myfuncs.open_file(args.infiles[0], **kwargs)
+        pdb.set_trace()
         ds = ds.chunk({'time': -1})
     elif args.data_type == 'forecast':
         ds = myfuncs.open_mfforecast(args.infiles, **kwargs)
         ds = ds.chunk({'init_date': -1, 'lead_time': -1})
     else:
         raise ValueError(f'Unrecognised data type: {args.data_type}')
+
+    ##TODO: FFDI calculation
 
     ds.attrs['history'] = myfuncs.get_new_log()
     ds.to_zarr(args.outfile, mode='w')
@@ -44,10 +51,6 @@ if __name__ == '__main__':
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select region from data")
-    parser.add_argument("--units", type=str, nargs='*', action=myfuncs.store_dict,
-                        help="Variable / new unit pairs (e.g. precip=mm/day)")
-    parser.add_argument("--variables", type=str, nargs='*',
-                        help="Variables to select")
 
     args = parser.parse_args()
     _main(args)

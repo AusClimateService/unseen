@@ -2,6 +2,9 @@
 
 rename:
   initial_time0_hours: time
-  lv_ISBL1: level
   TPRAT_GDS0_SFC: pr
+  TMAX_GDS4_HTGL: tasmax
+  UGRD_GDS0_HTGL: uas
+  VGRD_GDS0_HTGL: vas
+  RH_GDS0_HTGL: hur
 

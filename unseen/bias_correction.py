@@ -115,11 +115,15 @@ def remove_bias(fcst, bias, method):
 def _main(args):
     """Run the command line program."""
 
-    ds_fcst = xr.open_zarr(args.fcst_file)
+    ds_fcst = xr.open_zarr(args.fcst_file, use_cftime=True)
     da_fcst = ds_fcst[args.var]
-    ds_obs = xr.open_zarr(args.obs_file)
-    da_obs = ds_obs[args.var]
+    init_dates = myfuncs.cftime_to_str(da_fcst['init_date'])
+    n_lead_steps = da_fcst['lead_time'].values.max() + 1
 
+    ds_obs = xr.open_zarr(args.obs_file, use_cftime=True)
+    ds_obs = myfuncs.stack_by_init_date(ds_obs, init_dates, n_lead_steps)
+    da_obs = ds_obs[args.var]
+    
     bias = get_bias(da_fcst, da_obs, args.method,
                     time_period=args.base_period) 
     fcst_bc = remove_bias(da_fcst, bias, args.method)

@@ -6,6 +6,8 @@ import pdb
 
 import git
 import yaml
+import cftime
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -14,11 +16,7 @@ import regionmask
 import cmdline_provenance as cmdprov
 
 
-regions = {'AUS-BOX': [-44, -11, 113, 154],
-           'AUS-SHAPE': 'NRM_regions_2020.zip',
-           'MEL-POINT': (-37.81, 144.96),
-           'TAS-POINT': (-42, 146.5),
-           }
+## Miscellanous utilities
 
 
 class store_dict(argparse.Action):
@@ -29,6 +27,36 @@ class store_dict(argparse.Action):
             getattr(namespace, self.dest)[key] = val
 
 
+def convert_units(da, target_units):
+    """Convert kg m-2 s-1 to mm day-1.
+    
+    Args:
+      da (xarray DataArray): Precipitation data
+    """
+
+    #TODO: Consider using the pint-xarray package for unit conversion
+    
+    if da.units == target_units:
+        pass
+    elif da.units in ['kg m-2 s-1', 'kg/m2/s']:
+        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
+        da = da * 86400
+        da.attrs['units'] = target_units
+    elif da.units == 'mm':
+        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
+        da.attrs['units'] = target_units
+    else:
+        raise ValueError(f"Unrecognised input units: {da.units}")
+    
+    assert da.units == target_units
+    da.attrs['units'] == target_units
+
+    return da
+
+
+## Time utilities
+
+
 def check_date_format(date_list):
     """Check for YYYY-MM-DD format."""
 
@@ -36,6 +64,38 @@ def check_date_format(date_list):
     for date in date_list:
         assert re.search(date_pattern, date), \
             'Date format must be YYYY-MM-DD'
+
+
+def check_cftime(time_dim):
+    """Check that time dimension is cftime.
+
+    Args:
+      time_dim (xarray DataArray) : Time dimension
+    """
+
+    t0 = time_dim.values[0]
+    assert type(t0) in cftime._cftime.DATE_TYPES.values(), \
+        'Time dimension must use cftime objects'
+
+
+def str_to_cftime(datestring, calendar):
+    """Convert a date string to cftime object"""
+    
+    dt = datetime.strptime(datestring, '%Y-%m-%d')
+    cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
+     
+    return cfdt
+
+def cftime_to_str(time_dim):
+    """Convert cftime array to YYY-MM-DD strings."""
+
+    check_cftime(time_dim)
+    str_times = [time.strftime('%Y-%m-%d') for time in time_dim.values]
+
+    return str_times
+
+
+## File I/O
 
 
 def open_file(infile,
@@ -86,31 +146,24 @@ def open_file(infile,
     return ds
 
 
-def convert_units(da, target_units):
-    """Convert kg m-2 s-1 to mm day-1.
-    
-    Args:
-      da (xarray DataArray): Precipitation data
-    """
+def open_mfforecast(infiles, **kwargs):
+    """Open multi-file forecast."""
 
-    #TODO: Consider using the pint-xarray package for unit conversion
-    
-    if da.units == target_units:
-        pass
-    elif da.units in ['kg m-2 s-1', 'kg/m2/s']:
-        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
-        da = da * 86400
-        da.attrs['units'] = target_units
-    elif da.units == 'mm':
-        assert target_units == 'mm/day', f"Invalid target units: {target_units}"
-        da.attrs['units'] = target_units
-    else:
-        raise ValueError(f"Unrecognised input units: {da.units}")
-    
-    assert da.units == target_units
-    da.attrs['units'] == target_units
+    datasets = []
+    for infile in infiles:
+        ds = open_file(infile, **kwargs)
+        ds = to_init_lead(ds)
+        datasets.append(ds)
+    ds = xr.concat(datasets, dim='init_date')
 
-    return da
+    time_values = [ds.get_index('init_date').shift(int(lead), 'D') for lead in ds['lead_time']]
+    time_dimension = xr.DataArray(time_values,
+                                  dims={'lead_time': ds['lead_time'],
+                                        'init_date': ds['init_date']})
+    ds = ds.assign_coords({'time': time_dimension})
+    ds['lead_time'].attrs['units'] = 'D'
+
+    return ds
 
 
 def fix_metadata(ds, metadata_file):
@@ -158,6 +211,54 @@ def get_new_log(infile_logs=None):
     return new_log
 
 
+## Array handling
+
+
+def stack_by_init_date(ds, init_dates, n_lead_steps, freq='D'):
+    """Stack timeseries array in inital date / lead time format.
+
+    Args:
+      da (xarray Dataset or DataArray)
+      init_dates (list) : Initial dates in YYYY-MM-DD format
+      n_lead_steps (int) : Maximum lead time
+      freq (str) : Time-step frequency
+    """
+
+    check_date_format(init_dates)
+    check_cftime(ds['time'])
+
+    rounded_times = ds['time'].dt.floor(freq).values
+    ref_time = init_dates[0]
+    ref_calendar = rounded_times[0].calendar
+    ref_var = list(ds.keys())[0]
+    ref_array = ds[ref_var].sel(time=ref_time).values    
+
+    time2d = np.empty((len(init_dates), n_lead_steps), 'object')
+    init_date_indexes = []
+    offset = n_lead_steps - 1
+    for ndate, date in enumerate(init_dates):
+        date_cf = str_to_cftime(date, ref_calendar)
+        start_index = np.where(rounded_times == date_cf)[0][0]
+        end_index = start_index + n_lead_steps
+        time2d[ndate, :] = ds['time'][start_index:end_index].values
+        init_date_indexes.append(start_index + offset)
+
+    ds = ds.rolling(time=n_lead_steps, min_periods=1).construct("lead_time")
+    ds = ds.assign_coords({'lead_time': ds['lead_time'].values})
+    ds = ds.rename({'time': 'init_date'})
+    ds = ds.isel(init_date=init_date_indexes)
+    ds = ds.assign_coords({'init_date': time2d[:, 0]})
+    ds = ds.assign_coords({'time': (['init_date', 'lead_time'], time2d)})
+    ds['lead_time'].attrs['units'] = freq
+
+    actual_array = ds[ref_var].sel({'init_date': ref_time, 'lead_time': 0}).values
+    np.testing.assert_allclose(actual_array, ref_array)
+    
+    # TODO: Return nans if requested times lie outside of the available range
+    
+    return ds
+
+
 def reindex_forecast(ds, dropna=False):
     """Switch out lead_time axis for time axis (or vice versa) in a forecast dataset."""
     
@@ -181,6 +282,28 @@ def reindex_forecast(ds, dropna=False):
         concat = concat.where(concat.notnull(), drop=True)
     
     return concat
+
+
+def to_init_lead(ds):
+    """Switch out time axis for init_date and lead_time."""
+
+    lead_time = range(len(ds['time']))
+    init_date = np.datetime64(ds['time'].values[0].strftime('%Y-%m-%d'))
+    new_coords = {'lead_time': lead_time, 'init_date': init_date}
+    ds = ds.rename({'time': 'lead_time'})
+    ds = ds.assign_coords(new_coords)
+
+    return ds
+
+
+## Region selection
+
+
+regions = {'AUS-BOX': [-44, -11, 113, 154],
+           'AUS-SHAPE': 'NRM_regions_2020.zip',
+           'MEL-POINT': (-37.81, 144.96),
+           'TAS-POINT': (-42, 146.5),
+           }
 
 
 def select_region(ds, region):

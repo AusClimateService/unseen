@@ -118,7 +118,7 @@ def _main(args):
     ds_fcst = xr.open_zarr(args.fcst_file, use_cftime=True)
     da_fcst = ds_fcst[args.var]
     init_dates = myfuncs.cftime_to_str(da_fcst['init_date'])
-    n_lead_steps = da_fcst['lead_time'].values.max() + 1
+    n_lead_steps = int(da_fcst['lead_time'].values.max()) + 1
 
     ds_obs = xr.open_zarr(args.obs_file, use_cftime=True)
     ds_obs = myfuncs.stack_by_init_date(ds_obs, init_dates, n_lead_steps)

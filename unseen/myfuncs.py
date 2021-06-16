@@ -46,12 +46,14 @@ def convert_units(da, target_units):
         da = da * 86400
     elif da.units == 'mm':
         assert target_units == 'mm/day', error_msg
-    elif da.units == 'K':
+    elif da.units in ['K', 'deg_k']:
         assert target_units == 'C', error_msg
         da = da - 273.15
     elif da.units == 'm/s':
         assert target_units == 'km/h', error_msg
         da = da * 3.6
+    elif da.units == 'percent':
+        assert target_units == '%'
     else:
         raise ValueError(f"Unrecognised input units: {da.units}")
     da.attrs['units'] == target_units
@@ -108,7 +110,6 @@ def open_file(infile,
               metadata_file=None,
               no_leap_days=True,
               region=None,
-              rolling_sum=None,
               units={},
               variables=[]):
     """Create an xarray Dataset from an input zarr file.
@@ -118,7 +119,6 @@ def open_file(infile,
       metadata_file (str) : YAML file specifying required file metadata changes
       no_leap_days (bool) : Remove leap days from data
       region (str) : Spatial subset (extract this region)
-      rolling_sum (int) : Window width for rolling sum along time axis
       units (dict) : Variable/s (keys) and desired units (values)
       variables (list) : Variables of interest
     """
@@ -140,8 +140,6 @@ def open_file(infile,
     # Temporal subsetting and aggregation
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
-    if rolling_sum:
-        ds = ds.rolling(time=rolling_sum).sum()
 
     # Units
     for var, target_units in units.items():

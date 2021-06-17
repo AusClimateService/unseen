@@ -52,7 +52,6 @@ def _main(args):
         ds = ds.isel(args.isel)
 
     if index == 'ffdi':
-        ds = ds.isel(level=-1)
         ds = ds.chunk(chunk_dict)
         ds = indices.calc_FFDI(ds, dim=temporal_dim)
 

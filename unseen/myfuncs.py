@@ -31,7 +31,12 @@ class store_dict(argparse.Action):
                     end = int(end)
                 except ValueError:
                     pass
-                val = slice(start, end) 
+                val = slice(start, end)
+            else:
+                try:
+                    val = int(val)
+                except ValueError:
+                    pass
             getattr(namespace, self.dest)[key] = val
 
 

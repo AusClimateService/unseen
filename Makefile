@@ -3,14 +3,14 @@
 REGION=TAS-POINT
 BIAS_METHOD=additive
 VAR=ffdi
-#pr
+#pr ffdi
 UNITS=
 # --units ${VAR}=mm/day
-OBS=awap
+OBS=jra55
 
 PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
 DATA_DIR=/g/data/xv83/dbi599
-FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199*1101/ZARR/atmos_isobaric_daily.zarr.zip))
+FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199[1,2]1101/ZARR/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/cafe.yml
 
 ifeq (${OBS}, awap)
@@ -28,16 +28,16 @@ ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
 	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
-FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19901101-19931101_730D_cafe-grid-${REGION}.zarr.zip
+FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19911101-19921101_730D_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel ensemble=0:3 lead_time=0:30
+	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel ensemble=0:2 lead_time=0:365 level=-1
 
 ## bias-correction : bias corrected forecast data using observations
-FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19901101-19931101_${LEAD_TIME}D_cafe-grid-${REGION}.zarr.zip
+FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19911101-19921101_${LEAD_TIME}D_cafe-grid-${REGION}.zarr.zip
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
-	${PYTHON} unseen/bias_correction.py $< $(word 2,$^) pr ${BIAS_METHOD} $@
+	${PYTHON} unseen/bias_correction.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
 
 ## clean : remove all generated files
 clean :

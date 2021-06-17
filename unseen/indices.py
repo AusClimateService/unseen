@@ -53,7 +53,7 @@ def calc_FFDI(ds, dim='time'):
     
     xr.set_options(keep_attrs=False)
     df = calc_drought_factor(ds['pr'], dim=dim)
-    wsp = calc_wind_speed(ds['uas'], ds['vas'])
+    wsp = calc_wind_speed(ds)
 
     ffdi_da = ( df ** 0.987 ) * np.exp( (0.0338 * ds['tasmax']) - (0.0345 * ds['hur']) + (0.0234 * wsp) + 0.243147 )
     ffdi_ds = ffdi_da.to_dataset(name='ffdi')
@@ -61,10 +61,16 @@ def calc_FFDI(ds, dim='time'):
     return ffdi_ds
 
 
-def calc_wind_speed(u, v):
-    """Calculate wind speed."""
+def calc_wind_speed(ds):
+    """Calculate wind speed.
 
-    wsp = xr.ufuncs.sqrt(u ** 2 + v ** 2)
+    Args:
+      ds (xarray Dataset): Containing the following variables:
+        uas (daily eastward wind speed)
+        vas (daily northward wind speed)
+    """
+
+    wsp = xr.ufuncs.sqrt(ds['uas'] ** 2 + ds['vas'] ** 2)
 
     return wsp
 

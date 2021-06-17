@@ -2,8 +2,10 @@
 
 REGION=TAS-POINT
 BIAS_METHOD=additive
-VAR=pr
-UNITS=mm/day
+VAR=ffdi
+#pr
+UNITS=
+# --units ${VAR}=mm/day
 OBS=awap
 
 PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
@@ -23,13 +25,13 @@ endif
 OBS_FORECAST_FILE=${DATA_DIR}/${VAR}_${OBS}_cafe-grid-${REGION}.zarr.zip
 process-obs : ${OBS_FORECAST_FILE}
 ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
-	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --region ${REGION} --units ${VAR}=${UNITS}
+	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19901101-19931101_730D_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} --units ${VAR}=${UNITS} --isel ensemble=0:3 lead_time=0:730
+	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel ensemble=0:3 lead_time=0:30
 
 ## bias-correction : bias corrected forecast data using observations
 FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19901101-19931101_${LEAD_TIME}D_cafe-grid-${REGION}.zarr.zip

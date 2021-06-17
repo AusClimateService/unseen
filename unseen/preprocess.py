@@ -4,7 +4,25 @@ import pdb
 import argparse
 
 import myfuncs
+import indices
 
+
+def indices_setup(kwargs, variables):
+    """Set variables and units for index calculation."""
+
+    index = ''
+    if 'ffdi' in variables:
+        kwargs['variables'] = ['pr', 'hur', 'tasmax',
+                               'uas', 'vas']
+        kwargs['units'] = {'pr': 'mm/day',
+                           'tasmax': 'C',
+                           'uas': 'km/h',
+                           'vas': 'km/h',
+                           'hur': '%'}
+        index = 'ffdi'
+
+    return kwargs, index
+        
 
 def _main(args):
     """Run the command line program."""
@@ -16,20 +34,30 @@ def _main(args):
               'variables': args.variables,
              }
 
+    kwargs, index = indices_setup(kwargs, args.variables)
+
     if args.data_type == 'obs':
         assert len(args.infiles) == 1
         ds = myfuncs.open_file(args.infiles[0], **kwargs)
         chunk_dict = {'time': -1}
+        temporal_dim = 'time'
     elif args.data_type == 'forecast':
         ds = myfuncs.open_mfforecast(args.infiles, **kwargs)
         chunk_dict = {'init_date': -1, 'lead_time': -1}
+        temporal_dim = 'lead_time'
     else:
         raise ValueError(f'Unrecognised data type: {args.data_type}')
 
     if args.isel:
         ds = ds.isel(args.isel)
 
+    if index == 'ffdi':
+        ds = ds.isel(level=-1)
+        ds = ds.chunk(chunk_dict)
+        ds = indices.calc_FFDI(ds, dim=temporal_dim)
+
     ds = ds.chunk(chunk_dict)
+
     ds.attrs['history'] = myfuncs.get_new_log()
     ds.to_zarr(args.outfile, mode='w')
 
@@ -51,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument("--units", type=str, nargs='*', action=myfuncs.store_dict,
                         help="Variable / new unit pairs (e.g. precip=mm/day)")
     parser.add_argument("--variables", type=str, nargs='*',
-                        help="Variables to select")
+                        help="Variables to select (or index to calculate)")
     parser.add_argument("--isel", type=str, nargs='*', action=myfuncs.store_dict,
                         help="Index selection along dimensions (e.g. ensemble=1:5)")
 

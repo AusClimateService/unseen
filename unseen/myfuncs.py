@@ -24,6 +24,14 @@ class store_dict(argparse.Action):
         setattr(namespace, self.dest, dict())
         for value in values:
             key, val = value.split('=')
+            if ':' in val:
+                start, end = val.split(':')
+                try:
+                    start = int(start)
+                    end = int(end)
+                except ValueError:
+                    pass
+                val = slice(start, end) 
             getattr(namespace, self.dest)[key] = val
 
 
@@ -133,13 +141,13 @@ def open_file(infile,
     if variables:
         ds = ds[variables]
 
+    # General selection/subsetting
+    if no_leap_days:
+        ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
+
     # Spatial subsetting and aggregation
     if region:
         ds = select_region(ds, regions[region])
-
-    # Temporal subsetting and aggregation
-    if no_leap_days:
-        ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
 
     # Units
     for var, target_units in units.items():

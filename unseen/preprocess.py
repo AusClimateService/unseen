@@ -19,13 +19,17 @@ def _main(args):
     if args.data_type == 'obs':
         assert len(args.infiles) == 1
         ds = myfuncs.open_file(args.infiles[0], **kwargs)
-        ds = ds.chunk({'time': -1})
+        chunk_dict = {'time': -1}
     elif args.data_type == 'forecast':
         ds = myfuncs.open_mfforecast(args.infiles, **kwargs)
-        ds = ds.chunk({'init_date': -1, 'lead_time': -1})
+        chunk_dict = {'init_date': -1, 'lead_time': -1}
     else:
         raise ValueError(f'Unrecognised data type: {args.data_type}')
 
+    if args.isel:
+        ds = ds.isel(args.isel)
+
+    ds = ds.chunk(chunk_dict)
     ds.attrs['history'] = myfuncs.get_new_log()
     ds.to_zarr(args.outfile, mode='w')
 
@@ -48,6 +52,8 @@ if __name__ == '__main__':
                         help="Variable / new unit pairs (e.g. precip=mm/day)")
     parser.add_argument("--variables", type=str, nargs='*',
                         help="Variables to select")
+    parser.add_argument("--isel", type=str, nargs='*', action=myfuncs.store_dict,
+                        help="Index selection along dimensions (e.g. ensemble=1:5)")
 
     args = parser.parse_args()
     _main(args)

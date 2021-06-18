@@ -31,7 +31,7 @@ ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19911101-19921101_730D_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel ensemble=0:2 lead_time=0:365 level=-1
+	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel level=-1
 
 ## bias-correction : bias corrected forecast data using observations
 FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19911101-19921101_${LEAD_TIME}D_cafe-grid-${REGION}.zarr.zip

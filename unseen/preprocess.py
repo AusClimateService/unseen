@@ -32,6 +32,8 @@ def _main(args):
               'region': args.region,
               'units': args.units,
               'variables': args.variables,
+              'isel': args.isel,
+              'chunks': args.chunks,
              }
 
     kwargs, index = indices_setup(kwargs, args.variables)
@@ -39,23 +41,15 @@ def _main(args):
     if args.data_type == 'obs':
         assert len(args.infiles) == 1
         ds = myfuncs.open_file(args.infiles[0], **kwargs)
-        chunk_dict = {'time': -1}
         temporal_dim = 'time'
     elif args.data_type == 'forecast':
         ds = myfuncs.open_mfforecast(args.infiles, **kwargs)
-        chunk_dict = {'init_date': -1, 'lead_time': -1}
         temporal_dim = 'lead_time'
     else:
         raise ValueError(f'Unrecognised data type: {args.data_type}')
 
-    if args.isel:
-        ds = ds.isel(args.isel)
-
     if index == 'ffdi':
-        ds = ds.chunk(chunk_dict)
         ds = indices.calc_FFDI(ds, dim=temporal_dim)
-
-    ds = ds.chunk(chunk_dict)
 
     ds.attrs['history'] = myfuncs.get_new_log()
     ds.to_zarr(args.outfile, mode='w')
@@ -75,12 +69,14 @@ if __name__ == '__main__':
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
                         help="Select region from data")
-    parser.add_argument("--units", type=str, nargs='*', action=myfuncs.store_dict,
+    parser.add_argument("--units", type=str, nargs='*', default={}, action=myfuncs.store_dict,
                         help="Variable / new unit pairs (e.g. precip=mm/day)")
     parser.add_argument("--variables", type=str, nargs='*',
                         help="Variables to select (or index to calculate)")
     parser.add_argument("--isel", type=str, nargs='*', action=myfuncs.store_dict,
                         help="Index selection along dimensions (e.g. ensemble=1:5)")
+    parser.add_argument("--chunks", type=str, nargs='*', action=myfuncs.store_dict,
+                        help="Chunks for reading data (e.g. ensemble=1:5)")
 
     args = parser.parse_args()
     _main(args)

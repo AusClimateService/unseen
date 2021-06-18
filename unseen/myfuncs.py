@@ -11,6 +11,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
+import dask
 import geopandas as gp
 import regionmask
 import cmdline_provenance as cmdprov
@@ -124,7 +125,10 @@ def open_file(infile,
               no_leap_days=True,
               region=None,
               units={},
-              variables=[]):
+              variables=[],
+              isel={},
+              sel={},
+              chunks={}):
     """Create an xarray Dataset from an input zarr file.
 
     Args:
@@ -134,9 +138,12 @@ def open_file(infile,
       region (str) : Spatial subset (extract this region)
       units (dict) : Variable/s (keys) and desired units (values)
       variables (list) : Variables of interest
+      isel (dict) : Selection using xarray.Dataset.isel
+      sel (dict) : Selection using xarray.Dataset.sel
+      chunks (dict) : Chunks for xarray.open_zarr 
     """
 
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
+    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
 
     # Metadata
     if metadata_file:
@@ -146,13 +153,18 @@ def open_file(infile,
     if variables:
         ds = ds[variables]
 
-    # General selection/subsetting
-    if no_leap_days:
-        ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
-
     # Spatial subsetting and aggregation
     if region:
         ds = select_region(ds, regions[region])
+
+    # General selection/subsetting
+    #with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+    if no_leap_days:
+        ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
+    if isel:
+        ds = ds.isel(isel)
+    if sel:
+        ds = ds.sel(sel)
 
     # Units
     for var, target_units in units.items():

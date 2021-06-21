@@ -143,8 +143,11 @@ def open_file(infile,
       chunks (dict) : Chunks for xarray.open_zarr 
     """
 
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
+    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
 
+    if chunks:
+        ds = ds.chunk(chunks)
+    
     # Metadata
     if metadata_file:
         ds = fix_metadata(ds, metadata_file, variables)
@@ -152,6 +155,8 @@ def open_file(infile,
     # Variable selection
     if variables:
         ds = ds[variables]
+
+    assert isinstance(ds[variables[0]].data, dask.array.core.Array)
 
     # Spatial subsetting and aggregation
     if region:

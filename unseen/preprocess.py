@@ -5,6 +5,7 @@ import argparse
 
 import myfuncs
 import indices
+#import dask_setup
 
 
 def indices_setup(kwargs, variables):
@@ -22,10 +23,12 @@ def indices_setup(kwargs, variables):
         index = 'ffdi'
 
     return kwargs, index
-        
+
 
 def _main(args):
     """Run the command line program."""
+
+    #dask_setup.local()
 
     kwargs = {'metadata_file': args.metadata_file,
               'no_leap_days': args.no_leap_days,
@@ -33,7 +36,7 @@ def _main(args):
               'units': args.units,
               'variables': args.variables,
               'isel': args.isel,
-              'chunks': args.chunks,
+              'chunks': args.input_chunks,
              }
 
     kwargs, index = indices_setup(kwargs, args.variables)
@@ -49,10 +52,14 @@ def _main(args):
         raise ValueError(f'Unrecognised data type: {args.data_type}')
 
     if index == 'ffdi':
-        ds = indices.calc_FFDI(ds, dim=temporal_dim)
+        ds['ffdi'] = indices.calc_FFDI(ds, dim=temporal_dim)
+
+    if args.output_chunks:
+        ds = ds.chunk(args.output_chunks)
+    ds = ds[args.variables]
 
     ds.attrs['history'] = myfuncs.get_new_log()
-    ds.to_zarr(args.outfile, mode='w')
+    myfuncs.to_zarr(ds, args.outfile, zip=True)
 
 
 if __name__ == '__main__':
@@ -75,8 +82,11 @@ if __name__ == '__main__':
                         help="Variables to select (or index to calculate)")
     parser.add_argument("--isel", type=str, nargs='*', action=myfuncs.store_dict,
                         help="Index selection along dimensions (e.g. ensemble=1:5)")
-    parser.add_argument("--chunks", type=str, nargs='*', action=myfuncs.store_dict,
-                        help="Chunks for reading data (e.g. ensemble=1:5)")
+    parser.add_argument("--input_chunks", type=str, nargs='*', action=myfuncs.store_dict,
+                        default='auto', help="Chunks for reading data (e.g. time=-1)")
+    parser.add_argument("--output_chunks", type=str, nargs='*', action=myfuncs.store_dict,
+                        default={}, help="Chunks for writing data to file (e.g. lead_time=50)")
+    
 
     args = parser.parse_args()
     _main(args)

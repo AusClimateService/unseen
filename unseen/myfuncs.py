@@ -1,11 +1,14 @@
 import sys
 repo_dir = sys.path[0]
+import os
 import re
 import argparse
 import pdb
 
 import git
 import yaml
+import shutil
+import zipfile
 import cftime
 from datetime import datetime
 import numpy as np
@@ -128,7 +131,7 @@ def open_file(infile,
               variables=[],
               isel={},
               sel={},
-              chunks={}):
+              chunks='auto'):
     """Create an xarray Dataset from an input zarr file.
 
     Args:
@@ -143,10 +146,10 @@ def open_file(infile,
       chunks (dict) : Chunks for xarray.open_zarr 
     """
 
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)
+    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
 
-    if chunks:
-        ds = ds.chunk(chunks)
+    #if chunks:
+    #    ds = ds.chunk(input_chunks)
     
     # Metadata
     if metadata_file:
@@ -247,6 +250,31 @@ def get_new_log(infile_logs=None):
                               infile_logs=infile_logs)
 
     return new_log
+
+
+def to_zarr(ds, filename, zip=True):
+    """ Write to zarr file"""
+    
+    def _zip_zarr(zarr_filename):
+        """ Zip a zarr collection"""
+        filename = f'{zarr_filename}{os.path.extsep}zip'
+        with zipfile.ZipFile(
+            filename, "w", 
+            compression=zipfile.ZIP_STORED, 
+            allowZip64=True) as fh:
+            for root, _, filenames in os.walk(zarr_filename):
+                for each_filename in filenames:
+                    each_filename = os.path.join(root, each_filename)
+                    fh.write(
+                        each_filename,
+                        os.path.relpath(each_filename, zarr_filename))
+                
+    for var in ds.variables:
+        ds[var].encoding = {}
+    ds.to_zarr(filename, mode='w', consolidated=True)
+    if zip:
+        _zip_zarr(filename)
+        shutil.rmtree(filename)
 
 
 ## Array handling

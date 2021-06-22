@@ -2,9 +2,9 @@
 
 REGION=TAS-POINT
 BIAS_METHOD=additive
-VAR=ffdi
+VAR=pr
 #pr ffdi
-UNITS=
+UNITS=--units ${VAR}=mm/day
 # --units ${VAR}=mm/day
 OBS=jra55
 
@@ -31,10 +31,10 @@ ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19911101-19921101_3650D_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --isel level=-1 --output_chunks lead_time=50
+	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --output_chunks lead_time=50  #--isel level=-1
 
 ## bias-correction : bias corrected forecast data using observations
-FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19911101-19921101_${LEAD_TIME}D_cafe-grid-${REGION}.zarr.zip
+FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19911101-19921101_3650D_cafe-grid-${REGION}.zarr.zip
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
 	${PYTHON} unseen/bias_correction.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@

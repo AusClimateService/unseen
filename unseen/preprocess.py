@@ -59,7 +59,7 @@ def _main(args):
     ds = ds[args.variables]
 
     ds.attrs['history'] = myfuncs.get_new_log()
-    myfuncs.to_zarr(ds, args.outfile, zip=True)
+    myfuncs.to_zarr(ds, args.outfile)
 
 
 if __name__ == '__main__':

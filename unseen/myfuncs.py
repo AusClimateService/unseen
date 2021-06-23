@@ -125,7 +125,7 @@ def cftime_to_str(time_dim):
 
 def open_file(infile,
               metadata_file=None,
-              no_leap_days=True,
+              no_leap_days=False,
               region=None,
               units={},
               variables=[],
@@ -158,8 +158,6 @@ def open_file(infile,
     # Variable selection
     if variables:
         ds = ds[variables]
-
-    assert isinstance(ds[variables[0]].data, dask.array.core.Array)
 
     # Spatial subsetting and aggregation
     if region:
@@ -286,7 +284,7 @@ def stack_by_init_date(ds, init_dates, n_lead_steps, freq='D'):
     """Stack timeseries array in inital date / lead time format.
 
     Args:
-      da (xarray Dataset or DataArray)
+      ds (xarray Dataset)
       init_dates (list) : Initial dates in YYYY-MM-DD format
       n_lead_steps (int) : Maximum lead time
       freq (str) : Time-step frequency

@@ -28,7 +28,8 @@ def indices_setup(kwargs, variables):
 def _main(args):
     """Run the command line program."""
 
-    dask_setup.local()
+    if args.dask_config:
+        dask_setup.launch_client(args.dask_config)
 
     kwargs = {'metadata_file': args.metadata_file,
               'no_leap_days': args.no_leap_days,
@@ -72,6 +73,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--metadata_file", type=str,
                         help="YAML file specifying required file metadata changes")
+    parser.add_argument("--dask_config", type=str,
+                        help="YAML file specifying dask client configuration")
     parser.add_argument("--no_leap_days", action="store_true", default=False,
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),

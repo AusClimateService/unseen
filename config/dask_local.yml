@@ -1,0 +1,4 @@
+# Configuration for local dask cluster
+
+LocalCluster: {}
+

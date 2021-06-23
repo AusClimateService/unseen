@@ -1,0 +1,7 @@
+# Configuration for dask cluster on Pearcey
+
+SLURMCluster:
+  cores: 12
+  memory: 72GB
+  walltime: '02:00:00'
+

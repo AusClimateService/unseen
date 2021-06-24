@@ -18,6 +18,7 @@ import dask
 import geopandas as gp
 import regionmask
 import cmdline_provenance as cmdprov
+import xclim
 
 
 ## Miscellanous utilities
@@ -45,35 +46,20 @@ class store_dict(argparse.Action):
 
 
 def convert_units(da, target_units):
-    """Convert kg m-2 s-1 to mm day-1.
+    """Convert units.
     
     Args:
-      da (xarray DataArray): Precipitation data
+      da (xarray DataArray)
+      target_units (str)
     """
 
-    #TODO: Consider using the pint-xarray package for unit conversion
+    xclim_unit_check = {'deg_k': 'degK',
+                        'mm' : 'mm d-1'
+                       }
+    if da.units in xclim_unit_check:
+        da.attrs['units'] = xclim_unit_check[da.units]
 
-    xr.set_options(keep_attrs=True)
-    error_msg = f'{da.units} to {target_units} conversion not supported'
-
-    if da.units == target_units:
-        pass
-    elif da.units in ['kg m-2 s-1', 'kg/m2/s']:
-        assert target_units == 'mm/day', error_msg
-        da = da * 86400
-    elif da.units == 'mm':
-        assert target_units == 'mm/day', error_msg
-    elif da.units in ['K', 'deg_k']:
-        assert target_units == 'C', error_msg
-        da = da - 273.15
-    elif da.units == 'm/s':
-        assert target_units == 'km/h', error_msg
-        da = da * 3.6
-    elif da.units == 'percent':
-        assert target_units == '%'
-    else:
-        raise ValueError(f"Unrecognised input units: {da.units}")
-    da.attrs['units'] == target_units
+    da = xclim.units.convert_units_to(da, target_units)
 
     return da
 

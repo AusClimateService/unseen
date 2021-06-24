@@ -6,7 +6,7 @@ approach to assessing the likelihood of extreme events.
 #### Dependencies
 
 ```
-$ conda install xarray dask dask-jobqueue zarr pyyaml cmdline_provenance gitpython geopandas regionmask 
+$ conda install xarray dask dask-jobqueue zarr pyyaml cmdline_provenance gitpython geopandas regionmask xclim
 ```
 
 #### Reference

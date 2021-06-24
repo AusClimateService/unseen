@@ -3,3 +3,7 @@
 rename:
   precip: pr
 
+units:
+  pr: 'mm d-1'
+
+

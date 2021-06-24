@@ -54,7 +54,6 @@ def convert_units(da, target_units):
     """
 
     xclim_unit_check = {'deg_k': 'degK',
-                        'mm' : 'mm d-1'
                        }
     if da.units in xclim_unit_check:
         da.attrs['units'] = xclim_unit_check[da.units]
@@ -198,7 +197,7 @@ def fix_metadata(ds, metadata_file, variables):
     with open(metadata_file, 'r') as reader:
         metadata_dict = yaml.load(reader, Loader=yaml.BaseLoader)
 
-    valid_keys = ['rename', 'drop_coords']
+    valid_keys = ['rename', 'drop_coords', 'units']
     for key in metadata_dict.keys():
         if not key in valid_keys:
             raise KeyError(f'Invalid metadata key: {key}')
@@ -213,6 +212,10 @@ def fix_metadata(ds, metadata_file, variables):
         for drop_coord in metadata_dict['drop_coords']:
             if drop_coord in ds.coords:
                 ds = ds.drop(drop_coord)
+
+    if 'units' in metadata_dict:
+        for var, units in metadata_dict['units'].items():
+            ds[var].attrs['units'] = units
 
     return ds
 

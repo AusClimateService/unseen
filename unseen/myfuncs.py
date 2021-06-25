@@ -105,6 +105,33 @@ def cftime_to_str(time_dim):
     return str_times
 
 
+def temporal_aggregation(ds, target_freq, agg_method):
+    """Temporal aggregation of data.
+
+    resample frequencies:
+
+      A-DEC (annual, with date label being last day of year) 
+      M (monthly, with date label being last day of month)
+      Q-NOV (DJF, MAM, JJA, SON, with date label being last day of season)
+      A-NOV (annual Dec-Nov, date label being last day of the year)
+    """
+
+    assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
+
+    input_freq = xr.infer_freq(ds.indexes['time'][0:3])
+    if input_freq == target_freq:
+        pass
+    elif input_freq == 'D':
+        ds = ds.resample(time=target_freq)
+    elif input_freq == 'M':
+        # TODO: monthly downsampling accounting for number of days
+        raise ValueError('Monhtly downsampling not implemented yet')
+    else:
+        raise ValueError(f'Unsupported input time frequency: {input_freq}')    
+
+    return ds
+
+
 ## File I/O
 
 
@@ -112,6 +139,7 @@ def open_file(infile,
               metadata_file=None,
               no_leap_days=False,
               region=None,
+              time_freq=None,
               units={},
               variables=[],
               isel={},
@@ -148,10 +176,14 @@ def open_file(infile,
     if region:
         ds = select_region(ds, regions[region])
 
-    # General selection/subsetting
+    # Temporal aggregation
     #with dask.config.set(**{'array.slicing.split_large_chunks': True}):
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
+    if time_freq:
+        ds = temporal_aggregation(ds, time_freq)
+
+    # General selection/subsetting
     if isel:
         ds = ds.isel(isel)
     if sel:

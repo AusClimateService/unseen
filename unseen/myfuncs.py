@@ -200,26 +200,10 @@ def monthly_to_seasonal_mean(ds, target_freq):
     days_in_seas = days_in_season(ds)
     days_in_mon = ds['time'].dt.days_in_month
     season_fraction = days_in_mon / days_in_seas
-    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.min), 1.0)
-    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.max), 1.0)
+    # TODO: assert_allclose 
     seasonal_mean = (ds * season_fraction).resample(time=target_freq).sum()
 
     return seasonal_mean
-
-
-def nested_groupby_apply(da, groupby, apply_fn):
-    """Groupby for multiple dimensions
-
-    Args:
-      da (xarray DataArray)
-    """
-
-    if len(groupby) == 1:
-        output = da.groupby(groupby[0]).apply(apply_fn)
-    else:
-        output = da.groupby(groupby[0]).apply(nested_groupby_apply, groupby=groupby[1:], apply_fn=apply_fn)
-
-    return output
 
 
 ## File I/O

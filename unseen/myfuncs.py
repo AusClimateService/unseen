@@ -105,7 +105,7 @@ def cftime_to_str(time_dim):
     return str_times
 
 
-def temporal_aggregation(ds, target_freq, agg_method):
+def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
     """Temporal aggregation of data.
 
     resample frequencies:
@@ -118,18 +118,108 @@ def temporal_aggregation(ds, target_freq, agg_method):
 
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
 
-    input_freq = xr.infer_freq(ds.indexes['time'][0:3])
+    if not input_freq:
+        input_freq = xr.infer_freq(ds.indexes['time'][0:3])
+
     if input_freq == target_freq:
         pass
-    elif input_freq == 'D':
-        ds = ds.resample(time=target_freq)
-    elif input_freq == 'M':
-        # TODO: monthly downsampling accounting for number of days
-        raise ValueError('Monhtly downsampling not implemented yet')
+    elif agg_method == 'sum':
+        ds = ds.resample(time=target_freq).sum()
+    elif agg_method == 'mean':
+        if input_freq == 'D':
+            ds = ds.resample(time=target_freq).mean()
+        elif (input_freq == 'M') and (target_freq[0] == 'A'):
+            ds = monthly_to_annual_mean(ds, target_freq)
+        elif (input_freq == 'M') and (target_freq[0] == 'Q'):
+            ds = monthly_to_seasonal_mean(ds, target_freq)
+        else:
+            raise ValueError(f'Unsupported input time frequency: {input_freq}')    
     else:
-        raise ValueError(f'Unsupported input time frequency: {input_freq}')    
+        raise ValueError(f'Unsupported temporal aggregation method: {agg_method}') 
 
     return ds
+
+
+def days_in_year(ds):
+    """Days in year from monthly data.
+
+    For each data point, returns an array with the
+      number of days in the corresponding year.
+
+    Args:
+      ds (xarray Dataset)
+
+    Returns:
+      days_in_yr (numpy array)
+    """
+
+    days_in_month = ds['time'].dt.days_in_month
+    days_in_unique_years = days_in_month.groupby('time.year').sum().values
+    years = ds.indexes['time'].year
+    unique_years = np.unique(years)
+    days_in_unique_years_dict = {unique_years[i]: days_in_unique_years[i] for i in range(len(unique_years))}
+    days_in_yr = np.array([days_in_unique_years_dict[yr] for yr in years])
+
+    return days_in_yr
+
+
+def days_in_season(ds):
+    """Days in season from monthly data.
+
+    For each data point, returns an array with the
+      number of days in the corresponding season.
+
+    Args:
+      ds (xarray Dataset)
+
+    Returns:
+      days_in_seas (numpy array)
+    """
+
+    # TODO
+
+    return days_in_seas
+
+
+def monthly_to_annual_mean(ds, target_freq):
+    """Monthly to annual mean"""
+
+    days_in_yr = days_in_year(ds)
+    days_in_mon = ds['time'].dt.days_in_month
+    annual_fraction = days_in_mon / days_in_yr
+    np.testing.assert_allclose(annual_fraction.groupby('time.year').sum().min(), 1.0)
+    np.testing.assert_allclose(annual_fraction.groupby('time.year').sum().max(), 1.0)
+    annual_mean = (ds * annual_fraction).resample(time=target_freq).sum()
+
+    return annual_mean
+
+
+def monthly_to_seasonal_mean(ds, target_freq):
+    """Monthly to seasonal mean"""
+
+    days_in_seas = days_in_season(ds)
+    days_in_mon = ds['time'].dt.days_in_month
+    season_fraction = days_in_mon / days_in_seas
+    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.min), 1.0)
+    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.max), 1.0)
+    seasonal_mean = (ds * season_fraction).resample(time=target_freq).sum()
+
+    return seasonal_mean
+
+
+def nested_groupby_apply(da, groupby, apply_fn):
+    """Groupby for multiple dimensions
+
+    Args:
+      da (xarray DataArray)
+    """
+
+    if len(groupby) == 1:
+        output = da.groupby(groupby[0]).apply(apply_fn)
+    else:
+        output = da.groupby(groupby[0]).apply(nested_groupby_apply, groupby=groupby[1:], apply_fn=apply_fn)
+
+    return output
 
 
 ## File I/O

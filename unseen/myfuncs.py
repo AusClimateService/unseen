@@ -155,21 +155,6 @@ def monthly_downsample_mean(ds, target_freq):
     return weighted_mean
 
 
-def nested_groupby_apply(da, groupby, apply_fn):
-    """Groupby for multiple dimensions
-
-    Args:
-      da (xarray DataArray)
-    """
-
-    if len(groupby) == 1:
-        output = da.groupby(groupby[0]).apply(apply_fn)
-    else:
-        output = da.groupby(groupby[0]).apply(nested_groupby_apply, groupby=groupby[1:], apply_fn=apply_fn)
-
-    return output
-
-
 ## File I/O
 
 

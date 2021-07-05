@@ -32,19 +32,19 @@ endif
 OBS_FORECAST_FILE=${DATA_DIR}/${VAR}_${OBS}_cafe-grid-${REGION}.zarr.zip
 process-obs : ${OBS_FORECAST_FILE}
 ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
-	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS}
+	${PYTHON} cmdline_scripts/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG} #--isel level=-1
+	${PYTHON} cmdline_scripts/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG} #--isel level=-1
 
 ## bias-correction : bias corrected forecast data using observations
 FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
-	${PYTHON} unseen/bias_correction.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
+	${PYTHON} cmdline_scripts/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
 
 ## clean : remove all generated files
 clean :

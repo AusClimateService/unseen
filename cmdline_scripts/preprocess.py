@@ -1,11 +1,19 @@
-"""Preprocess data (e.g. select variables, regions, units, etc)."""
+"""Command line program for preprocessing data."""
 
+import sys
+script_dir = sys.path[0]
 import pdb
 import argparse
 
-import myfuncs
+repo_dir = '/'.join(script_dir.split('/')[:-1])
+module_dir = repo_dir + '/unseen'
+sys.path.append(module_dir)
+
+import fileio
 import indices
 import dask_setup
+import general_utils
+import spatial_selection
 
 
 def indices_setup(kwargs, variables):
@@ -47,10 +55,10 @@ def _main(args):
 
     if args.data_type == 'obs':
         assert len(args.infiles) == 1
-        ds = myfuncs.open_file(args.infiles[0], **kwargs)
+        ds = fileio.open_file(args.infiles[0], **kwargs)
         temporal_dim = 'time'
     elif args.data_type == 'forecast':
-        ds = myfuncs.open_mfforecast(args.infiles, **kwargs)
+        ds = fileio.open_mfforecast(args.infiles, **kwargs)
         temporal_dim = 'lead_time'
     else:
         raise ValueError(f'Unrecognised data type: {args.data_type}')
@@ -62,8 +70,8 @@ def _main(args):
         ds = ds.chunk(args.output_chunks)
     ds = ds[args.variables]
 
-    ds.attrs['history'] = myfuncs.get_new_log()
-    myfuncs.to_zarr(ds, args.outfile)
+    ds.attrs['history'] = fileio.get_new_log(repo_dir=repo_dir)
+    fileio.to_zarr(ds, args.outfile)
 
 
 if __name__ == '__main__':
@@ -76,9 +84,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--dask_config", type=str,
                         help="YAML file specifying dask client configuration")
-    parser.add_argument("--input_chunks", type=str, nargs='*', action=myfuncs.store_dict,
+    parser.add_argument("--input_chunks", type=str, nargs='*', action=general_utils.store_dict,
                         default='auto', help="Chunks for reading data (e.g. time=-1)")
-    parser.add_argument("--output_chunks", type=str, nargs='*', action=myfuncs.store_dict,
+    parser.add_argument("--output_chunks", type=str, nargs='*', action=general_utils.store_dict,
                         default={}, help="Chunks for writing data to file (e.g. lead_time=50)")
 
     parser.add_argument("--metadata_file", type=str,
@@ -93,13 +101,13 @@ if __name__ == '__main__':
     parser.add_argument("--input_freq", type=str, choices=('M', 'D'), default=None,
                         help="Time frequency of input data")
 
-    parser.add_argument("--region", type=str, choices=myfuncs.regions.keys(),
+    parser.add_argument("--region", type=str, choices=spatial_selection.regions.keys(),
                         help="Select region from data")
-    parser.add_argument("--units", type=str, nargs='*', default={}, action=myfuncs.store_dict,
+    parser.add_argument("--units", type=str, nargs='*', default={}, action=general_utils.store_dict,
                         help="Variable / new unit pairs (e.g. precip=mm/day)")
     parser.add_argument("--variables", type=str, nargs='*',
                         help="Variables to select (or index to calculate)")
-    parser.add_argument("--isel", type=str, nargs='*', action=myfuncs.store_dict,
+    parser.add_argument("--isel", type=str, nargs='*', action=general_utils.store_dict,
                         help="Index selection along dimensions (e.g. ensemble=1:5)")
     
     args = parser.parse_args()

@@ -11,8 +11,8 @@ def launch_client(config_file):
     """Launch a dask client."""
     
     with open(config_file, 'r') as reader:
-        config_dict = yaml.load(reader)
-    pdb.set_trace()
+        config_dict = yaml.load(reader, Loader=yaml.FullLoader)
+
     if 'LocalCluster' in config_dict:
         cluster = LocalCluster(**config_dict['LocalCluster'])
     elif 'PBSCluster' in config_dict:

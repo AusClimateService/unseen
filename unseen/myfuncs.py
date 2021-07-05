@@ -53,9 +53,9 @@ def convert_units(da, target_units):
       target_units (str)
     """
 
-    xclim_unit_check = {'deg_k': 'degK',
-                       }
-    if da.units in xclim_unit_check:
+    xclim_unit_check = {'deg_k': 'degK'}
+
+    if da.attrs['units'] in xclim_unit_check:
         da.attrs['units'] = xclim_unit_check[da.units]
 
     da = xclim.units.convert_units_to(da, target_units)
@@ -108,8 +108,13 @@ def cftime_to_str(time_dim):
 def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
     """Temporal aggregation of data.
 
-    resample frequencies:
+    Args:
+      ds (xarray Dataset)
+      target_freq (str) : Target frequency for the resampling (see options below)
+      agg_method (str) : Aggregation method ('mean' or 'sum')
+      input_freq (str) : Temporal frequency of input data (daily 'D' or monthly 'M')
 
+    Valid target frequencies:
       A-DEC (annual, with date label being last day of year) 
       M (monthly, with date label being last day of month)
       Q-NOV (DJF, MAM, JJA, SON, with date label being last day of season)
@@ -124,14 +129,12 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
     if input_freq == target_freq:
         pass
     elif agg_method == 'sum':
-        ds = ds.resample(time=target_freq).sum()
+        ds = ds.resample(time=target_freq).sum(keep_attrs=True)
     elif agg_method == 'mean':
         if input_freq == 'D':
-            ds = ds.resample(time=target_freq).mean()
-        elif (input_freq == 'M') and (target_freq[0] == 'A'):
-            ds = monthly_to_annual_mean(ds, target_freq)
-        elif (input_freq == 'M') and (target_freq[0] == 'Q'):
-            ds = monthly_to_seasonal_mean(ds, target_freq)
+            ds = ds.resample(time=target_freq).mean(keep_attrs=True)
+        elif input_freq == 'M':
+            ds = monthly_downsample_mean(ds, target_freq)
         else:
             raise ValueError(f'Unsupported input time frequency: {input_freq}')    
     else:
@@ -140,71 +143,16 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
     return ds
 
 
-def days_in_year(ds):
-    """Days in year from monthly data.
+def monthly_downsample_mean(ds, target_freq):
+    """Downsample monthly data.
 
-    For each data point, returns an array with the
-      number of days in the corresponding year.
-
-    Args:
-      ds (xarray Dataset)
-
-    Returns:
-      days_in_yr (numpy array)
+    Accounts for the different number of days in each month.
     """
 
     days_in_month = ds['time'].dt.days_in_month
-    days_in_unique_years = days_in_month.groupby('time.year').sum().values
-    years = ds.indexes['time'].year
-    unique_years = np.unique(years)
-    days_in_unique_years_dict = {unique_years[i]: days_in_unique_years[i] for i in range(len(unique_years))}
-    days_in_yr = np.array([days_in_unique_years_dict[yr] for yr in years])
+    weighted_mean = ( (ds * days_in_month).resample(time=target_freq).sum(keep_attrs=True) / days_in_month.resample(time=target_freq).sum() )
 
-    return days_in_yr
-
-
-def days_in_season(ds):
-    """Days in season from monthly data.
-
-    For each data point, returns an array with the
-      number of days in the corresponding season.
-
-    Args:
-      ds (xarray Dataset)
-
-    Returns:
-      days_in_seas (numpy array)
-    """
-
-    # TODO
-
-    return days_in_seas
-
-
-def monthly_to_annual_mean(ds, target_freq):
-    """Monthly to annual mean"""
-
-    days_in_yr = days_in_year(ds)
-    days_in_mon = ds['time'].dt.days_in_month
-    annual_fraction = days_in_mon / days_in_yr
-    np.testing.assert_allclose(annual_fraction.groupby('time.year').sum().min(), 1.0)
-    np.testing.assert_allclose(annual_fraction.groupby('time.year').sum().max(), 1.0)
-    annual_mean = (ds * annual_fraction).resample(time=target_freq).sum()
-
-    return annual_mean
-
-
-def monthly_to_seasonal_mean(ds, target_freq):
-    """Monthly to seasonal mean"""
-
-    days_in_seas = days_in_season(ds)
-    days_in_mon = ds['time'].dt.days_in_month
-    season_fraction = days_in_mon / days_in_seas
-    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.min), 1.0)
-    np.testing.assert_allclose(nested_groupby_apply(season_fraction, ['time.year', 'time.season'], np.max), 1.0)
-    seasonal_mean = (ds * season_fraction).resample(time=target_freq).sum()
-
-    return seasonal_mean
+    return weighted_mean
 
 
 def nested_groupby_apply(da, groupby, apply_fn):
@@ -226,31 +174,36 @@ def nested_groupby_apply(da, groupby, apply_fn):
 
 
 def open_file(infile,
+              chunks='auto',
               metadata_file=None,
-              no_leap_days=False,
-              region=None,
-              time_freq=None,
-              units={},
               variables=[],
+              region=None,
+              no_leap_days=False,
+              time_freq=None,
+              time_agg=None,
+              input_freq=None,
               isel={},
               sel={},
-              chunks='auto'):
+              units={},
+              ):
     """Create an xarray Dataset from an input zarr file.
 
     Args:
       infile (str) : Input file path
+      chunks (dict) : Chunks for xarray.open_zarr 
       metadata_file (str) : YAML file specifying required file metadata changes
-      no_leap_days (bool) : Remove leap days from data
-      region (str) : Spatial subset (extract this region)
-      units (dict) : Variable/s (keys) and desired units (values)
       variables (list) : Variables of interest
+      region (str) : Spatial subset (extract this region)
+      no_leap_days (bool) : Remove leap days from data
+      time_freq (str) : Target temporal frequency for resampling
+      time_agg (str) : Temporal aggregation method ('mean' or 'sum')
+      input_freq (str) : Input time frequency for resampling (estimated if not provided) 
       isel (dict) : Selection using xarray.Dataset.isel
       sel (dict) : Selection using xarray.Dataset.sel
-      chunks (dict) : Chunks for xarray.open_zarr 
+      units (dict) : Variable/s (keys) and desired units (values)
     """
 
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
-
     #if chunks:
     #    ds = ds.chunk(input_chunks)
     
@@ -271,7 +224,8 @@ def open_file(infile,
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
-        ds = temporal_aggregation(ds, time_freq)
+        assert time_agg, """Provide a time_agg ('mean' or 'sum')"""
+        ds = temporal_aggregation(ds, time_freq, time_agg, input_freq=input_freq)
 
     # General selection/subsetting
     if isel:
@@ -429,7 +383,7 @@ def stack_by_init_date(ds, init_dates, n_lead_steps, freq='D'):
     ds['lead_time'].attrs['units'] = freq
 
     actual_array = ds[ref_var].sel({'init_date': ref_time, 'lead_time': 0}).values
-    np.testing.assert_allclose(actual_array, ref_array)
+    np.testing.assert_allclose(actual_array[0], ref_array[0])
     
     # TODO: Return nans if requested times lie outside of the available range
     

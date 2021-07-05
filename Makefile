@@ -8,10 +8,15 @@ UNITS=--units ${VAR}=mm/day
 # --units ${VAR}=mm/day
 OBS=awap
 # jra55 awap
+TIME_FREQ=A-DEC
+# A-DEC M Q-NOV A-NOV
+TIME_AGG=sum
+# mean sum
+
 
 PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
 DATA_DIR=/g/data/xv83/dbi599
-FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199[1,2]1101/ZARR/atmos_isobaric_daily.zarr.zip))
+FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199[0,1,2,3]??01/ZARR/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/dataset_cafe.yml
 DASK_CONFIG=config/dask_local.yml
 
@@ -27,16 +32,16 @@ endif
 OBS_FORECAST_FILE=${DATA_DIR}/${VAR}_${OBS}_cafe-grid-${REGION}.zarr.zip
 process-obs : ${OBS_FORECAST_FILE}
 ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
-	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS}
+	${PYTHON} unseen/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
-FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19911101-19921101_3650D_cafe-grid-${REGION}.zarr.zip
+FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --region ${REGION} ${UNITS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG} #--isel level=-1
+	${PYTHON} unseen/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG} #--isel level=-1
 
 ## bias-correction : bias corrected forecast data using observations
-FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19911101-19921101_3650D_cafe-grid-${REGION}.zarr.zip
+FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
 	${PYTHON} unseen/bias_correction.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
@@ -50,6 +55,8 @@ settings :
 	@echo REGION: ${REGION}
 	@echo BIAS_METHOD: ${BIAS_METHOD}
 	@echo VAR: ${VAR}
+	@echo TIME_FREQ: ${TIME_FREQ}
+	@echo TIME_AGG: ${TIME_AGG}
 	@echo UNITS: ${UNITS}
 	@echo OBS: ${OBS}
 

@@ -2,14 +2,14 @@
 
 import sys
 script_dir = sys.path[0]
+repo_dir = '/'.join(script_dir.split('/')[:-1])
+module_dir = repo_dir + '/unseen'
+sys.path.insert(1, module_dir)
+
 import pdb
 import argparse
 
 import xarray as xr
-
-repo_dir = '/'.join(script_dir.split('/')[:-1])
-module_dir = repo_dir + '/unseen'
-sys.path.append(module_dir)
 
 import fileio
 import array_handling

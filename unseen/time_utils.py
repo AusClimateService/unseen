@@ -29,7 +29,7 @@ def check_cftime(time_dim):
         'Time dimension must use cftime objects'
 
 
-def str_to_cftime(datestring, calendar):
+def str_to_cftime(datestring, calendar='standard'):
     """Convert a date string to cftime object"""
     
     dt = datetime.strptime(datestring, '%Y-%m-%d')
@@ -65,6 +65,7 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
 
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
 
+    start_time = ds['time'].values[0]
     if not input_freq:
         input_freq = xr.infer_freq(ds.indexes['time'][0:3])
 
@@ -81,6 +82,10 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
             raise ValueError(f'Unsupported input time frequency: {input_freq}')    
     else:
         raise ValueError(f'Unsupported temporal aggregation method: {agg_method}') 
+
+    diff = ds['time'].values[0] - start_time
+    ds['time'] = ds['time'] - diff
+    assert ds['time'].values[0] == start_time
 
     return ds
 

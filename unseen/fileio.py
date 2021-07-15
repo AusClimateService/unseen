@@ -1,5 +1,6 @@
 """Functions for file I/O"""
 
+import pdb
 import os
 import git
 import yaml
@@ -120,10 +121,11 @@ def fix_metadata(ds, metadata_file, variables):
             raise KeyError(f'Invalid metadata key: {key}')
 
     if 'rename' in metadata_dict:
-        valid_vars = variables + ['time']
         for orig_var, target_var in metadata_dict['rename'].items():
-            if target_var in valid_vars:
+            try:
                 ds = ds.rename({orig_var: target_var})
+            except ValueError:
+                pass
 
     if 'drop_coords' in metadata_dict:
         for drop_coord in metadata_dict['drop_coords']:

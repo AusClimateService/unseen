@@ -1,0 +1,9 @@
+# AWAP monthly required metadata changes
+
+rename:
+  rain_month: pr
+  latitude: lat
+  longitude: lon
+
+
+

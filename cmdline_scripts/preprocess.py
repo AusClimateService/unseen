@@ -43,6 +43,8 @@ def _main(args):
               'metadata_file': args.metadata_file,
               'variables': args.variables,
               'region': args.region,
+              'shape_label_header': args.shp_header,
+              'spatial_agg': args.spatial_agg,
               'no_leap_days': args.no_leap_days,
               'time_freq': args.time_freq,
               'time_agg': args.time_agg,
@@ -101,8 +103,13 @@ if __name__ == '__main__':
     parser.add_argument("--input_freq", type=str, choices=('M', 'D'), default=None,
                         help="Time frequency of input data")
 
-    parser.add_argument("--region", type=str, choices=spatial_selection.regions.keys(),
-                        help="Select region from data")
+    parser.add_argument("--region", type=str, default=None,
+                        help="Shapefile")
+    parser.add_argument("--shp_header", type=str, default=None,
+                        help="Shapefile column header for region names")
+    parser.add_argument("--spatial_agg", type=str, choices=('mean', 'sum'), default=None,
+                        help="Spatial aggregation method")
+
     parser.add_argument("--units", type=str, nargs='*', default={}, action=general_utils.store_dict,
                         help="Variable / new unit pairs (e.g. precip=mm/day)")
     parser.add_argument("--variables", type=str, nargs='*',

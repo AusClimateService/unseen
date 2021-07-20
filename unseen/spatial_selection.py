@@ -2,51 +2,77 @@
 
 import pdb
 
+import numpy as np
 import xarray as xr
 import geopandas as gp
 import regionmask
 
 
-regions = {'AUS-BOX': [-44, -11, 113, 154],
-           'AUS-SHAPE': 'NRM_regions_2020.zip',
-           'MEL-POINT': (-37.81, 144.96),
-           'TAS-POINT': (-42, 146.5),
-           }
-
-
-def select_region(ds, region_name):
+def select_region(ds, region=None, agg=None, header=None):
     """Select region.
     
     Args:
       ds (xarray Dataset or DataArray)
-      region_name (str) : Region name
+      region (str or list) : shapefile name, or
+                             list length 2 (point selection), or
+                             list length 4 (box selection).
+      agg (str) : Aggregation method (spatial 'mean' or 'sum')
+      header (str) : Name of the shapefile column containing the region names 
     """
-    
-    region = regions[region_name]
 
     if type(region) == str:
-        ds = select_shapefile_region(ds, region)
+        ds = select_shapefile_regions(ds, region, agg=agg, header=header)
     elif len(region) == 4:
         ds = select_box_region(ds, region)
     elif len(region) == 2:
         ds = select_point_region(ds, region)
+    elif region == None:
+        pass
     else:
-        raise ValueError('region is not a box (4 values) or point (2 values)')
+        msg = 'region must be None, shapefile, box (list of 4 floats) or point (list of 2 floats)'
+        raise ValueError(msg)
     
+    if (agg == 'sum') and not type(region) == str:
+        ds = ds.sum(dim=('lat', 'lon'))
+    elif (agg == 'mean') and not type(region) == str:
+        ds = ds.mean(dim=('lat', 'lon'))
+    elif agg == None:
+        pass 
+    else:
+         raise ValueError("""agg must be None, 'sum' or 'mean'""")   
+
     return ds
 
 
-def select_shapefile_region(ds, shapefile):
-    """Select region using a shapefile"""
+def select_shapefile_regions(ds, shapefile, agg=None, header=None):
+    """Select region using a shapefile.
 
-    lon = ds['lon'].values
-    lat = ds['lat'].values
+    Args:
+      ds (xarray Dataset or DataArray)
+      shapefile (str) : Shapefile
+      agg(str) : Aggregation method (spatial 'mean' or 'sum')
+      header (str) : Name of the shapefile column containing the region names 
+    """
 
-    regions_gp = gp.read_file(shapefile)
-    regions_xr = regionmask.mask_geopandas(regions_gp, lon, lat)
+    lons = ds['lon'].values
+    lats = ds['lat'].values
 
-    mask = xr.where(regions_xr.notnull(), True, False)
-    ds = ds.where(mask)
+    shapes = gp.read_file(shapefile)
+
+    if agg == None:
+        mask = regionmask.mask_geopandas(shapes, lons, lats)
+        mask = xr.where(mask.notnull(), True, False)
+        ds = ds.where(mask)
+    elif agg == 'sum':
+        mask = regionmask.mask_geopandas(shapes, lons, lats)
+        ds = ds.groupby(mask).sum()
+    elif agg == 'mean':
+        mask = regionmask.mask_3D_geopandas(shapes, lons, lats)
+        weights = np.cos(np.deg2rad(ds['lat']))
+        ds = ds.weighted(mask * weights).mean(dim=('lat', 'lon'))
+
+    if header:
+        ds = ds.assign_coords(region=shapes[header].values)
 
     return ds
 
@@ -75,10 +101,6 @@ def select_box_region(ds, box):
         mask_lon = (ds['lon'] > lon_east_bound) | (ds['lon'] < lon_west_bound)
     
     ds = ds.where(mask_lat & mask_lon, drop=True) 
-        
-    #if sort:
-    #    da = da.sortby(lat_name).sortby(lon_name)
-    #da.sel({'lat': slice(box[0], box[1]), 'lon': slice(box[2], box[3])})
 
     return ds
 

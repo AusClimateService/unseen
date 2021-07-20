@@ -20,6 +20,8 @@ def open_file(infile,
               metadata_file=None,
               variables=[],
               region=None,
+              shape_label_header=None,
+              spatial_agg=None,
               no_leap_days=False,
               time_freq=None,
               time_agg=None,
@@ -35,7 +37,11 @@ def open_file(infile,
       chunks (dict) : Chunks for xarray.open_zarr 
       metadata_file (str) : YAML file specifying required file metadata changes
       variables (list) : Variables of interest
-      region (str) : Spatial subset (extract this region)
+      region (str or list) : Spatial subset. Can be:
+                             shapefile name, or
+                             list length 2 (point selection), or
+                             list length 4 (box selection).
+      shape_label_header (str) : Name of the shapefile column containing the region names 
       no_leap_days (bool) : Remove leap days from data
       time_freq (str) : Target temporal frequency for resampling
       time_agg (str) : Temporal aggregation method ('mean' or 'sum')
@@ -58,8 +64,9 @@ def open_file(infile,
         ds = ds[variables]
 
     # Spatial subsetting and aggregation
-    if region:
-        ds = spatial_selection.select_region(ds, region)
+    if region or spatial_agg:
+        ds = spatial_selection.select_region(ds, region=region, agg=spatial_agg,
+                                             header=shape_label_header)
 
     # Temporal aggregation
     #with dask.config.set(**{'array.slicing.split_large_chunks': True}):

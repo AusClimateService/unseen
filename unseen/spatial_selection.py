@@ -36,7 +36,7 @@ def select_region(ds, region=None, agg=None, header=None):
         ds = ds.sum(dim=('lat', 'lon'))
     elif (agg == 'mean') and not type(region) == str:
         ds = ds.mean(dim=('lat', 'lon'))
-    elif agg == None:
+    elif (agg == None) or type(region) == str:
         pass 
     else:
          raise ValueError("""agg must be None, 'sum' or 'mean'""")   

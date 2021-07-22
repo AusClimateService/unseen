@@ -1,50 +1,24 @@
 .PHONY: all process-obs process-forecast bias-correction clean help settings
 
-REGION=TAS-POINT
-BIAS_METHOD=additive
-VAR=pr
-#pr ffdi
-UNITS=--units ${VAR}=mm/day
-# --units ${VAR}=mm/day
-OBS=awap
-# jra55 awap
-TIME_FREQ=A-DEC
-# A-DEC M Q-NOV A-NOV
-TIME_AGG=sum
-# mean sum
+include ${CONFIG}
 
-
+SCRIPT_DIR=/home/599/dbi599/unseen/cmdline_scripts
 PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
-DATA_DIR=/g/data/xv83/dbi599
-FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199[0,1,2,3]??01/ZARR/atmos_isobaric_daily.zarr.zip))
-FCST_METADATA=config/dataset_cafe.yml
-DASK_CONFIG=config/dask_local.yml
-
-ifeq (${OBS}, awap)
-  OBS_DATA=/g/data/xv83/ds0092/data/csiro-dcfp-csiro-awap/rain_day_19000101-20201202_cafe-grid.zarr/
-  OBS_METADATA=config/dataset_awap.yml
-else ifeq (${OBS}, jra55)
-  OBS_DATA=/g/data/xv83/ds0092/data/csiro-dcfp-jra55/surface_daily_cafe-grid.zarr/
-  OBS_METADATA=config/dataset_jra55.yml
-endif
 
 ## process-obs : preprocessing of observational data
-OBS_FORECAST_FILE=${DATA_DIR}/${VAR}_${OBS}_cafe-grid-${REGION}.zarr.zip
 process-obs : ${OBS_FORECAST_FILE}
 ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
-	${PYTHON} cmdline_scripts/preprocess.py $< obs $@ --metadata_file $(word 2,$^) --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS}
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py $< obs $@ --metadata_file $(word 2,$^) ${IO_OPTIONS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
-FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} cmdline_scripts/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< --variables ${VAR} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --region ${REGION} ${UNITS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG} #--isel level=-1
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${IO_OPTIONS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG}
 
 ## bias-correction : bias corrected forecast data using observations
-FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_${OBS}-${BIAS_METHOD}-correction_19900501-19931101_${TIME_FREQ}-${TIME_AGG}_cafe-grid-${REGION}.zarr.zip
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
-	${PYTHON} cmdline_scripts/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
+	${PYTHON} ${SCRIPT_DIR}/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
 
 ## clean : remove all generated files
 clean :
@@ -62,5 +36,8 @@ settings :
 
 ## help : show this message
 help :
+	@echo 'make [target] CONFIG=config_file.mk'
+	@echo ''
+	@echo 'valid targets:'
 	@grep -h -E '^##' ${MAKEFILE_LIST} | sed -e 's/## //g' | column -t -s ':'
 

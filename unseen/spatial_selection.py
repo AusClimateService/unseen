@@ -65,11 +65,11 @@ def select_shapefile_regions(ds, shapefile, agg=None, header=None):
         ds = ds.where(mask)
     elif agg == 'sum':
         mask = regionmask.mask_geopandas(shapes, lons, lats)
-        ds = ds.groupby(mask).sum()
+        ds = ds.groupby(mask).sum(keep_attrs=True)
     elif agg == 'mean':
         mask = regionmask.mask_3D_geopandas(shapes, lons, lats)
         weights = np.cos(np.deg2rad(ds['lat']))
-        ds = ds.weighted(mask * weights).mean(dim=('lat', 'lon'))
+        ds = ds.weighted(mask * weights).mean(dim=('lat', 'lon'), keep_attrs=True)
 
     if header:
         ds = ds.assign_coords(region=shapes[header].values)

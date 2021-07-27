@@ -3,9 +3,6 @@
 rename:
   precip: pr
 
-units:
-  pr: mm
-
 drop_coords:
   - average_DT
   - average_T1

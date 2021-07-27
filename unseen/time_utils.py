@@ -47,13 +47,32 @@ def cftime_to_str(time_dim):
     return str_times
 
 
-def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
+def update_rate(da, input_freq, target_freq):
+    """Update a flow rate due to temporal aggregation"""
+    
+    current_units = da.units
+    rates_dict = {'D': 'd-1',
+                  'M': 'month-1',
+                  'Q': 'season-1',
+                  'A': 'yr-1'}
+    input_rate = rates_dict[input_freq]
+    if input_rate in current_units:
+        target_rate = rates_dict[target_freq[0]]
+        new_units = current_units.replace(input_rate, target_rate)
+    else:
+        new_units = current_units
+        
+    return new_units
+
+    
+def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None):
     """Temporal aggregation of data.
 
     Args:
       ds (xarray Dataset)
       target_freq (str) : Target frequency for the resampling (see options below)
       agg_method (str) : Aggregation method ('mean' or 'sum')
+      variabless (list) : Variables in the dataset
       input_freq (str) : Temporal frequency of input data (daily 'D' or monthly 'M')
 
     Valid target frequencies:
@@ -64,7 +83,7 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
     """
 
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
-
+    
     start_time = ds['time'].values[0]
     if not input_freq:
         input_freq = xr.infer_freq(ds.indexes['time'][0:3])
@@ -73,6 +92,8 @@ def temporal_aggregation(ds, target_freq, agg_method, input_freq=None):
         pass
     elif agg_method == 'sum':
         ds = ds.resample(time=target_freq).sum(keep_attrs=True)
+        for var in variables:
+            ds[var].attrs['units'] = update_rate(ds[var], input_freq, target_freq)
     elif agg_method == 'mean':
         if input_freq == 'D':
             ds = ds.resample(time=target_freq).mean(keep_attrs=True)

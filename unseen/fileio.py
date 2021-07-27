@@ -54,7 +54,7 @@ def open_file(infile,
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
     #if chunks:
     #    ds = ds.chunk(input_chunks)
-    
+
     # Metadata
     if metadata_file:
         ds = fix_metadata(ds, metadata_file, variables)
@@ -63,6 +63,10 @@ def open_file(infile,
     if variables:
         ds = ds[variables]
 
+    # Units
+    for var, target_units in units.items():
+        ds[var] = general_utils.convert_units(ds[var], target_units)
+        
     # Spatial subsetting and aggregation
     if region or spatial_agg:
         ds = spatial_selection.select_region(ds, region=region, agg=spatial_agg,
@@ -74,17 +78,13 @@ def open_file(infile,
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
         assert time_agg, """Provide a time_agg ('mean' or 'sum')"""
-        ds = time_utils.temporal_aggregation(ds, time_freq, time_agg, input_freq=input_freq)
+        ds = time_utils.temporal_aggregation(ds, time_freq, time_agg, variables, input_freq=input_freq)
 
     # General selection/subsetting
     if isel:
         ds = ds.isel(isel)
     if sel:
         ds = ds.sel(sel)
-
-    # Units
-    for var, target_units in units.items():
-        ds[var] = general_utils.convert_units(ds[var], target_units)
 
     assert type(ds) == xr.core.dataset.Dataset
 

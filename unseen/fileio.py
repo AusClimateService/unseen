@@ -6,6 +6,7 @@ import git
 import yaml
 import shutil
 import zipfile
+import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -75,7 +76,9 @@ def open_file(infile,
                                              header=shape_label_header)
 
     # Temporal aggregation
-    #with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+    if not input_freq:
+        input_freq = xr.infer_freq(ds.indexes['time'][0:3])
+
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
@@ -83,6 +86,9 @@ def open_file(infile,
         ds = time_utils.temporal_aggregation(ds, time_freq, time_agg, variables, input_freq=input_freq)
         if complete_time_agg_periods:
             ds = time_utils.select_complete_time_periods(ds, time_freq)
+
+    output_freq = time_freq[0] if time_freq else input_freq
+    ds['time'].attrs['frequency'] = output_freq    
 
     # General selection/subsetting
     if isel:
@@ -95,22 +101,40 @@ def open_file(infile,
     return ds
 
 
+def times_from_init_lead(ds, time_freq):
+    """Get time values from init dates and lead times"""
+
+    step_units = {'D': 'days',
+                  'M': 'months',
+                  'Q': 'months',
+                  'A': 'years',
+                  'Y': 'years'}
+    
+    step_unit = step_units[time_freq]
+    scale_factor = 3 if time_freq == 'Q' else 1
+
+    time_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time']]
+
+    return time_values
+
+
 def open_mfforecast(infiles, **kwargs):
     """Open multi-file forecast."""
 
     datasets = []
     for infile in infiles:
         ds = open_file(infile, **kwargs)
+        time_freq = ds['time'].attrs['frequency']
         ds = array_handling.to_init_lead(ds)
         datasets.append(ds)
     ds = xr.concat(datasets, dim='init_date')
 
-    time_values = [ds.get_index('init_date').shift(int(lead), 'D') for lead in ds['lead_time']]
+    time_values = times_from_init_lead(ds, time_freq)
     time_dimension = xr.DataArray(time_values,
                                   dims={'lead_time': ds['lead_time'],
                                         'init_date': ds['init_date']})
     ds = ds.assign_coords({'time': time_dimension})
-    ds['lead_time'].attrs['units'] = 'D'
+    ds['lead_time'].attrs['units'] = time_freq
 
     return ds
 

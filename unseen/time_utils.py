@@ -85,8 +85,6 @@ def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
     
     start_time = ds['time'].values[0]
-    if not input_freq:
-        input_freq = xr.infer_freq(ds.indexes['time'][0:3])
 
     if input_freq == target_freq:
         pass

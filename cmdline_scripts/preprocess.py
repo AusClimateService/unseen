@@ -48,6 +48,7 @@ def _main(args):
               'no_leap_days': args.no_leap_days,
               'time_freq': args.time_freq,
               'time_agg': args.time_agg,
+              'complete_time_agg_periods' : args.complete_time_agg_periods,
               'input_freq': args.input_freq,
               'isel': args.isel,
               'units': args.units,
@@ -100,6 +101,8 @@ if __name__ == '__main__':
                         help="Target frequency for temporal aggregation")
     parser.add_argument("--time_agg", type=str, choices=('mean', 'sum'), default=None,
                         help="Temporal aggregation method")
+    parser.add_argument("--complete_time_agg_periods", action="store_true", default=False,
+                        help="Limit temporal aggregation output to complete years/months [default=False]")
     parser.add_argument("--input_freq", type=str, choices=('M', 'D'), default=None,
                         help="Time frequency of input data")
 

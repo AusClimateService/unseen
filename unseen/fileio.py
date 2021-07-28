@@ -25,6 +25,7 @@ def open_file(infile,
               no_leap_days=False,
               time_freq=None,
               time_agg=None,
+              complete_time_agg_periods=False,
               input_freq=None,
               isel={},
               sel={},
@@ -45,6 +46,7 @@ def open_file(infile,
       no_leap_days (bool) : Remove leap days from data
       time_freq (str) : Target temporal frequency for resampling
       time_agg (str) : Temporal aggregation method ('mean' or 'sum')
+      complete_time_agg_periods (bool) : Limit temporal aggregation output to complete years/months
       input_freq (str) : Input time frequency for resampling (estimated if not provided) 
       isel (dict) : Selection using xarray.Dataset.isel
       sel (dict) : Selection using xarray.Dataset.sel
@@ -79,6 +81,8 @@ def open_file(infile,
     if time_freq:
         assert time_agg, """Provide a time_agg ('mean' or 'sum')"""
         ds = time_utils.temporal_aggregation(ds, time_freq, time_agg, variables, input_freq=input_freq)
+        if complete_time_agg_periods:
+            ds = time_utils.select_complete_time_periods(ds, time_freq)
 
     # General selection/subsetting
     if isel:

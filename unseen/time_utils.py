@@ -111,6 +111,25 @@ def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None
     return ds
 
 
+def select_complete_time_periods(ds, time_freq):
+    """Limit temporal aggregation output to complete years/months"""
+
+    if time_freq == 'A-DEC':
+        start_offset = xr.coding.cftime_offsets.YearBegin(0)
+        end_offset = xr.coding.cftime_offsets.YearEnd(-1)
+    elif time_freq == 'M':
+        start_offset = xr.coding.cftime_offsets.MonthBegin(0)
+        end_offset = xr.coding.cftime_offsets.MonthEnd(-1)
+    else:
+        raise ValueError(f'Unsupported time frequency for complete time period selection: {time_freq}') 
+
+    start = ds['time'].values[0] + start_offset
+    end = ds['time'].values[-1] + end_offset
+    ds = ds.sel(time=slice(start, end))
+
+    return ds
+
+
 def monthly_downsample_mean(ds, target_freq):
     """Downsample monthly data.
 

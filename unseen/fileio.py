@@ -54,9 +54,9 @@ def open_file(infile,
       units (dict) : Variable/s (keys) and desired units (values)
     """
 
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True, chunks=chunks)
-    #if chunks:
-    #    ds = ds.chunk(input_chunks)
+    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)  #, chunks=chunks)
+    if not chunks == 'auto':
+        ds = ds.chunk(chunks)
 
     # Metadata
     if metadata_file:

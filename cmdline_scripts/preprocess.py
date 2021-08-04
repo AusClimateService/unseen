@@ -37,7 +37,8 @@ def _main(args):
     """Run the command line program."""
 
     if args.dask_config:
-        dask_setup.launch_client(args.dask_config)
+        client = dask_setup.launch_client(args.dask_config)
+        print(client)
 
     kwargs = {'chunks': args.input_chunks,
               'metadata_file': args.metadata_file,

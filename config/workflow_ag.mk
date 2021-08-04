@@ -6,12 +6,12 @@ UNITS=${VAR}=mm/day
 SHAPEFILE=/home/599/dbi599/unseen/shapefiles/wheat_sheep.zip
 REGION_NAME=wheat-sheep
 SHP_HEADER=region
-SPATIAL_AGG=sum
+SPATIAL_AGG=mean
 
 TIME_FREQ=A-DEC
-TIME_AGG=sum
+TIME_AGG=mean
 
-IO_OPTIONS=--variables ${VAR} --region ${SHAPEFILE} --shp_header ${SHP_HEADER} --spatial_agg ${SPATIAL_AGG} --no_leap_days --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods --units ${UNITS}
+IO_OPTIONS=--variables ${VAR} --region ${SHAPEFILE} --shp_header ${SHP_HEADER} --spatial_agg ${SPATIAL_AGG} --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods --units ${UNITS}
 
 FCST_DATA := $(sort $(wildcard /g/data/xv83/ds0092/CAFE/forecasts/f6/WIP/c5-d60-pX-f6-199[0,1,2,3]??01/ZARR/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/dataset_cafe_daily.yml

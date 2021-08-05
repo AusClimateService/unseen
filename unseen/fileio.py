@@ -20,7 +20,8 @@ def open_file(infile,
               chunks='auto',
               metadata_file=None,
               variables=[],
-              region=None,
+              spatial_coords=None,
+              shapefile=None,
               shape_label_header=None,
               combine_shapes=False,
               spatial_agg=None,
@@ -40,12 +41,11 @@ def open_file(infile,
       chunks (dict) : Chunks for xarray.open_zarr 
       metadata_file (str) : YAML file specifying required file metadata changes
       variables (list) : Variables of interest
-      region (str or list) : Spatial subset. Can be:
-                             shapefile name, or
-                             list length 2 (point selection), or
-                             list length 4 (box selection).
+      spatial_coords (list) : List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound].
+      shapefile (str) : Shapefile for spatial subseting
       shape_label_header (str) : Name of the shapefile column containing the region names
       combine_shapes (bool) : Add a region that combines all shapes
+      spatial_agg (str) : Spatial aggregation method ('mean' or 'sum') 
       no_leap_days (bool) : Remove leap days from data
       time_freq (str) : Target temporal frequency for resampling
       time_agg (str) : Temporal aggregation method ('mean' or 'sum')
@@ -74,20 +74,22 @@ def open_file(infile,
         ds[var] = general_utils.convert_units(ds[var], target_units)
         
     # Spatial subsetting and aggregation
-    if region or spatial_agg:
-        ds = spatial_selection.select_region(ds, region=region, agg=spatial_agg,
+    if spatial_coords or shapefile or spatial_agg:
+        ds = spatial_selection.select_region(ds,
+                                             coords=spatial_coords,
+                                             shapefile=shapefile,
                                              header=shape_label_header,
-                                             combine_shapes=combine_shapes)
+                                             combine_shapes=combine_shapes,
+                                             agg=spatial_agg)
 
     # Temporal aggregation
-    if not input_freq:
-        input_freq = xr.infer_freq(ds.indexes['time'][0:3])
-
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
         assert time_agg, """Provide a time_agg ('mean' or 'sum')"""
-        ds = time_utils.temporal_aggregation(ds, time_freq, time_agg, variables, input_freq=input_freq)
+        if not input_freq:
+            input_freq = xr.infer_freq(ds.indexes['time'][0:3])[0] 
+        ds = time_utils.temporal_aggregation(ds, time_freq, input_freq, time_agg, variables)
         if complete_time_agg_periods:
             ds = time_utils.select_complete_time_periods(ds, time_freq)
 

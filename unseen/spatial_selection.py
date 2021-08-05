@@ -8,38 +8,42 @@ import geopandas as gp
 import regionmask
 
 
-def select_region(ds, region=None, agg=None,
-                  header=None, combine_shapes=False):
+def select_region(ds,
+                  coords=None,
+                  shapefile=None,
+                  header=None,
+                  combine_shapes=False,
+                  agg=None):
     """Select region.
     
     Args:
       ds (xarray Dataset or DataArray)
-      region (str or list) : shapefile name, or
-                             list length 2 (point selection), or
-                             list length 4 (box selection).
-      agg (str) : Aggregation method (spatial 'mean' or 'sum')
+      coords (list) : List of length 2 [lat, lon] or 4 [south bound, north bound, east bound, west bound]
+      shapefile (str) : Shapefile for spatial subseting
       header (str) : Name of the shapefile column containing the region names 
       combine_shapes (bool) : Add region that combines all shapes in shapefile
+      agg (str) : Aggregation method (spatial 'mean' or 'sum')
     """
 
-    if type(region) == str:
-        ds = select_shapefile_regions(ds, region, agg=agg, header=header,
-                                      combine_shapes=combine_shapes)
-    elif len(region) == 4:
-        ds = select_box_region(ds, region)
-    elif len(region) == 2:
-        ds = select_point_region(ds, region)
-    elif region == None:
+    if coords == None:
         pass
+    elif len(coords) == 4:
+        ds = select_box_region(ds, coords)
+    elif len(coords) == 2:
+        ds = select_point_region(ds, coords)
     else:
-        msg = 'region must be None, shapefile, box (list of 4 floats) or point (list of 2 floats)'
+        msg = 'coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)'
         raise ValueError(msg)
-    
-    if (agg == 'sum') and not type(region) == str:
+
+    if shapefile:
+        ds = select_shapefile_regions(ds, shapefile, agg=agg, header=header,
+                                      combine_shapes=combine_shapes)
+        
+    if (agg == 'sum') and not shapefile:
         ds = ds.sum(dim=('lat', 'lon'))
-    elif (agg == 'mean') and not type(region) == str:
+    elif (agg == 'mean') and not shapefile:
         ds = ds.mean(dim=('lat', 'lon'))
-    elif (agg == None) or type(region) == str:
+    elif (agg == None) or shapefile:
         pass 
     else:
          raise ValueError("""agg must be None, 'sum' or 'mean'""")   

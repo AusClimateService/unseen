@@ -40,17 +40,11 @@ def _main(args):
         client = dask_setup.launch_client(args.dask_config)
         print(client)
 
-    if args.shapefile:
-        region = args.shapefile
-    elif args.box:
-        region=args.box
-    else:
-        region = args.point
-
     kwargs = {'chunks': args.input_chunks,
               'metadata_file': args.metadata_file,
               'variables': args.variables,
-              'region': region,
+              'spatial_coords': args.spatial_coords,
+              'shapefile': args.shapefile,   
               'shape_label_header': args.shp_header,
               'combine_shapes': args.combine_shapes,
               'spatial_agg': args.spatial_agg,
@@ -112,13 +106,11 @@ if __name__ == '__main__':
                         help="Temporal aggregation method")
     parser.add_argument("--complete_time_agg_periods", action="store_true", default=False,
                         help="Limit temporal aggregation output to complete years/months [default=False]")
-    parser.add_argument("--input_freq", type=str, choices=('M', 'D'), default=None,
+    parser.add_argument("--input_freq", type=str, choices=('M', 'D', 'Q', 'A'), default=None,
                         help="Time frequency of input data")
 
-    parser.add_argument("--box", type=float, nargs=4, default=None,
-                        help="Box for region selection [south bound, north bound, east bound, west bound]")
-    parser.add_argument("--point", type=float, nargs=2, default=None,
-                        help="Point selection [lat, lon]")
+    parser.add_argument("--spatial_coords", type=float, nargs='*', default=None,
+                        help="Point [lat, lon] or box [south bound, north bound, east bound, west bound] for spatial subsetting")
     parser.add_argument("--shapefile", type=str, default=None,
                         help="Shapefile for region selection")
     parser.add_argument("--shp_header", type=str, default=None,

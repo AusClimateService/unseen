@@ -65,7 +65,7 @@ def update_rate(da, input_freq, target_freq):
     return new_units
 
     
-def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None):
+def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables):
     """Temporal aggregation of data.
 
     Args:
@@ -73,7 +73,7 @@ def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None
       target_freq (str) : Target frequency for the resampling (see options below)
       agg_method (str) : Aggregation method ('mean' or 'sum')
       variabless (list) : Variables in the dataset
-      input_freq (str) : Temporal frequency of input data (daily 'D' or monthly 'M')
+      input_freq (str) : Temporal frequency of input data (daily 'D', monthly 'M', annual 'A')
 
     Valid target frequencies:
       A-DEC (annual, with date label being last day of year) 
@@ -83,10 +83,11 @@ def temporal_aggregation(ds, target_freq, agg_method, variables, input_freq=None
     """
 
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
-    
+    assert input_freq in ['D', 'M', 'Q', 'A']
+
     start_time = ds['time'].values[0]
 
-    if input_freq == target_freq:
+    if input_freq == target_freq[0]:
         pass
     elif agg_method == 'sum':
         ds = ds.resample(time=target_freq).sum(keep_attrs=True)

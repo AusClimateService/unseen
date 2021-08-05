@@ -40,11 +40,19 @@ def _main(args):
         client = dask_setup.launch_client(args.dask_config)
         print(client)
 
+    if args.shapefile:
+        region = args.shapefile
+    elif args.box:
+        region=args.box
+    else:
+        region = args.point
+
     kwargs = {'chunks': args.input_chunks,
               'metadata_file': args.metadata_file,
               'variables': args.variables,
-              'region': args.region,
+              'region': region,
               'shape_label_header': args.shp_header,
+              'combine_shapes': args.combine_shapes,
               'spatial_agg': args.spatial_agg,
               'no_leap_days': args.no_leap_days,
               'time_freq': args.time_freq,
@@ -107,10 +115,16 @@ if __name__ == '__main__':
     parser.add_argument("--input_freq", type=str, choices=('M', 'D'), default=None,
                         help="Time frequency of input data")
 
-    parser.add_argument("--region", type=str, default=None,
-                        help="Shapefile")
+    parser.add_argument("--box", type=float, nargs=4, default=None,
+                        help="Box for region selection [south bound, north bound, east bound, west bound]")
+    parser.add_argument("--point", type=float, nargs=2, default=None,
+                        help="Point selection [lat, lon]")
+    parser.add_argument("--shapefile", type=str, default=None,
+                        help="Shapefile for region selection")
     parser.add_argument("--shp_header", type=str, default=None,
                         help="Shapefile column header for region names")
+    parser.add_argument("--combine_shapes", action="store_true", default=False,
+                        help="Add a region that combines all shapes [default=False]")
     parser.add_argument("--spatial_agg", type=str, choices=('mean', 'sum'), default=None,
                         help="Spatial aggregation method")
 

@@ -22,6 +22,7 @@ def open_file(infile,
               variables=[],
               region=None,
               shape_label_header=None,
+              combine_shapes=False,
               spatial_agg=None,
               no_leap_days=False,
               time_freq=None,
@@ -43,7 +44,8 @@ def open_file(infile,
                              shapefile name, or
                              list length 2 (point selection), or
                              list length 4 (box selection).
-      shape_label_header (str) : Name of the shapefile column containing the region names 
+      shape_label_header (str) : Name of the shapefile column containing the region names
+      combine_shapes (bool) : Add a region that combines all shapes
       no_leap_days (bool) : Remove leap days from data
       time_freq (str) : Target temporal frequency for resampling
       time_agg (str) : Temporal aggregation method ('mean' or 'sum')
@@ -55,6 +57,7 @@ def open_file(infile,
     """
 
     ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)  #, chunks=chunks)
+
     if not chunks == 'auto':
         ds = ds.chunk(chunks)
 
@@ -73,7 +76,8 @@ def open_file(infile,
     # Spatial subsetting and aggregation
     if region or spatial_agg:
         ds = spatial_selection.select_region(ds, region=region, agg=spatial_agg,
-                                             header=shape_label_header)
+                                             header=shape_label_header,
+                                             combine_shapes=combine_shapes)
 
     # Temporal aggregation
     if not input_freq:

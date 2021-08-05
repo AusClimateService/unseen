@@ -8,7 +8,8 @@ import geopandas as gp
 import regionmask
 
 
-def select_region(ds, region=None, agg=None, header=None):
+def select_region(ds, region=None, agg=None,
+                  header=None, combine_shapes=False):
     """Select region.
     
     Args:
@@ -18,10 +19,12 @@ def select_region(ds, region=None, agg=None, header=None):
                              list length 4 (box selection).
       agg (str) : Aggregation method (spatial 'mean' or 'sum')
       header (str) : Name of the shapefile column containing the region names 
+      combine_shapes (bool) : Add region that combines all shapes in shapefile
     """
 
     if type(region) == str:
-        ds = select_shapefile_regions(ds, region, agg=agg, header=header)
+        ds = select_shapefile_regions(ds, region, agg=agg, header=header,
+                                      combine_shapes=combine_shapes)
     elif len(region) == 4:
         ds = select_box_region(ds, region)
     elif len(region) == 2:
@@ -44,7 +47,18 @@ def select_region(ds, region=None, agg=None, header=None):
     return ds
 
 
-def select_shapefile_regions(ds, shapefile, agg=None, header=None):
+def add_combined_shape(mask):
+    """Add new region to mask that combines all other regions."""
+
+    new_region_number = int(mask['region'].max()) + 1
+    mask_combined = mask.max(dim='region')
+    mask_combined = mask_combined.assign_coords(region=new_region_number).expand_dims('region')
+    mask = xr.concat([mask, mask_combined], 'region')
+
+    return mask
+
+
+def select_shapefile_regions(ds, shapefile, agg=None, header=None, combine_shapes=False):
     """Select region using a shapefile.
 
     Args:
@@ -58,7 +72,6 @@ def select_shapefile_regions(ds, shapefile, agg=None, header=None):
     lats = ds['lat'].values
 
     shapes = gp.read_file(shapefile)
-
     if agg == None:
         mask = regionmask.mask_geopandas(shapes, lons, lats)
         mask = xr.where(mask.notnull(), True, False)
@@ -68,11 +81,15 @@ def select_shapefile_regions(ds, shapefile, agg=None, header=None):
         ds = ds.groupby(mask).sum(keep_attrs=True)
     elif agg == 'mean':
         mask = regionmask.mask_3D_geopandas(shapes, lons, lats)
+        if combine_shapes:
+            mask = add_combined_shape(mask)
         weights = np.cos(np.deg2rad(ds['lat']))
         ds = ds.weighted(mask * weights).mean(dim=('lat', 'lon'), keep_attrs=True)
 
     if header:
-        ds = ds.assign_coords(region=shapes[header].values)
+        shape_names = shapes[header].to_list()
+        shape_names.append('all')
+        ds = ds.assign_coords(region=shape_names)
 
     return ds
 
@@ -92,7 +109,7 @@ def select_box_region(ds, box):
     assert 0 <= lon_east_bound < 360, "Valid longitude range is [0, 360)"
     assert 0 <= lon_west_bound < 360, "Valid longitude range is [0, 360)"
     
-    ds = ds.assign_coords({'lon': (da['lon'] + 360)  % 360})
+    ds = ds.assign_coords({'lon': (ds['lon'] + 360)  % 360})
         
     mask_lat = (ds['lat'] > lat_south_bound) & (ds['lat'] < lat_north_bound)
     if lon_east_bound < lon_west_bound:

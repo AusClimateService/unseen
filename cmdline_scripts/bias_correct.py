@@ -31,8 +31,10 @@ def _main(args):
     da_obs = ds_obs[args.var]
     
     bias = bias_correction.get_bias(da_fcst, da_obs, args.method,
-                                    time_period=args.base_period) 
-    da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method)
+                                    time_period=args.base_period,
+                                    monthly=args.monthly) 
+    da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method,
+                                             monthly=args.monthly)
     
     ds_fcst_bc = da_fcst_bc.to_dataset()
     infile_logs = {args.fcst_file: ds_fcst.attrs['history'],
@@ -59,6 +61,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--base_period", type=str, nargs=2,
                         help="Start and end date for baseline (YYYY-MM-DD format)")
+    parser.add_argument("--monthly", action="store_true", default=False,
+                        help="Monthly climatology / bias removal [default=False]")
     parser.add_argument("--output_chunks", type=str, nargs='*', action=general_utils.store_dict,
                         default={}, help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)")
 

@@ -18,7 +18,7 @@ ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
 ## bias-correction : bias corrected forecast data using observations
 bias-correction : ${FCST_BIAS_FILE}
 ${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
-	${PYTHON} ${SCRIPT_DIR}/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@
+	${PYTHON} ${SCRIPT_DIR}/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@ --base_period ${BASE_PERIOD}
 
 ## clean : remove all generated files
 clean :

@@ -141,21 +141,24 @@ def monthly_downsample_mean(ds, target_freq):
     return weighted_mean
 
 
-def get_monthly_clim(da, dim, time_period=None):
-    """Calculate monthly climatology
+def get_clim(da, dim, time_period=None, monthly=False):
+    """Calculate climatology
 
     Args:
       da (xarray DataArray)
-      dim (str) : Dimension over which to calculate climatology
-        (e.g. init_date)
+      dim (str) : Dimension over which to calculate climatology (e.g. init_date)
       time_period (list) : Time period
+      monthly (bool) : Calculate monthly climatology
     """
 
     if time_period is not None:
         da = mask_time_period(da.copy(), period)
         da.attrs['climatological_period'] = str(period)
     
-    clim = da.groupby(f'{dim}.month').mean(dim, keep_attrs=True)
+    if monthly:
+        clim = da.groupby(f'{dim}.month').mean(dim, keep_attrs=True)
+    else:
+        clim = da.mean(dim, keep_attrs=True)
 
     return clim
 

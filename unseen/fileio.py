@@ -94,7 +94,8 @@ def open_file(infile,
             ds = time_utils.select_complete_time_periods(ds, time_freq)
 
     output_freq = time_freq[0] if time_freq else input_freq
-    ds['time'].attrs['frequency'] = output_freq    
+    if output_freq:
+        ds['time'].attrs['frequency'] = output_freq    
 
     # General selection/subsetting
     if isel:
@@ -130,17 +131,17 @@ def open_mfforecast(infiles, **kwargs):
     datasets = []
     for infile in infiles:
         ds = open_file(infile, **kwargs)
-        time_freq = ds['time'].attrs['frequency']
+        time_attrs = ds['time'].attrs
         ds = array_handling.to_init_lead(ds)
         datasets.append(ds)
     ds = xr.concat(datasets, dim='init_date')
 
-    time_values = times_from_init_lead(ds, time_freq)
-    time_dimension = xr.DataArray(time_values,
+    time_values = times_from_init_lead(ds, time_attrs['frequency'])
+    time_dimension = xr.DataArray(time_values, attrs=time_attrs,
                                   dims={'lead_time': ds['lead_time'],
                                         'init_date': ds['init_date']})
     ds = ds.assign_coords({'time': time_dimension})
-    ds['lead_time'].attrs['units'] = time_freq
+    ds['lead_time'].attrs['units'] = time_attrs['frequency']
 
     return ds
 

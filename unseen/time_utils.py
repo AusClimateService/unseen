@@ -152,8 +152,8 @@ def get_clim(da, dim, time_period=None, monthly=False):
     """
 
     if time_period is not None:
-        da = mask_time_period(da.copy(), period)
-        da.attrs['climatological_period'] = str(period)
+        da = mask_time_period(da.copy(), time_period)
+        da.attrs['climatological_period'] = str(time_period)
     
     if monthly:
         clim = da.groupby(f'{dim}.month').mean(dim, keep_attrs=True)
@@ -179,7 +179,10 @@ def mask_time_period(da, period):
     if 'time' in da.dims:
         masked = da.sel({'time': slice(start, stop)})
     elif 'time' in da.coords:
-        calendar = da['time'].calendar_type.lower()
+        try:
+            calendar = da['time'].calendar_type.lower()
+        except AttributeError:
+            calendar = 'standard'
         time_bounds = xr.cftime_range(start=start, end=stop,
                                       periods=2, freq=None,
                                       calendar=calendar)

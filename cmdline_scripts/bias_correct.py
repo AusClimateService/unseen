@@ -27,7 +27,6 @@ def _main(args):
     n_lead_steps = int(da_fcst['lead_time'].values.max()) + 1
 
     ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
-    ds_obs = array_handling.stack_by_init_date(ds_obs, init_dates, n_lead_steps)
     da_obs = ds_obs[args.var]
     
     bias = bias_correction.get_bias(da_fcst, da_obs, args.method,

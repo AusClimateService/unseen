@@ -3,6 +3,8 @@
 import pdb
 import operator
 
+import xarray as xr
+
 import time_utils
 
 
@@ -21,16 +23,17 @@ def get_bias(fcst, obs, method, time_period=None, monthly=False):
     fcst_clim = time_utils.get_clim(fcst_ensmean, 'init_date',
                                     time_period=time_period,
                                     monthly=monthly)
-    obs_clim = time_utils.get_clim(obs, 'init_date',
+    obs_clim = time_utils.get_clim(obs, 'time',
                                    time_period=time_period,
                                    monthly=monthly)
 
-    if method == 'additive':
-        bias = fcst_clim - obs_clim
-    elif method == 'multiplicative':
-        bias = fcst_clim / obs_clim
-    else:
-        raise ValueError(f'Unrecognised bias removal method {method}')
+    with xr.set_options(keep_attrs=True):
+        if method == 'additive':
+            bias = fcst_clim - obs_clim
+        elif method == 'multiplicative':
+            bias = fcst_clim / obs_clim
+        else:
+            raise ValueError(f'Unrecognised bias removal method {method}')
 
     bias.attrs['bias_correction_method'] = method
     if time_period:
@@ -56,10 +59,11 @@ def remove_bias(fcst, bias, method, monthly=False):
     else:
         raise ValueError(f'Unrecognised bias removal method {method}')
 
-    if monthly:
-        fcst_bc = op(fcst.groupby('init_date.month'), bias).drop('month')
-    else:
-        fcst_bc = op(fcst, bias)
+    with xr.set_options(keep_attrs=True):
+        if monthly:
+            fcst_bc = op(fcst.groupby('init_date.month'), bias).drop('month')
+        else:
+            fcst_bc = op(fcst, bias)
 
     fcst_bc.attrs['bias_correction_method'] = bias.attrs['bias_correction_method']
     try:

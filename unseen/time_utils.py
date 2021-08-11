@@ -65,15 +65,17 @@ def update_rate(da, input_freq, target_freq):
     return new_units
 
     
-def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables):
+def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables, reset_times=False):
     """Temporal aggregation of data.
 
     Args:
       ds (xarray Dataset)
       target_freq (str) : Target frequency for the resampling (see options below)
-      agg_method (str) : Aggregation method ('mean' or 'sum')
-      variabless (list) : Variables in the dataset
+      agg_method (str) : Aggregation method ('mean', 'min', 'max' or 'sum')
+      variables (list) : Variables in the dataset
       input_freq (str) : Temporal frequency of input data (daily 'D', monthly 'M', annual 'A')
+      reset_time (bool) : Shift time values after resampling so months match initial date
+                          (used mainly for forecast data)
 
     Valid target frequencies:
       A-DEC (annual, with date label being last day of year) 
@@ -89,13 +91,17 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables):
 
     if input_freq == target_freq[0]:
         pass
+    elif agg_method == 'max':
+        ds = ds.resample(time=target_freq).max(dim='time', keep_attrs=True)
+    elif agg_method == 'min':
+        ds = ds.resample(time=target_freq).min(dim='time', keep_attrs=True)
     elif agg_method == 'sum':
-        ds = ds.resample(time=target_freq).sum(keep_attrs=True)
+        ds = ds.resample(time=target_freq).sum(dim='time', keep_attrs=True)
         for var in variables:
             ds[var].attrs['units'] = update_rate(ds[var], input_freq, target_freq)
     elif agg_method == 'mean':
         if input_freq == 'D':
-            ds = ds.resample(time=target_freq).mean(keep_attrs=True)
+            ds = ds.resample(time=target_freq).mean(dim='time', keep_attrs=True)
         elif input_freq == 'M':
             ds = monthly_downsample_mean(ds, target_freq)
         else:
@@ -103,9 +109,10 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables):
     else:
         raise ValueError(f'Unsupported temporal aggregation method: {agg_method}') 
 
-    diff = ds['time'].values[0] - start_time
-    ds['time'] = ds['time'] - diff
-    assert ds['time'].values[0] == start_time
+    if reset_times:
+        diff = ds['time'].values[0] - start_time
+        ds['time'] = ds['time'] - diff
+        assert ds['time'].values[0] == start_time
 
     return ds
 
@@ -136,7 +143,7 @@ def monthly_downsample_mean(ds, target_freq):
     """
 
     days_in_month = ds['time'].dt.days_in_month
-    weighted_mean = ( (ds * days_in_month).resample(time=target_freq).sum(keep_attrs=True) / days_in_month.resample(time=target_freq).sum() )
+    weighted_mean = ( (ds * days_in_month).resample(time=target_freq).sum(dim='time', keep_attrs=True) / days_in_month.resample(time=target_freq).sum(dim='time') )
 
     return weighted_mean
 

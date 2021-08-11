@@ -51,6 +51,7 @@ def _main(args):
               'no_leap_days': args.no_leap_days,
               'time_freq': args.time_freq,
               'time_agg': args.time_agg,
+              'reset_times': args.reset_times,
               'complete_time_agg_periods' : args.complete_time_agg_periods,
               'input_freq': args.input_freq,
               'isel': args.isel,
@@ -102,8 +103,10 @@ if __name__ == '__main__':
                         help="Remove leap days from time series [default=False]")
     parser.add_argument("--time_freq", type=str, choices=('A-DEC', 'M', 'Q-NOV', 'A-NOV'), default=None,
                         help="Target frequency for temporal aggregation")
-    parser.add_argument("--time_agg", type=str, choices=('mean', 'sum'), default=None,
+    parser.add_argument("--time_agg", type=str, choices=('mean', 'max', 'min', 'sum'), default=None,
                         help="Temporal aggregation method")
+    parser.add_argument("--reset_times", action="store_true", default=False,
+                        help="Shift time values after resampling so months match initial date [default=False]")
     parser.add_argument("--complete_time_agg_periods", action="store_true", default=False,
                         help="Limit temporal aggregation output to complete years/months [default=False]")
     parser.add_argument("--input_freq", type=str, choices=('M', 'D', 'Q', 'A'), default=None,

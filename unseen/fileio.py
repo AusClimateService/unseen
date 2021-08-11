@@ -28,6 +28,7 @@ def open_file(infile,
               no_leap_days=False,
               time_freq=None,
               time_agg=None,
+              reset_times=False,
               complete_time_agg_periods=False,
               input_freq=None,
               isel={},
@@ -48,7 +49,8 @@ def open_file(infile,
       spatial_agg (str) : Spatial aggregation method ('mean' or 'sum') 
       no_leap_days (bool) : Remove leap days from data
       time_freq (str) : Target temporal frequency for resampling
-      time_agg (str) : Temporal aggregation method ('mean' or 'sum')
+      time_agg (str) : Temporal aggregation method ('mean', 'sum', 'min' or 'max')
+      reset_times (bool) : Shift time values after resampling so months match initial date
       complete_time_agg_periods (bool) : Limit temporal aggregation output to complete years/months
       input_freq (str) : Input time frequency for resampling (estimated if not provided) 
       isel (dict) : Selection using xarray.Dataset.isel
@@ -56,7 +58,12 @@ def open_file(infile,
       units (dict) : Variable/s (keys) and desired units (values)
     """
 
-    ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)  #, chunks=chunks)
+    if infile[-3:] == '.nc':
+        ds = xr.open_dataset(infile, use_cftime=True)
+    elif 'zarr' in infile[-9:]:
+        ds = xr.open_zarr(infile, consolidated=True, use_cftime=True)  #, chunks=chunks)
+    else:
+        ValueError(f'File must end in .nc, .zarr or .zarr.zip')
 
     if not chunks == 'auto':
         ds = ds.chunk(chunks)
@@ -86,10 +93,11 @@ def open_file(infile,
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
-        assert time_agg, """Provide a time_agg ('mean' or 'sum')"""
+        assert time_agg, """Provide a time_agg"""
         if not input_freq:
             input_freq = xr.infer_freq(ds.indexes['time'][0:3])[0] 
-        ds = time_utils.temporal_aggregation(ds, time_freq, input_freq, time_agg, variables)
+        ds = time_utils.temporal_aggregation(ds, time_freq, input_freq, time_agg,
+                                             variables, reset_times=reset_times)
         if complete_time_agg_periods:
             ds = time_utils.select_complete_time_periods(ds, time_freq)
 

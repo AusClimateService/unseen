@@ -13,7 +13,7 @@ ${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
 ## process-forecast : preprocessing of CAFE forecast ensemble
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${IO_OPTIONS} --output_chunks lead_time=50 --dask_config ${DASK_CONFIG}
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${IO_OPTIONS} --reset_times --output_chunks lead_time=50 --dask_config ${DASK_CONFIG}
 
 ## bias-correction : bias corrected forecast data using observations
 bias-correction : ${FCST_BIAS_FILE}

@@ -159,7 +159,7 @@ def get_clim(da, dim, time_period=None, monthly=False):
     """
 
     if time_period is not None:
-        da = mask_time_period(da.copy(), time_period)
+        da = select_time_period(da.copy(), time_period)
         da.attrs['climatological_period'] = str(time_period)
     
     if monthly:
@@ -170,8 +170,8 @@ def get_clim(da, dim, time_period=None, monthly=False):
     return clim
 
 
-def mask_time_period(da, period):
-    """Mask a period of time.
+def select_time_period(da, period):
+    """Select a period of time.
 
     Args:
       da (xarray DataArray)
@@ -184,7 +184,7 @@ def mask_time_period(da, period):
     start, stop = period
 
     if 'time' in da.dims:
-        masked = da.sel({'time': slice(start, stop)})
+        selection = da.sel({'time': slice(start, stop)})
     elif 'time' in da.coords:
         try:
             calendar = da['time'].calendar_type.lower()
@@ -195,10 +195,10 @@ def mask_time_period(da, period):
                                       calendar=calendar)
         time_values = da['time'].compute()
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
-        masked = da.where(mask)
+        selection = da.where(mask)
     else:
         raise ValueError(f'No time axis for masking')
-    masked.attrs = da.attrs
+    selection.attrs = da.attrs
 
-    return masked
+    return selection
 

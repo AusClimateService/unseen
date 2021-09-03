@@ -1,10 +1,12 @@
 """Utilities for repeated random sampling"""
 
 import pdb
+import itertools
 
 import numpy as np
 import xarray as xr
 import dask
+import dask.bag as db
 
 
 def random_resample(*args, samples,

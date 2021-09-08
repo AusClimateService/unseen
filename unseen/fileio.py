@@ -133,6 +133,18 @@ def times_from_init_lead(ds, time_freq):
     return time_values
 
 
+def open_mfzarr(infiles, **kwargs):
+    """Open multiple zarr files"""
+
+    datasets = []
+    for infile in infiles:
+        ds = open_file(infile, **kwargs)
+        datasets.append(ds) 
+    ds = xr.concat(datasets, dim='time')
+
+    return ds
+
+
 def open_mfforecast(infiles, **kwargs):
     """Open multi-file forecast."""
 
@@ -157,15 +169,16 @@ def open_mfforecast(infiles, **kwargs):
 def fix_metadata(ds, metadata_file, variables):
     """Edit the attributes of an xarray Dataset.
     
-    ds (xarray Dataset or DataArray)
-    metadata_file (str) : YAML file specifying required file metadata changes
-    variables (list): Variables to rename (provide target name)
+    Args:
+      ds (xarray Dataset or DataArray)
+      metadata_file (str) : YAML file specifying required file metadata changes
+      variables (list): Variables to rename (provide target name)
     """
  
     with open(metadata_file, 'r') as reader:
         metadata_dict = yaml.load(reader, Loader=yaml.BaseLoader)
 
-    valid_keys = ['rename', 'drop_coords', 'units']
+    valid_keys = ['rename', 'drop_coords', 'round_coords', 'units']
     for key in metadata_dict.keys():
         if not key in valid_keys:
             raise KeyError(f'Invalid metadata key: {key}')
@@ -181,6 +194,10 @@ def fix_metadata(ds, metadata_file, variables):
         for drop_coord in metadata_dict['drop_coords']:
             if drop_coord in ds.coords:
                 ds = ds.drop(drop_coord)
+
+    if 'round_coords' in metadata_dict:
+        for coord in metadata_dict['round_coords']:
+            ds = ds.assign_coords({coord: ds[coord].round(decimals=10)})
 
     if 'units' in metadata_dict:
         for var, units in metadata_dict['units'].items():

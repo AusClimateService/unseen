@@ -1,4 +1,4 @@
-# CAFE required metadata changes
+# CAFE daily required metadata changes
 
 rename:
   precip: pr
@@ -14,3 +14,5 @@ drop_coords:
   - zsurf
   - area
 
+round_coords:
+  - lat

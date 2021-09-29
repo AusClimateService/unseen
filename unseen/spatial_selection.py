@@ -135,6 +135,7 @@ def select_point_region(ds, point):
     """
     
     lat, lon = point
+    lon = (lon + 360) % 360
     ds = ds.sel({'lat': lat, 'lon': lon}, method='nearest', drop=True)
     
     return ds

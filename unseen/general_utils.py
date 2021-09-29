@@ -2,6 +2,7 @@
 
 import pdb
 import argparse
+import re
 
 import xclim
 
@@ -43,3 +44,19 @@ def convert_units(da, target_units):
     da = xclim.units.convert_units_to(da, target_units)
 
     return da
+
+def date_pair_to_time_slice(date_list):
+    """Convert two dates to a time slice object."""
+
+    assert len(date_list) == 2
+    start_date, end_date = date_list
+
+    date_pattern = '([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})'
+    assert re.search(date_pattern, start_date), 'Start date not in YYYY-MM-DD format'
+    assert re.search(date_pattern, end_date), 'End date not in YYYY-MM-DD format'
+
+    time_slice = slice(start_date, end_date)
+
+    return time_slice
+
+ 

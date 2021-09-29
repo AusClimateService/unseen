@@ -1,4 +1,4 @@
-.PHONY: all process-obs process-forecast bias-correction clean help settings
+.PHONY: all process-obs process-forecast bias-correction similarity-test clean help settings
 
 include ${CONFIG}
 
@@ -6,8 +6,8 @@ SCRIPT_DIR=/home/599/dbi599/unseen/cmdline_scripts
 PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
 
 ## process-obs : preprocessing of observational data
-process-obs : ${OBS_FORECAST_FILE}
-${OBS_FORECAST_FILE} : ${OBS_DATA} ${OBS_METADATA}
+process-obs : ${OBS_PROCESSED_FILE}
+${OBS_PROCESSED_FILE} : ${OBS_DATA} ${OBS_METADATA}
 	${PYTHON} ${SCRIPT_DIR}/preprocess.py $< obs $@ --metadata_file $(word 2,$^) ${IO_OPTIONS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
@@ -17,12 +17,18 @@ ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
 
 ## bias-correction : bias corrected forecast data using observations
 bias-correction : ${FCST_BIAS_FILE}
-${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_FORECAST_FILE}
+${FCST_BIAS_FILE} : ${FCST_ENSEMBLE_FILE} ${OBS_PROCESSED_FILE}
 	${PYTHON} ${SCRIPT_DIR}/bias_correct.py $< $(word 2,$^) ${VAR} ${BIAS_METHOD} $@ --base_period ${BASE_PERIOD}
+
+## similarity-test : similarity test between observations and bias corrected forecast
+similarity-test : ${SIMILARITY_FILE}
+${SIMILARITY_FILE} : ${FCST_BIAS_FILE} ${OBS_PROCESSED_FILE}
+	${PYTHON} ${SCRIPT_DIR}/similarity_test.py $< $(word 2,$^) ${VAR} $@ --reference_time_period ${BASE_PERIOD}
+
 
 ## clean : remove all generated files
 clean :
-	rm ${OBS_FORECAST_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE}
+	rm ${OBS_FORECAST_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE} ${SIMILARITY_FILE}
 
 ## settings : show variables' values
 settings :

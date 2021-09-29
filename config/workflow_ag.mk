@@ -22,9 +22,11 @@ FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-2020110
 
 OBS_DATA=/g/data/xv83/observations/AWAP/rain_day_19000101-20210425_cafe-grid.zarr.zip
 OBS_METADATA=config/dataset_awap_daily.yml
-OBS_FORECAST_FILE=/g/data/xv83/dbi599/${VAR}_awap_1900-2020_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
+OBS_PROCESSED_FILE=/g/data/xv83/dbi599/${VAR}_awap_1900-2020_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 
 FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
+
+SIMILARITY_FILE=/g/data/xv83/dbi599/ks_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
 
 DASK_CONFIG=config/dask_local.yml
 

@@ -3,7 +3,7 @@
 include ${CONFIG}
 
 SCRIPT_DIR=/home/599/dbi599/unseen/cmdline_scripts
-PYTHON=/g/data/e14/dbi599/miniconda3/envs/unseen/bin/python
+PYTHON=/g/data/xv83/dbi599/miniconda3/envs/unseen/bin/python
 
 ## process-obs : preprocessing of observational data
 process-obs : ${OBS_PROCESSED_FILE}

@@ -14,9 +14,10 @@ import xarray as xr
 
 import fileio
 import general_utils
+import xks
 
 
-def univariate_ks_test(fcst_stacked, obs_stacked):
+def univariate_ks_test(fcst_stacked, obs_stacked, var):
     """Univariate KS test.
 
     If p < 0.05 you can reject the null hypothesis
@@ -27,14 +28,18 @@ def univariate_ks_test(fcst_stacked, obs_stacked):
     pvals = []
     for lead_time in fcst_stacked['lead_time'].values:
         ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_stacked.sel({'lead_time': lead_time}), 'sample')
-        ks_distance = ks_distance.rename({'pr': 'ks'})
-        pval = pval.rename({'pr': 'pval'})
+        ks_distance = ks_distance.rename({var: 'ks'})
+        pval = pval.rename({var: 'pval'})
         ks_distances.append(ks_distance['ks'])
         pvals.append(pval['pval'])
 
     ks_distances = xr.concat(ks_distances, 'lead_time')
     pvals = xr.concat(pvals, 'lead_time')
     ds = xr.merge([ks_distances, pvals])
+
+    ds['ks'].attrs = {'long_name': 'kolmogorov_smirnov_statistic'}
+    ds['pval'].attrs = {'long_name': 'p_value',
+                        'note': 'If p < 0.05 reject the null hypothesis that the samples are from different populations'}
 
     return ds
 
@@ -47,21 +52,19 @@ def _main(args):
         print(client)
 
     ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
-    da_fcst = ds_fcst[args.var]
 
     ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
-    da_obs = ds_obs[args.var]
     if args.reference_time_period:
         time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
-        da_obs = da_obs.sel({'time': time_slice})
+        ds_obs = ds_obs.sel({'time': time_slice})
         
-    fcst_stacked = ds_cafe.stack({'sample': ['ensemble', 'init_date']})
+    fcst_stacked = ds_fcst.stack({'sample': ['ensemble', 'init_date']})
     fcst_stacked = fcst_stacked.chunk({'sample': -1, 'region': 1})
 
     obs_stacked = ds_obs.rename(time='sample')
     obs_stacked = obs_stacked.chunk({'sample': -1, 'region': 1})
 
-    ds_similarity = univariate_ks_test(fcst_stacked, obs_stacked)
+    ds_similarity = univariate_ks_test(fcst_stacked, obs_stacked, args.var)
 
     infile_logs = {args.fcst_file: ds_fcst.attrs['history'],
                    args.obs_file: ds_obs.attrs['history']}
@@ -70,7 +73,7 @@ def _main(args):
 
     if args.output_chunks:
         ds_similarity = ds_similarity.chunk(args.output_chunks)
-    fileio.to_zarr(ds_scores, args.outfile)
+    fileio.to_zarr(ds_similarity, args.outfile)
 
 
 if __name__ == '__main__':

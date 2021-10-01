@@ -18,15 +18,15 @@ IO_OPTIONS=--variables ${VAR} --spatial_coords -44 -11 113 154 --shapefile ${SHA
 
 FCST_DATA := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-??[9,0,1,2]*/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/dataset_cafe_daily.yml
-FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
+FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 
 OBS_DATA=/g/data/xv83/observations/AWAP/rain_day_19000101-20210425_cafe-grid.zarr.zip
 OBS_METADATA=config/dataset_awap_daily.yml
-OBS_PROCESSED_FILE=/g/data/xv83/dbi599/${VAR}_awap_1900-2020_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
+OBS_PROCESSED_FILE=/g/data/xv83/dbi599/ag/${VAR}_awap_1900-2020_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 
-FCST_BIAS_FILE=/g/data/xv83/dbi599/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
+FCST_BIAS_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
 
-SIMILARITY_FILE=/g/data/xv83/dbi599/ks_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
+SIMILARITY_FILE=/g/data/xv83/dbi599/ag/ks_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
 
 DASK_CONFIG=config/dask_local.yml
 

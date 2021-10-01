@@ -26,7 +26,10 @@ OBS_PROCESSED_FILE=/g/data/xv83/dbi599/ag/${VAR}_awap_1900-2020_${TIME_FREQ}-${T
 
 FCST_BIAS_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
 
-SIMILARITY_FILE=/g/data/xv83/dbi599/ag/ks_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
+SIMILARITY_FILE=/g/data/xv83/dbi599/ag/ks-test_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}.zarr.zip
+
+INDEPENDENCE_PLOT=/g/data/xv83/dbi599/ag/independence-test_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-awap-${BIAS_METHOD}_region-all.png
+INDEPENDENCE_LOCATION=region=all
 
 DASK_CONFIG=config/dask_local.yml
 

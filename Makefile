@@ -1,4 +1,4 @@
-.PHONY: all process-obs process-forecast bias-correction similarity-test clean help settings
+.PHONY: all process-obs process-forecast bias-correction similarity-test independence-test clean help settings
 
 include ${CONFIG}
 
@@ -25,15 +25,20 @@ similarity-test : ${SIMILARITY_FILE}
 ${SIMILARITY_FILE} : ${FCST_BIAS_FILE} ${OBS_PROCESSED_FILE}
 	${PYTHON} ${SCRIPT_DIR}/similarity_test.py $< $(word 2,$^) ${VAR} $@ --reference_time_period ${BASE_PERIOD}
 
+## independence-test : independence test for different lead times
+independence-test : ${INDEPENDENCE_PLOT}
+${INDEPENDENCE_PLOT} : ${FCST_BIAS_FILE}
+	${PYTHON} ${SCRIPT_DIR}/independence_test.py $< ${VAR} $@ --spatial_selection ${INDEPENDENCE_LOCATION}
 
 ## clean : remove all generated files
 clean :
-	rm ${OBS_FORECAST_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE} ${SIMILARITY_FILE}
+	rm ${OBS_FORECAST_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE} ${SIMILARITY_FILE} ${INDEPENDENCE_PLOT}
 
 ## settings : show variables' values
 settings :
 	@echo REGION: ${REGION}
 	@echo BIAS_METHOD: ${BIAS_METHOD}
+	@echo BASE_PERIOD: ${BASE_PERIOD}
 	@echo VAR: ${VAR}
 	@echo TIME_FREQ: ${TIME_FREQ}
 	@echo TIME_AGG: ${TIME_AGG}

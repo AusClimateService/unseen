@@ -8,8 +8,14 @@ sys.path.insert(1, module_dir)
 
 import pdb
 import argparse
+import calendar
+import itertools
 
+import numpy as np
+import pandas as pd
 import xarray as xr
+import xskillscore as xs
+import matplotlib.pyplot as plt
 
 import fileio
 import general_utils
@@ -54,6 +60,7 @@ def mean_ensemble_correlation(da, dim='init_date'):
     
     return mean_corr
 
+
 def random_sample(ds, sample_dim, sample_size):
     """Take random sample along a given dimension.
     
@@ -84,6 +91,56 @@ def random_mean_ensemble_correlation(ds, n_init_dates, n_ensembles):
     return mean_corr
 
 
+def get_null_correlation_bounds(da):
+    """Get the uncertainty bounds on zero correlation.
+
+    Performs bootstrapping via a simple loop.
+    """
+    
+    n_init_dates = len(da['init_date'])
+    n_ensembles = len(da['ensemble']) 
+    da_stacked = da.stack(sample=('init_date', 'lead_time', 'ensemble'))
+    
+    null_correlations = []
+    n_repeats = 100
+    for repeat in range(n_repeats):
+        mean_corr = random_mean_ensemble_correlation(da_stacked,
+                                                     n_init_dates,
+                                                     n_ensembles)
+        null_correlations.append(mean_corr)
+    null_correlations = xr.concat(null_correlations, "k")
+    null_correlations = null_correlations.chunk({'k': -1})
+
+    lower_bound = float(null_correlations.quantile(0.025).values)
+    upper_bound = float(null_correlations.quantile(0.975).values)
+
+    return lower_bound, upper_bound
+
+
+def create_plot(mean_correlations, null_correlation_bounds, max_lead_times, outfile):
+    """Create plot."""
+
+    fig, ax = plt.subplots()
+
+    months = list(mean_correlations.keys())
+    months.sort()
+    for month in months:
+        color = next(ax._get_lines.prop_cycler)['color']
+
+        month_abbr = calendar.month_abbr[month]
+        mean_correlations[month].plot(color=color, marker='o', linestyle='None', label=f'{month_abbr} starts')
+
+        lower_bound, upper_bound = null_correlation_bounds[month]
+        lead_time_bounds = [1, max_lead_times[month]]
+        
+        plt.plot(lead_time_bounds, [lower_bound, lower_bound], color=color, linestyle='--')
+        plt.plot(lead_time_bounds, [upper_bound, upper_bound], color=color, linestyle='--')
+
+    plt.ylabel('correlation')
+    plt.legend()
+    plt.savefig(outfile)
+
+
 def _main(args):
     """Run the command line program."""
 
@@ -91,59 +148,21 @@ def _main(args):
         client = dask_setup.launch_client(args.dask_config)
         print(client)
 
-    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
+    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var], sel=args.spatial_selection)
     da_fcst = ds_fcst[args.var]
 
-    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
-    da_obs = ds_obs[args.var]
-    if args.reference_time_period:
-        time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
-        da_obs = da_obs.sel({'time': time_slice})
+    months = np.unique(da_fcst['init_date'].dt.month.values)
+    mean_correlations = {}
+    null_correlation_bounds = {}
+    max_lead_times = {}
+    for month in months:
+        da_fcst_month = da_fcst.where(da_fcst['init_date'].dt.month == month, drop=True)
+        da_fcst_month_detrended = remove_ensemble_mean_trend(da_fcst_month, dim='init_date')
+        mean_correlations[month] = mean_ensemble_correlation(da_fcst_month_detrended, dim='init_date')
+        null_correlation_bounds[month] = get_null_correlation_bounds(da_fcst_month_detrended )
+        max_lead_times[month] = da_fcst_month['lead_time'].max()
 
-    # TODO: write a loop for each init_date month
-
-    ds_fcst_may = ds_fcst.where(ds_fcst['init_date'].dt.month == 5, drop=True)
-    ds_fcst_nov = ds_fcst.where(ds_fcst['init_date'].dt.month == 11, drop=True)
-
-    n_init_dates = len(ds_fcst_may['init_date'])
-    n_ensembles = len(ds_fcst_may['ensemble'])
-
-    da_fcst_may_detrended = remove_ensemble_mean_trend(ds_fcst_may['pr'], dim='init_date')
-    da_fcst_nov_detrended = remove_ensemble_mean_trend(ds_fcst_nov['pr'], dim='init_date')
-
-    mean_corr_may = mean_ensemble_correlation(da_fcst_may_detrended, dim='init_date')
-    mean_corr_nov = mean_ensemble_correlation(da_fcst_nov_detrended, dim='init_date')        
-
-    da_cafe_may_detrended_stacked = da_cafe_may_detrended.stack(sample=('init_date', 'lead_time', 'ensemble'))
-
-    n_population = len(da_fcst_may_detrended_stacked['sample'])
-    sample_size = n_init_dates * n_ensembles
-
-    #simple bootstrapping
-    null_correlations = []
-    n_repeats = 100
-    for repeat in range(n_repeats):
-        mean_corr = random_mean_ensemble_correlation(da_fcst_may_detrended_stacked,
-                                                     n_init_dates,
-                                                     n_ensembles)
-        null_correlations.append(mean_corr)
-    null_correlations = xr.concat(null_correlations, "k")
-    null_correlations = null_correlations.chunk({'k': -1})
-
-    may_lower_bound = float(null_correlations.sel({'region': 'all'}).quantile(0.025).values)
-    may_upper_bound = float(null_correlations.sel({'region': 'all'}).quantile(0.975).values)
-
-    mean_corr_may.sel({'region': 'all'}).plot(color='blue', marker='o', linestyle='None', label=f'May starts')
-    mean_corr_nov.sel({'region': 'all'}).plot(color='orange', marker='o', linestyle='None', label=f'Nov starts')
-
-    lead_bounds = [1, ds_cafe_may['lead_time'].max()]
-
-    plt.plot(lead_bounds, [may_lower_bound, may_lower_bound], color='blue', linestyle='--')
-    plt.plot(lead_bounds, [nov_upper_bound, nov_upper_bound], color='orange', linestyle='--')
- 
-    plt.ylabel('correlation')
-    plt.legend()
-    plt.show()
+    create_plot(mean_correlations, null_correlation_bounds, max_lead_times, args.outfile)
 
 
 if __name__ == '__main__':
@@ -151,20 +170,14 @@ if __name__ == '__main__':
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument("fcst_file", type=str, help="Forecast file")
-    parser.add_argument("obs_file", type=str, help="Observations file")
     parser.add_argument("var", type=str, help="Variable name")
-#    parser.add_argument("test", type=str,
-#                        choices=('kolmogorov_smirnov'),
-#                        help="Similarity test")
     parser.add_argument("outfile", type=str, help="Output file")
 
     parser.add_argument("--dask_config", type=str,
                         help="YAML file specifying dask client configuration")
 
-    parser.add_argument("--reference_time_period", type=str, nargs=2, default=None,
-                        help="Start and end date (YYYY-MM-DD format)")
-    parser.add_argument("--output_chunks", type=str, nargs='*', action=general_utils.store_dict,
-                        default={}, help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)")
+    parser.add_argument("--spatial_selection", type=str, nargs='*', default={}, action=general_utils.store_dict,
+                        help="Spatial variable / selection pair (e.g. region=all)")
 
     args = parser.parse_args()
     _main(args)

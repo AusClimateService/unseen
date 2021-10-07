@@ -24,7 +24,8 @@ import general_utils
 def _main(args):
     """Run the command line program."""
 
-    logging.basicConfig(level=logging.INFO, filename='seatac_tXx_histogram.log')
+    logfile = args.logfile if args.logfile else args.outfile.split('.')[0] + '.log'
+    logging.basicConfig(level=logging.INFO, filename=logfile, filemode='w')
     general_utils.set_plot_params(args.plotparams)
     
     ds_obs = fileio.open_file(args.obs_file,
@@ -84,6 +85,8 @@ if __name__ == '__main__':
     
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
+    parser.add_argument('--logfile', type=str, default=None,
+                        help='name of logfile (default = same as outfile but with .log extension')
     
     args = parser.parse_args()
     _main(args)

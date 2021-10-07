@@ -1,0 +1,5 @@
+axes.titlesize     : xx-large ## fontsize of title
+axes.labelsize     : x-large  ## fontsize of the x and y labels
+xtick.labelsize    : large    ## fontsize of the tick labels
+ytick.labelsize    : large    ## fontsize of the tick labels
+legend.fontsize    : x-large  ## fontsize for legend

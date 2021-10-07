@@ -4,6 +4,8 @@ import pdb
 import argparse
 import re
 
+import yaml
+import matplotlib as mpl
 import xclim
 
 
@@ -45,6 +47,7 @@ def convert_units(da, target_units):
 
     return da
 
+
 def date_pair_to_time_slice(date_list):
     """Convert two dates to a time slice object."""
 
@@ -59,4 +62,16 @@ def date_pair_to_time_slice(date_list):
 
     return time_slice
 
- 
+
+def set_plot_params(param_file):
+    """Set the matplotlib parameters."""
+    
+    if param_file:
+        with open(param_file, 'r') as reader:
+            param_dict = yaml.load(reader,
+                                   Loader=yaml.BaseLoader)
+    else:
+        param_dict = {}
+    for param, value in param_dict.items():
+        mpl.rcParams[param] = value
+

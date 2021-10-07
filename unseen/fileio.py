@@ -16,6 +16,12 @@ import time_utils
 import array_handling
 
 
+image_metadata_keys = {'png': 'History',
+                       'pdf': 'Title',
+                       'eps': 'Creator',
+                       'ps' : 'Creator'} 
+
+
 def open_file(infile,
               chunks='auto',
               metadata_file=None,
@@ -223,7 +229,7 @@ def get_new_log(infile_logs=None, repo_dir=None):
                               infile_logs=infile_logs)
 
     return new_log
-
+ 
 
 def zip_zarr(zarr_filename, zip_filename):
     """Zip a zarr collection"""

@@ -17,7 +17,7 @@ ${REANALYSIS_HOT_DAY_PLOT} : ${REANALYSIS_HGT_FILE} ${REANALYSIS_TAS_FILE}
 ## plot-model-hot-day : plot model hottest day
 plot-model-hot-day : ${MODEL_HOT_DAY_PLOT}
 ${MODEL_HOT_DAY_PLOT} : ${FCST_CONFIG}
-	${PYTHON} plot_model_hottest_day.py ${FCST_DATA} $< $@ --max_index 73506 61 --plotparams ${CONFIG_DIR}/plotparams_publication.yml
+	${PYTHON} plot_model_hottest_day.py ${FCST_DATA} $< $@ --plotparams ${CONFIG_DIR}/plotparams_publication.yml --max_index 73506 61
 
 ## clean : remove all generated files
 clean :

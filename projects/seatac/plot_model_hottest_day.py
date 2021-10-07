@@ -22,7 +22,7 @@ import general_utils
 import plot_reanalysis_hottest_day as prhd
 
 
-def get_max_indeces(infiles, config_file):
+def get_max_indices(infiles, config_file):
     """Get the time and ensemble index for hottest day at SeaTac"""
 
     ds = fileio.open_mfzarr(infiles,
@@ -39,7 +39,7 @@ def get_max_indeces(infiles, config_file):
     logging.info(f'Max temperature at SeaTac, ensemble index: {ens_idx}')
 
     max_temp = float(ds['tasmax'].isel({'ensemble': ens_idx , 'time': time_idx}).values)
-    max_temp - 273.15
+    max_temp = max_temp - 273.15
     logging.info(f'Maximum temperature at SeaTac: {max_temp}C')
 
     return time_idx, ens_idx

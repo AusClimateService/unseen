@@ -30,6 +30,6 @@ TXX_HISTOGRAM_PLOT=${SEATAC_DIR}/tasmax_histogram_seatac.pdf
 REANALYSIS_HOT_DAY_PLOT=${SEATAC_DIR}/seatac_2021-06-28_era5.pdf
 MODEL_HOT_DAY_PLOT=${SEATAC_DIR}/seatac_hottest_day_cafe.pdf
 TXX_SAMPLE_PLOT=${SEATAC_DIR}/tasmax_samples_seatac.pdf
-
+TXX_LIKELIHOOD_PLOT=${SEATAC_DIR}/tasmax_likelihoods_seatac.pdf
 
 

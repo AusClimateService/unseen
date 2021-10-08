@@ -29,7 +29,7 @@ REANALYSIS_TAS_FILE=${SEATAC_DIR}/tas_ERA5_hourly_2021-06-28.grib
 TXX_HISTOGRAM_PLOT=${SEATAC_DIR}/tasmax_histogram_seatac.pdf
 REANALYSIS_HOT_DAY_PLOT=${SEATAC_DIR}/seatac_2021-06-28_era5.pdf
 MODEL_HOT_DAY_PLOT=${SEATAC_DIR}/seatac_hottest_day_cafe.pdf
-
+TXX_SAMPLE_PLOT=${SEATAC_DIR}/tasmax_samples_seatac.pdf
 
 
 

@@ -20,9 +20,14 @@ plot-model-hot-day : ${MODEL_HOT_DAY_PLOT}
 ${MODEL_HOT_DAY_PLOT} : ${FCST_CONFIG}
 	${PYTHON} plot_model_hottest_day.py ${FCST_DATA} $< $@ --plotparams ${PLOT_PARAMS} --max_index 73506 61 --point ${LON} ${LAT}
 
+## plot-sample-size-dist : plot TXx sample size distribution
+plot-sample-size-dist : ${TXX_SAMPLE_PLOT}
+${TXX_SAMPLE_PLOT} : ${FCST_ENSEMBLE_FILE}
+	${PYTHON} plot_TXx_sample_size_distribution.py $< $@ --plotparams ${PLOT_PARAMS}
+
 ## clean : remove all generated files
 clean :
-	rm ${TXX_HISTOGRAM_PLOT} ${REANALYSIS_HOT_DAY_PLOT} ${MODEL_HOT_DAY_PLOT}
+	rm ${TXX_HISTOGRAM_PLOT} ${REANALYSIS_HOT_DAY_PLOT} ${MODEL_HOT_DAY_PLOT} ${TXX_SAMPLE_PLOT}
 
 ## help : show this message
 help :

@@ -1,4 +1,4 @@
-.PHONY: all plot-histogram plot-reanalysis-hot-day plot-model-hot-day plot-sample-size-dist plot-likelihoods clean help
+.PHONY: all plot-histogram plot-reanalysis-hot-day plot-model-hot-day plot-sample-size-dist plot-likelihoods plot-return-periods clean help
 
 include ${CONFIG}
 
@@ -30,9 +30,14 @@ plot-likelihoods : ${TXX_LIKELIHOOD_PLOT}
 ${TXX_LIKELIHOOD_PLOT} : ${FCST_ENSEMBLE_FILE}
 	${PYTHON} plot_TXx_likelihoods.py $< $@ --plotparams ${PLOT_PARAMS}
 
+## plot-return-periods : plot TXx return periods
+plot-return-periods : ${TXX_RETURN_PERIODS_PLOT}
+${TXX_RETURN_PERIODS_PLOT} : ${FCST_ENSEMBLE_FILE}
+	${PYTHON} plot_TXx_return_periods.py $< $@ --plotparams ${PLOT_PARAMS}
+
 ## clean : remove all generated files
 clean :
-	rm ${TXX_HISTOGRAM_PLOT} ${REANALYSIS_HOT_DAY_PLOT} ${MODEL_HOT_DAY_PLOT} ${TXX_SAMPLE_PLOT} ${TXX_LIKELIHOOD_PLOT}
+	rm ${TXX_HISTOGRAM_PLOT} ${REANALYSIS_HOT_DAY_PLOT} ${MODEL_HOT_DAY_PLOT} ${TXX_SAMPLE_PLOT} ${TXX_LIKELIHOOD_PLOT} ${TXX_RETURN_PERIODS_PLOT}
 
 ## help : show this message
 help :

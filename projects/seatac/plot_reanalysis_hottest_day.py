@@ -20,8 +20,19 @@ import fileio
 import general_utils
 
 
-def plot_usa(da_tasmax, da_h500, outfile, metadata_key, command_log, data_source):
-    """USA plot"""
+def plot_usa(da_tasmax, da_h500, outfile, metadata_key, command_log,
+             data_source, point=None):
+    """Plot map of USA
+
+    Args:
+      da_tasmax (xarray DataArray) : maximum temperature data
+      da_h500 (xarray DataArray) : 500hPa geopotential height data
+      outfile (str) : output file name
+      metadata_key (str) : key for image metadata entry
+      command_log (str) : commnad log for metadata entry
+      data_source (str) : data source for title
+      point (list) : coordinates of point to plot (lon, lat)
+    """
     
     assert data_source in ['Observations', 'Model']
 
@@ -42,8 +53,9 @@ def plot_usa(da_tasmax, da_h500, outfile, metadata_key, command_log, data_source
                                  levels=h500_levels,
                                  colors=['0.1'])
     ax.clabel(lines, colors=['0.1'], manual=False, inline=True)
-        
-    ax.plot(-122.31 + 360, 47.45, 'bo', transform=ccrs.PlateCarree())
+    if point:
+        lon, lat = point
+        ax.plot(lon, lat, 'bo', transform=ccrs.PlateCarree())
     ax.coastlines()
     ax.set_extent([-140, -60, 20, 70])
     ax.gridlines(linestyle='--')
@@ -66,7 +78,8 @@ def _main(args):
 
     new_log = fileio.get_new_log(repo_dir=repo_dir)
     metadata_key = fileio.image_metadata_keys[args.outfile.split('.')[-1]]
-    plot_usa(da_tasmax, da_h500, args.outfile, metadata_key, new_log, 'Observations')
+    plot_usa(da_tasmax, da_h500, args.outfile, metadata_key, new_log,
+             'Observations', point=args.point)
 
 
 if __name__ == '__main__':
@@ -77,6 +90,8 @@ if __name__ == '__main__':
     parser.add_argument("tas_file", type=str, help="temperature file")
     parser.add_argument("outfile", type=str, help="output file")
     
+    parser.add_argument('--point', type=float, nargs=2, metavar=('lon', 'lat'),
+                        default=None, help='plot marker at this point')
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
     

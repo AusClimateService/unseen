@@ -2,6 +2,8 @@
 
 VAR=tasmax
 UNITS=${VAR}=C
+LAT=47.45
+LON=237.69
 REGION_NAME=seatac
 TIME_FREQ=A-DEC
 TIME_AGG=max
@@ -11,7 +13,7 @@ SEATAC_DIR=/g/data/xv83/dbi599/seatac
 
 DASK_CONFIG=${CONFIG_DIR}/dask_local.yml
 
-IO_OPTIONS=--variables ${VAR} --spatial_coords 47.45 -122.31 --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods --units ${UNITS}
+IO_OPTIONS=--variables ${VAR} --spatial_coords ${LAT} ${LON} --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods --units ${UNITS}
 
 FCST_DATA := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-??[9,0,1,2]*/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=${CONFIG_DIR}/dataset_cafe_daily.yml

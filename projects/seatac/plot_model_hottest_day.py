@@ -66,7 +66,8 @@ def _main(args):
 
     new_log = fileio.get_new_log(repo_dir=repo_dir)
     metadata_key = fileio.image_metadata_keys[args.outfile.split('.')[-1]]
-    prhd.plot_usa(ds_max['tasmax'], ds_max['h500'], args.outfile, metadata_key, new_log, 'Model')
+    prhd.plot_usa(ds_max['tasmax'], ds_max['h500'], args.outfile, metadata_key, new_log,
+                  'Model', point=args.point)
 
 
 if __name__ == '__main__':
@@ -79,6 +80,8 @@ if __name__ == '__main__':
     
     parser.add_argument('--max_index', type=int, nargs=2, default=None,
                         help='time and ensemble index of hottest day')
+    parser.add_argument('--point', type=float, nargs=2, metavar=('lon', 'lat'),
+                        default=None, help='plot marker at this point')
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
     parser.add_argument('--logfile', type=str, default=None,

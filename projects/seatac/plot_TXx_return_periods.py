@@ -48,7 +48,7 @@ def _main(args):
     logging.info(f'TXx={threshold}C return period in full model ensemble: {full_model_return_period}')
 
     gev_shape, gev_loc, gev_scale = gev.fit(ds_ensemble_stacked['tasmax'].values)
-    gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=n_repeats) #10000
+    gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=args.gev_samples)
     full_gev_return_period = return_period(gev_data, threshold)
     logging.info(f'TXx={threshold}C return period from GEV fit to full model ensemble: {full_gev_return_period}')
 
@@ -66,7 +66,7 @@ def _main(args):
             model_return_period = return_period(model_subsample.values, threshold)
             model_estimates.append(model_return_period)
             gev_shape, gev_loc, gev_scale = gev.fit(model_subsample.values)
-            gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=n_repeats)  #10000
+            gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=args.gev_samples)  
             gev_return_period = return_period(gev_data, threshold)
             gev_estimates.append(gev_return_period)
         df_model_return_period[sample_size] = model_estimates
@@ -102,7 +102,9 @@ if __name__ == '__main__':
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
     parser.add_argument('--logfile', type=str, default=None,
-                        help='name of logfile (default = same as outfile but with .log extension')
+                        help='name of logfile (default = same as outfile but with .log extension)')
+    parser.add_argument('--gev_samples', type=int, default=10000,
+                        help='number of times to sample the GEVs')
     
     args = parser.parse_args()
     _main(args)

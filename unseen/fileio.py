@@ -82,10 +82,6 @@ def open_file(infile,
     if variables:
         ds = ds[variables]
 
-    # Units
-    for var, target_units in units.items():
-        ds[var] = general_utils.convert_units(ds[var], target_units)
-        
     # Spatial subsetting and aggregation
     if spatial_coords or shapefile or spatial_agg:
         ds = spatial_selection.select_region(ds,
@@ -110,6 +106,10 @@ def open_file(infile,
     output_freq = time_freq[0] if time_freq else input_freq
     if output_freq:
         ds['time'].attrs['frequency'] = output_freq    
+
+    # Units
+    for var, target_units in units.items():
+        ds[var] = general_utils.convert_units(ds[var], target_units)
 
     # General selection/subsetting
     if isel:

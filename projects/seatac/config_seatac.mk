@@ -32,4 +32,5 @@ MODEL_HOT_DAY_PLOT=${SEATAC_DIR}/seatac_hottest_day_cafe.pdf
 TXX_SAMPLE_PLOT=${SEATAC_DIR}/tasmax_samples_seatac.pdf
 TXX_LIKELIHOOD_PLOT=${SEATAC_DIR}/tasmax_likelihoods_seatac.pdf
 TXX_RETURN_PERIODS_PLOT=${SEATAC_DIR}/model_return_periods_seatac.pdf
-
+TXX_ANNUAL_MAX_PLOT=${SEATAC_DIR}/model_annual_max_seatac.pdf
+TXX_ANNUAL_DIST_PLOT=${SEATAC_DIR}/model_annual_distribution_seatac.pdf

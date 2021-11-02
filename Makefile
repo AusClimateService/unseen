@@ -8,12 +8,12 @@ PYTHON=/g/data/xv83/dbi599/miniconda3/envs/unseen/bin/python
 ## process-obs : preprocessing of observational data
 process-obs : ${OBS_PROCESSED_FILE}
 ${OBS_PROCESSED_FILE} : ${OBS_DATA} ${OBS_METADATA}
-	${PYTHON} ${SCRIPT_DIR}/preprocess.py $< obs $@ --metadata_file $(word 2,$^) ${IO_OPTIONS}
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py $< obs $@ --metadata_file $(word 2,$^) ${GENERAL_IO_OPTIONS} ${OBS_IO_OPTIONS}
 
 ## process-forecast : preprocessing of CAFE forecast ensemble
 process-forecast : ${FCST_ENSEMBLE_FILE}
 ${FCST_ENSEMBLE_FILE} : ${FCST_METADATA}
-	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${IO_OPTIONS} --reset_times --output_chunks lead_time=50 --dask_config ${DASK_CONFIG}
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${GENERAL_IO_OPTIONS} --reset_times --output_chunks lead_time=50 --dask_config ${DASK_CONFIG}
 
 ## bias-correction : bias corrected forecast data using observations
 bias-correction : ${FCST_BIAS_FILE}

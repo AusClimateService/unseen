@@ -103,7 +103,7 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables, res
         if input_freq == 'D':
             ds = ds.resample(time=target_freq).mean(dim='time', keep_attrs=True)
         elif input_freq == 'M':
-            ds = monthly_downsample_mean(ds, target_freq)
+            ds = monthly_downsample_mean(ds, target_freq, variables)
         else:
             raise ValueError(f'Unsupported input time frequency: {input_freq}')    
     else:
@@ -136,7 +136,7 @@ def select_complete_time_periods(ds, time_freq):
     return ds
 
 
-def monthly_downsample_mean(ds, target_freq):
+def monthly_downsample_mean(ds, target_freq, variables):
     """Downsample monthly data.
 
     Accounts for the different number of days in each month.
@@ -144,6 +144,9 @@ def monthly_downsample_mean(ds, target_freq):
 
     days_in_month = ds['time'].dt.days_in_month
     weighted_mean = ( (ds * days_in_month).resample(time=target_freq).sum(dim='time', keep_attrs=True) / days_in_month.resample(time=target_freq).sum(dim='time') )
+    weighted_mean.attrs = ds.attrs
+    for var in variables:
+        weighted_mean[var].attrs = ds[var].attrs
 
     return weighted_mean
 

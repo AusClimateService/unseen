@@ -28,7 +28,10 @@ ${SIMILARITY_FILE} : ${FCST_BIAS_FILE} ${OBS_PROCESSED_FILE}
 ## independence-test : independence test for different lead times
 independence-test : ${INDEPENDENCE_PLOT}
 ${INDEPENDENCE_PLOT} : ${FCST_BIAS_FILE}
-	${PYTHON} ${SCRIPT_DIR}/independence_test.py $< ${VAR} $@ --spatial_selection ${INDEPENDENCE_LOCATION}
+	${PYTHON} ${SCRIPT_DIR}/independence_test.py $< ${VAR} $@ ${INDEPENDENCE_OPTIONS}
+
+## all : run the whole analysis
+all : ${INDEPENDENCE_PLOT} ${SIMILARITY_FILE}
 
 ## clean : remove all generated files
 clean :

@@ -14,13 +14,17 @@ line up really well with the last four times Australia had to import grain
 
 ## Code
 
-The XXX files were created by running the `Makefile` in the root directory of this repository:
+The shapefile used for defining the wheat-sheep region was created in `ag_regions.ipynb`.
 
-TODO: Add Make commands.
+The base analysis (model and AGCD data processing, bias correction, fidelity and independence testing)
+was conducted by running the `Makefile` in the root directory of this repository:
+```bash
+$ make all
+```
 
-The `projects/ag/Makefile` then defines the rules to use that ensemble file to
-make most of the figures in the analysis.
-- TODO: List them
+Using those inputs the analysis is in `ag_analysis.ipynb`.
+
+## Provenace
 
 Each output image file has the command history embedded in the image metadata.
 It can be viewed by installing [exiftool](https://exiftool.org) (e.g. `$ conda install exiftool`)

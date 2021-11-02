@@ -29,7 +29,7 @@ FCST_BIAS_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19900501-20201101
 SIMILARITY_FILE=/g/data/xv83/dbi599/ag/ks-test_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-agcd-${BIAS_METHOD}.zarr.zip
 
 INDEPENDENCE_PLOT=/g/data/xv83/dbi599/ag/independence-test_${VAR}_cafe-c5-d60-pX-f6_19900501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}_bias-corrected-agcd-${BIAS_METHOD}_region-all.png
-INDEPENDENCE_LOCATION=region=all
+INDEPENDENCE_OPTIONS=--spatial_selection region=all --lead_time_increment 1
 
 DASK_CONFIG=config/dask_local.yml
 

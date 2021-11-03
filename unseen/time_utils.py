@@ -64,18 +64,51 @@ def update_rate(da, input_freq, target_freq):
         
     return new_units
 
+
+def crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
+    """Crop an aggregated xarray dataset to include only complete time periods.
+
+    Args:
+      ds (xarray Dataset) : Temporally aggregated Dataset
+      counts (xarray Data Array) : Number of samples in each aggregation
+      input_freq (str) : Time frequency before temporal aggregation
+      output_freq (str) : Time frequency after temporal aggregation 
+    """
+
+    assert input_freq in ['D', 'M']
+    assert output_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
     
-def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables, reset_times=False):
+    # to X from X
+    count_dict = {('A', 'D'): 365,
+                  ('A', 'M'): 12,
+                  ('M', 'D'): 28,
+                  ('Q', 'M'): 3,
+                  ('Q', 'D'): 89}
+    min_sample = count_dict[(output_freq[0], input_freq)]
+
+    dims_dict = dict(ds.dims)
+    del dims_dict['time']
+    dims_selection = dict.fromkeys(dims_dict, 0)
+    time_selection = counts.isel(dims_selection).values >= min_sample
+    
+    ds = ds.sel(time=time_selection)
+
+    return ds
+
+    
+def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables,
+                         reset_times=False, complete=False):
     """Temporal aggregation of data.
 
     Args:
       ds (xarray Dataset)
       target_freq (str) : Target frequency for the resampling (see options below)
-      agg_method (str) : Aggregation method ('mean', 'min', 'max' or 'sum')
-      variables (list) : Variables in the dataset
-      input_freq (str) : Temporal frequency of input data (daily 'D', monthly 'M', annual 'A')
+      agg_method (str) :  Aggregation method ('mean', 'min', 'max' or 'sum')
+      variables (list) :  Variables in the dataset
+      input_freq (str) :  Temporal frequency of input data (daily 'D', monthly 'M', annual 'A')
       reset_time (bool) : Shift time values after resampling so months match initial date
                           (used mainly for forecast data)
+      complete (bool) :   Keep only complete time units (e.g. complete years or months)
 
     Valid target frequencies:
       A-DEC (annual, with date label being last day of year) 
@@ -88,6 +121,7 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables, res
     assert input_freq in ['D', 'M', 'Q', 'A']
 
     start_time = ds['time'].values[0]
+    counts = ds[variables[0]].resample(time=target_freq).count(dim='time')
 
     if input_freq == target_freq[0]:
         pass
@@ -114,24 +148,8 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables, res
         ds['time'] = ds['time'] - diff
         assert ds['time'].values[0] == start_time
 
-    return ds
-
-
-def select_complete_time_periods(ds, time_freq):
-    """Limit temporal aggregation output to complete years/months"""
-
-    if time_freq == 'A-DEC':
-        start_offset = xr.coding.cftime_offsets.YearBegin(0)
-        end_offset = xr.coding.cftime_offsets.YearEnd(-1)
-    elif time_freq == 'M':
-        start_offset = xr.coding.cftime_offsets.MonthBegin(0)
-        end_offset = xr.coding.cftime_offsets.MonthEnd(-1)
-    else:
-        raise ValueError(f'Unsupported time frequency for complete time period selection: {time_freq}') 
-
-    start = ds['time'].values[0] + start_offset
-    end = ds['time'].values[-1] + end_offset
-    ds = ds.sel(time=slice(start, end))
+    if complete:
+        ds = crop_to_complete_time_periods(ds, counts, input_freq, target_freq)
 
     return ds
 

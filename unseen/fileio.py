@@ -97,12 +97,10 @@ def open_file(infile,
     if time_freq:
         assert time_agg, """Provide a time_agg"""
         if not input_freq:
-            input_freq = xr.infer_freq(ds.indexes['time'][0:3])[0] 
+            input_freq = xr.infer_freq(ds.indexes['time'][0:3])[0]
         ds = time_utils.temporal_aggregation(ds, time_freq, input_freq, time_agg,
-                                             variables, reset_times=reset_times)
-        if complete_time_agg_periods:
-            ds = time_utils.select_complete_time_periods(ds, time_freq)
-
+                                             variables, reset_times=reset_times,
+                                             complete=complete_time_agg_periods)
     output_freq = time_freq[0] if time_freq else input_freq
     if output_freq:
         ds['time'].attrs['frequency'] = output_freq    

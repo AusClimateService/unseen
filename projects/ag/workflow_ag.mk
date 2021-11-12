@@ -3,7 +3,7 @@
 VAR=pr
 UNITS=${VAR}=mm/day
 
-SHAPEFILE=/home/599/dbi599/unseen/shapefiles/wheat_sheep.zip
+SHAPEFILE=/home/599/dbi599/unseen/projects/ag/wheat_sheep.zip
 REGION_NAME=wheat-sheep
 SHP_HEADER=region
 SPATIAL_AGG=mean
@@ -21,7 +21,7 @@ FCST_DATA := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-*/atmos_is
 FCST_METADATA=config/dataset_cafe_daily.yml
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19811101-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 
-OBS_DATA=/g/data/xv83/dbi599/agcd/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip
+OBS_DATA=/g/data/ia39/agcd/post-processed/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip
 OBS_METADATA=config/dataset_agcd_monthly.yml
 OBS_PROCESSED_FILE=/g/data/xv83/dbi599/ag/${VAR}_agcd_1900-2019_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 

@@ -132,9 +132,10 @@ def times_from_init_lead(ds, time_freq):
     step_unit = step_units[time_freq]
     scale_factor = 3 if time_freq == 'Q' else 1
 
-    time_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time']]
+    datetime_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time']]
+    cftime_values = time_utils.datetime_to_cftime(datetime_values)
 
-    return time_values
+    return cftime_values
 
 
 def open_mfzarr(infiles, **kwargs):

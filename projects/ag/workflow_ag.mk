@@ -14,11 +14,16 @@ TIME_AGG=mean
 BIAS_METHOD=additive
 BASE_PERIOD=1990-01-01 2019-12-31
 
-GENERAL_IO_OPTIONS=--variables ${VAR} --spatial_coords -44 -11 113 154 --shapefile ${SHAPEFILE} --shp_header ${SHP_HEADER} --combine_shapes --spatial_agg ${SPATIAL_AGG} --time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods --units ${UNITS}
-OBS_IO_OPTIONS=--input_freq M
+GENERAL_IO_OPTIONS=--variables ${VAR} --spatial_coords -44 -11 113 154 --units ${UNITS}
+TIME_IO_OPTIONS=--time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_agg_periods 
+SPATIAL_IO_OPTIONS=--shapefile ${SHAPEFILE} --shp_header ${SHP_HEADER} --combine_shapes --spatial_agg ${SPATIAL_AGG}
+FCST_IO_OPTIONS=${GENERAL_IO_OPTIONS} 
+OBS_IO_OPTIONS=${FCST_IO_OPTIONS} --input_freq M
+CLIM_IO_OPTIONS=${GENERAL_IO_OPTIONS} ${TIME_IO_OPTIONS} --climatology 1990-01-01 2019-12-31
 
 FCST_DATA := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-*/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/dataset_cafe_daily.yml
+FCST_CLIMATOLOGY=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_1990-2019_annual-climatology.zarr.zip
 FCST_ENSEMBLE_FILE=/g/data/xv83/dbi599/ag/${VAR}_cafe-c5-d60-pX-f6_19811101-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}-${SPATIAL_AGG}.zarr.zip
 
 OBS_DATA=/g/data/ia39/agcd/post-processed/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip

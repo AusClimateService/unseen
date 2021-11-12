@@ -1,4 +1,4 @@
-.PHONY: all clean help
+.PHONY: final_analysis help
 
 include ${CONFIG}
 
@@ -7,13 +7,20 @@ PLOT_PARAMS=${CONFIG_DIR}/plotparams_publication.yml
 REGION=all
 #REGION all south-west south-east north-east
 
-## ag_analysis.ipynb : do the final analysis
-ag_analysis.ipynb : ${OBS_PROCESSED_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE} ${SIMILARITY_FILE} ${INDEPENDENCE_PLOT}
-	papermill -p agcd_file $< -p cafe_file $(word 2,$^) -p cafe_bc_file $(word 3,$^) -p fidelity_file $(word 4,$^) -p independence_plot $(word 5,$^) -p region ${REGION} $@ $@
+## fcst_climatology : calculate the forecast climatology
+fcst_climatology : ${FCST_CLIMATOLOGY}
+${FCST_CLIMATOLOGY} : ${FCST_METADATA}
+	${PYTHON} ${SCRIPT_DIR}/preprocess.py ${FCST_DATA} forecast $@ --metadata_file $< ${CLIM_IO_OPTIONS} 
+	
+## define_regions : define the wheat-sheep regions
+define_regions : define_regions.ipynb
+define_regions.ipynb : abares.zip ${FCST_CLIMATOLOGY}
+	papermill -p abares_shapefile $< -p agcd_file ${OBS_DATA} -p agcd_config ${OBS_METADATA} -p climatology $(word 2,$^) $@ $@
 
-## clean : remove all generated files
-clean :
-	rm 
+## final_analysis : do the final analysis
+final_analysis : ag_analysis.ipynb
+ag_analysis.ipynb :     
+	papermill -p agcd_file ${OBS_PROCESSED_FILE} -p cafe_file ${FCST_ENSEMBLE_FILE} -p cafe_bc_file ${FCST_BIAS_FILE} -p fidelity_file ${SIMILARITY_FILE} -p independence_plot ${INDEPENDENCE_PLOT} -p region ${REGION} $@ $@
 
 ## help : show this message
 help :

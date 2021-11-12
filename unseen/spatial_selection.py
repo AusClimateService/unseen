@@ -92,7 +92,8 @@ def select_shapefile_regions(ds, shapefile, agg=None, header=None, combine_shape
 
     if header:
         shape_names = shapes[header].to_list()
-        shape_names.append('all')
+        if combine_shapes:
+            shape_names.append('all')
         ds = ds.assign_coords(region=shape_names)
 
     return ds

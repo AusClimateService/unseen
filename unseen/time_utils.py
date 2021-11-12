@@ -3,6 +3,7 @@
 import pdb
 import re
 
+import numpy as np
 import cftime
 from datetime import datetime
 import xarray as xr
@@ -45,6 +46,15 @@ def cftime_to_str(time_dim):
     str_times = [time.strftime('%Y-%m-%d') for time in time_dim.values]
 
     return str_times
+
+
+def datetime_to_cftime(datetime_array):
+    """Convert a numpy datetime array to a cftime array"""
+
+    str_array = np.datetime_as_string(datetime_array, unit='D')
+    cftime_array = [str_to_cftime(str_date) for str_date in str_array]
+
+    return cftime_array
 
 
 def update_rate(da, input_freq, target_freq):
@@ -215,6 +225,8 @@ def select_time_period(da, period):
                                       periods=2, freq=None,
                                       calendar=calendar)
         time_values = da['time'].compute()
+        check_cftime(time_values)
+        pdb.set_trace()
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
         selection = da.where(mask)
     else:

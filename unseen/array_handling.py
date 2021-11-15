@@ -82,7 +82,7 @@ def to_init_lead(ds):
     """Switch out time axis for init_date and lead_time."""
 
     lead_time = range(len(ds['time']))
-    init_date = np.datetime64(ds['time'].values[0].strftime('%Y-%m-%d'))
+    init_date = time_utils.str_to_cftime(ds['time'].values[0].strftime('%Y-%m-%d'))
     new_coords = {'lead_time': lead_time, 'init_date': init_date}
     ds = ds.rename({'time': 'lead_time'})
     ds = ds.assign_coords(new_coords)

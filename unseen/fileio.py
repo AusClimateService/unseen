@@ -131,8 +131,9 @@ def times_from_init_lead(ds, time_freq):
     
     step_unit = step_units[time_freq]
     scale_factor = 3 if time_freq == 'Q' else 1
-
-    datetime_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time']]
+    pdb.set_trace()
+    ## FIXME: Can't add a pandas offset to a cftime object
+    datetime_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time'].values]
     cftime_values = time_utils.datetime_to_cftime(datetime_values)
 
     return cftime_values
@@ -160,7 +161,6 @@ def open_mfforecast(infiles, **kwargs):
         ds = array_handling.to_init_lead(ds)
         datasets.append(ds)
     ds = xr.concat(datasets, dim='init_date')
-
     time_values = times_from_init_lead(ds, time_attrs['frequency'])
     time_dimension = xr.DataArray(time_values, attrs=time_attrs,
                                   dims={'lead_time': ds['lead_time'],

@@ -52,7 +52,8 @@ def datetime_to_cftime(datetime_array):
     """Convert a numpy datetime array to a cftime array"""
 
     str_array = np.datetime_as_string(datetime_array, unit='D')
-    cftime_array = [str_to_cftime(str_date) for str_date in str_array]
+    str_to_cftime_func = np.vectorize(str_to_cftime)
+    cftime_array = str_to_cftime_func(str_array)
 
     return cftime_array
 

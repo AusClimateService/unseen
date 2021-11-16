@@ -6,6 +6,7 @@ import git
 import yaml
 import shutil
 import zipfile
+import numpy as np
 import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
@@ -131,12 +132,15 @@ def times_from_init_lead(ds, time_freq):
     
     step_unit = step_units[time_freq]
     scale_factor = 3 if time_freq == 'Q' else 1
-    pdb.set_trace()
-    ## FIXME: Can't add a pandas offset to a cftime object
-    datetime_values = [ds.get_index('init_date') + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time'].values]
-    cftime_values = time_utils.datetime_to_cftime(datetime_values)
 
-    return cftime_values
+    init_dates_cftime = ds['init_date']
+    init_dates_str = time_utils.cftime_to_str(init_dates_cftime)
+    init_dates_datetime = pd.to_datetime(init_dates_str)
+
+    times_datetime = [init_dates_datetime + pd.offsets.DateOffset(**{step_unit: lead * scale_factor}) for lead in ds['lead_time'].values]
+    times_cftime = time_utils.datetime_to_cftime(times_datetime)
+
+    return times_cftime
 
 
 def open_mfzarr(infiles, **kwargs):

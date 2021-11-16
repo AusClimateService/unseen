@@ -26,7 +26,9 @@ def check_cftime(time_dim):
     """
 
     t0 = time_dim.values[0]
-    assert type(t0) in cftime._cftime.DATE_TYPES.values(), \
+    cftime_types = list(cftime._cftime.DATE_TYPES.values())
+    cftime_types.append(cftime._cftime.datetime)
+    assert type(t0) in cftime_types, \
         'Time dimension must use cftime objects'
 
 
@@ -34,7 +36,8 @@ def str_to_cftime(datestring, calendar='standard'):
     """Convert a date string to cftime object"""
     
     dt = datetime.strptime(datestring, '%Y-%m-%d')
-    cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
+    #cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
+    cfdt = cftime.DatetimeJulian(dt.year, dt.month, dt.day)
      
     return cfdt
 

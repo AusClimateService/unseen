@@ -25,7 +25,7 @@ def check_cftime(time_dim):
       time_dim (xarray DataArray) : Time dimension
     """
 
-    t0 = time_dim.values[0]
+    t0 = time_dim.values.flatten()[0]
     cftime_types = list(cftime._cftime.DATE_TYPES.values())
     cftime_types.append(cftime._cftime.datetime)
     assert type(t0) in cftime_types, \
@@ -230,7 +230,6 @@ def select_time_period(da, period):
                                       calendar=calendar)
         time_values = da['time'].compute()
         check_cftime(time_values)
-        pdb.set_trace()
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
         selection = da.where(mask)
     else:

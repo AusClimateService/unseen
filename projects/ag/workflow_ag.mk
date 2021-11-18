@@ -20,7 +20,6 @@ TIME_IO_OPTIONS=--time_freq ${TIME_FREQ} --time_agg ${TIME_AGG} --complete_time_
 SPATIAL_IO_OPTIONS=--shapefile ${SHAPEFILE} --shp_header ${SHP_HEADER} --combine_shapes --spatial_agg ${SPATIAL_AGG}
 FCST_IO_OPTIONS=${GENERAL_IO_OPTIONS} 
 OBS_IO_OPTIONS=${FCST_IO_OPTIONS} --input_freq M
-CLIM_IO_OPTIONS=${GENERAL_IO_OPTIONS} ${TIME_IO_OPTIONS} --climatology 1990-01-01 2019-12-31
 
 FCST_DATA := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-*/atmos_isobaric_daily.zarr.zip))
 FCST_METADATA=config/dataset_cafe_daily.yml

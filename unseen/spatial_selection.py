@@ -70,7 +70,13 @@ def select_shapefile_regions(ds, shapefile, agg=None, header=None, combine_shape
       shapefile (str) : Shapefile
       agg(str) : Aggregation method (spatial 'mean' or 'sum')
       header (str) : Name of the shapefile column containing the region names 
+
+    regionmask requires the names of the horizontal spatial dimensions to be 'lat' and 'lon'
+
     """
+
+    assert 'lat' in ds.coords, "Latitude coordinate must be called lat"
+    assert 'lon' in ds.coords, "Longitude coordinate must be called lon"
 
     lons = ds['lon'].values
     lats = ds['lat'].values
@@ -111,6 +117,9 @@ def select_box_region(ds, box):
     assert -90 <= lat_south_bound <= 90, "Valid latitude range is [-90, 90]"
     assert -90 <= lat_north_bound <= 90, "Valid latitude range is [-90, 90]"
     assert lat_south_bound < lat_north_bound, "South bound greater than north bound"
+
+    lon_east_bound = (lon_east_bound + 360) % 360
+    lon_west_bound = (lon_west_bound + 360) % 360
     assert 0 <= lon_east_bound < 360, "Valid longitude range is [0, 360)"
     assert 0 <= lon_west_bound < 360, "Valid longitude range is [0, 360)"
     
@@ -135,6 +144,8 @@ def select_point_region(ds, point):
       point (list) : [lat, lon]
     """
     
+    ds = ds.assign_coords({'lon': (ds['lon'] + 360)  % 360})
+
     lat, lon = point
     lon = (lon + 360) % 360
     ds = ds.sel({'lat': lat, 'lon': lon}, method='nearest', drop=True)

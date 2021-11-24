@@ -7,7 +7,7 @@ PLOT_PARAMS=${CONFIG_DIR}/plotparams_publication.yml
 
 ## plot-histogram : plot TXx histogram
 plot-histogram : ${TXX_HISTOGRAM_PLOT}
-${TXX_HISTOGRAM_PLOT} : ${OBS_FILE} ${OBS_CONFIG} ${FCST_ENSEMBLE_FILE}
+${TXX_HISTOGRAM_PLOT} : ${OBS_DATA} ${OBS_METADATA} ${FCST_BIAS_FILE}
 	${PYTHON} plot_seatac_TXx_histogram.py $< $(word 2,$^) $(word 3,$^) $@  --plotparams ${PLOT_PARAMS}
 
 ## plot-reanalysis-hot-day : plot reanalysis hottest day

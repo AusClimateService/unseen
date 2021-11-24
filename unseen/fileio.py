@@ -96,7 +96,8 @@ def open_file(infile,
     if no_leap_days:
         ds = ds.sel(time=~((ds['time'].dt.month == 2) & (ds['time'].dt.day == 29)))
     if time_freq:
-        assert time_agg, """Provide a time_agg"""
+        assert time_agg, "Provide a time_agg"
+        assert variables, "Variables argument is required for temporal aggregation"
         if not input_freq:
             input_freq = xr.infer_freq(ds.indexes['time'][0:3])[0]
         ds = time_utils.temporal_aggregation(ds, time_freq, input_freq, time_agg,

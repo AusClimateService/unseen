@@ -31,7 +31,8 @@ def _main(args):
     ds_obs = fileio.open_file(args.obs_file,
                               metadata_file=args.obs_config,
                               time_freq='A-DEC',
-                              time_agg='max')
+                              time_agg='max',
+                              variables=['tasmax'])
     obs_gev_shape, obs_gev_loc, obs_gev_scale = gev.fit(ds_obs['tasmax'].values)
     logging.info(f'Observations GEV fit: shape={obs_gev_shape}, location={obs_gev_loc}, scale={obs_gev_scale}')
 
@@ -45,11 +46,11 @@ def _main(args):
     gev_xvals = np.arange(22, 49, 0.1)
     
     ds_ensemble_stacked['tasmax'].plot.hist(bins=bins,
-                                           density=True,
-                                           rwidth=0.9,
-                                           alpha=0.7,
-                                           color='blue',
-                                           label='ACCESS-D')
+                                            density=True,
+                                            rwidth=0.9,
+                                            alpha=0.7,
+                                            color='blue',
+                                            label='ACCESS-D')
 
     ensemble_gev_pdf = gev.pdf(gev_xvals, ensemble_gev_shape, ensemble_gev_loc, ensemble_gev_scale)
     plt.plot(gev_xvals, ensemble_gev_pdf, color='blue')

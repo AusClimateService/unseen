@@ -3,5 +3,9 @@
 rename:
   TMAX: tasmax
 
+units:
+  tasmax: C
+
+
 
 

@@ -22,6 +22,7 @@ OBS_IO_OPTIONS=${GENERAL_IO_OPTIONS} --input_freq D
 FCST_DATA_1990S := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-199[5,6,7,8,9]*/atmos_isobaric_daily.zarr.zip))
 FCST_DATA_2000S := $(sort $(wildcard /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-2*/atmos_isobaric_daily.zarr.zip))
 FCST_DATA := ${FCST_DATA_1990S} ${FCST_DATA_2000S}
+FCST_HOT_DAY_DATA = /g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20110501/atmos_isobaric_daily.zarr.zip
 FCST_METADATA=${CONFIG_DIR}/dataset_cafe_daily.yml
 FCST_ENSEMBLE_FILE=${SEATAC_DIR}/data/${VAR}_cafe-c5-d60-pX-f6_19950501-20201101_${TIME_FREQ}-${TIME_AGG}_${REGION_NAME}.zarr.zip
 FCST_CONFIG=${CONFIG_DIR}/dataset_cafe_daily.yml

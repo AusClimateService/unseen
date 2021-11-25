@@ -22,13 +22,13 @@ import general_utils
 import plot_reanalysis_hottest_day as prhd
 
 
-def get_max_indices(infiles, config_file):
+def get_max_indices(infile, config_file, lat, lon):
     """Get the time and ensemble index for hottest day at SeaTac"""
 
-    ds = fileio.open_mfzarr(infiles,
-                            variables=['tasmax'],
-                            metadata_file=config_file,
-                            spatial_coords=[47.45, -122.31 + 360])
+    ds = fileio.open_file(infile,
+                          variables=['tasmax'],
+                          metadata_file=config_file,
+                          spatial_coords=[lat, lon])
 
     argmax = ds['tasmax'].argmax(dim=['ensemble', 'time'])
 
@@ -55,11 +55,11 @@ def _main(args):
     if args.max_index:
         time_idx, ens_idx = args.max_index
     else:
-        time_idx, ens_idx = get_max_indices(args.infiles, args.config) 
+        time_idx, ens_idx = get_max_indices(args.infile, args.config, args.lat, args.lon) 
 
-    ds = fileio.open_mfzarr(args.infiles,
-                            variables=['h500', 'tasmax'],
-                            metadata_file=args.config)
+    ds = fileio.open_file(args.infile,
+                          variables=['h500', 'tasmax'],
+                          metadata_file=args.config)
     ds_max = ds.isel({'ensemble': ens_idx, 'time': time_idx})
     ds_max['tasmax'] = general_utils.convert_units(ds_max['tasmax'], 'C')
     ds_max = ds_max.compute()
@@ -67,21 +67,21 @@ def _main(args):
     new_log = fileio.get_new_log(repo_dir=repo_dir)
     metadata_key = fileio.image_metadata_keys[args.outfile.split('.')[-1]]
     prhd.plot_usa(ds_max['tasmax'], ds_max['h500'], args.outfile, metadata_key, new_log,
-                  'Model', point=args.point)
+                  'Model', point=[args.lon, args.lat])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument("infiles", nargs='*', type=str, help="model data files")
+    parser.add_argument("infile", type=str, help="model data files")
     parser.add_argument("config", type=str, help="configuration file")
+    parser.add_argument("lat", type=float, help="latitude of SeaTac")
+    parser.add_argument("lon", type=float, help="longitude of SeaTac")
     parser.add_argument("outfile", type=str, help="output file")
     
     parser.add_argument('--max_index', type=int, nargs=2, default=None,
                         help='time and ensemble index of hottest day')
-    parser.add_argument('--point', type=float, nargs=2, metavar=('lon', 'lat'),
-                        default=None, help='plot marker at this point')
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
     parser.add_argument('--logfile', type=str, default=None,

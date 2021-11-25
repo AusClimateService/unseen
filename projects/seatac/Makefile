@@ -17,32 +17,32 @@ ${REANALYSIS_HOT_DAY_PLOT} : ${REANALYSIS_HGT_FILE} ${REANALYSIS_TAS_FILE}
 
 ## plot-model-hot-day : plot model hottest day
 plot-model-hot-day : ${MODEL_HOT_DAY_PLOT}
-${MODEL_HOT_DAY_PLOT} : ${FCST_CONFIG}
-	${PYTHON} plot_model_hottest_day.py ${FCST_BIAS_FILE} $< $@ --plotparams ${PLOT_PARAMS} --max_index 73506 61 --point ${LON} ${LAT}
+${MODEL_HOT_DAY_PLOT} : ${FCST_METADATA}
+	${PYTHON} plot_model_hottest_day.py ${FCST_DATA} $< $@ --plotparams ${PLOT_PARAMS} --point ${LON} ${LAT} --max_index 73506 61
 
 ## plot-sample-size-dist : plot TXx sample size distribution
 plot-sample-size-dist : ${TXX_SAMPLE_PLOT}
-${TXX_SAMPLE_PLOT} : ${FCST_ENSEMBLE_FILE}
+${TXX_SAMPLE_PLOT} : ${FCST_BIAS_FILE}
 	${PYTHON} plot_TXx_sample_size_distribution.py $< $@ --plotparams ${PLOT_PARAMS}
 
 ## plot-likelihoods : plot TXx likelihoods
 plot-likelihoods : ${TXX_LIKELIHOOD_PLOT}
-${TXX_LIKELIHOOD_PLOT} : ${FCST_ENSEMBLE_FILE}
+${TXX_LIKELIHOOD_PLOT} : ${FCST_BIAS_FILE}
 	${PYTHON} plot_TXx_likelihoods.py $< $@ --plotparams ${PLOT_PARAMS}
 
 ## plot-return-periods : plot TXx return periods
 plot-return-periods : ${TXX_RETURN_PERIODS_PLOT}
-${TXX_RETURN_PERIODS_PLOT} : ${FCST_ENSEMBLE_FILE}
+${TXX_RETURN_PERIODS_PLOT} : ${FCST_BIAS_FILE}
 	${PYTHON} plot_TXx_return_periods.py $< $@ --plotparams ${PLOT_PARAMS}
 
 ## plot-annual-max : plot maximum TXx by year
 plot-annual-max : ${TXX_ANNUAL_MAX_PLOT}
-${TXX_ANNUAL_MAX_PLOT} : ${FCST_ENSEMBLE_FILE}
+${TXX_ANNUAL_MAX_PLOT} : ${FCST_BIAS_FILE}
 	${PYTHON} plot_maxTXx_by_year.py $< $@ --plotparams ${PLOT_PARAMS}
 
 ## plot-distribution : plot TXx distribution by year
 plot-distribution : ${TXX_ANNUAL_DIST_PLOT}
-${TXX_ANNUAL_DIST_PLOT} : ${FCST_ENSEMBLE_FILE}
+${TXX_ANNUAL_DIST_PLOT} : ${FCST_BIAS_FILE}
 	${PYTHON} plot_TXx_distribution.py $< $@ --plotparams ${PLOT_PARAMS}
 
 ## clean : remove all generated files

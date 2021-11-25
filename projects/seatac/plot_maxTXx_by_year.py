@@ -56,6 +56,8 @@ def _main(args):
     ax1.plot(xvals1, yvals1, marker='o', color=color)
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.grid(True)
+    ax1.set_ylim(39, 44.2)
+    ax1.axvspan(2004, 2021, alpha=0.5, color='0.8')
 
     ax2 = ax1.twinx() 
 
@@ -66,7 +68,7 @@ def _main(args):
     ax2.set_ylabel('number of samples', color=color)
     ax2.plot(xvals2, yvals2, color=color, linestyle='--')
     ax2.tick_params(axis='y', labelcolor=color)
-    ax2.set_ylim(110, 2440)
+    ax2.set_ylim(110, 2850)
 
     plt.title('Maximum TXx from model ensemble')
     fig.tight_layout()

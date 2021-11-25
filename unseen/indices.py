@@ -4,6 +4,7 @@ import pdb
 
 import numpy as np
 import xarray as xr
+from scipy.stats import genextreme as gev
 
 
 def calc_drought_factor(pr, time_dim='time', scale_dims=['time']):
@@ -93,4 +94,20 @@ def calc_wind_speed(ds):
     return wsp
 
 
+def fit_gev(data, use_estimates=False):
+    """Fit a GEV by providing fit and scale estimates.
+
+    Args:
+      data (numpy ndarray)
+      use_estimates (bool) : Fit GEV to data subset first to estimate parameters.
+                             Useful for large datasets.
+    """
+
+    if use_estimates:
+        shape_estimate, loc_estimate, scale_estimate = gev.fit(data[::2])
+        shape, loc, scale = gev.fit(data, loc=loc_estimate, scale=scale_estimate)
+    else:
+        shape, loc, scale = gev.fit(data)
+
+    return shape, loc, scale
 

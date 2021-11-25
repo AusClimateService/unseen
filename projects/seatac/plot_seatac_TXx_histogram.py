@@ -19,19 +19,8 @@ from scipy.stats import genextreme as gev
 
 import fileio
 import general_utils
+import indices
 
-
-def gev_fit_with_estimate(data):
-    """Fit a GEV by providing fit and scale estimates.
-
-    Useful for large datasets.
-    """
-
-    shape_estimate, loc_estimate, scale_estimate = gev.fit(data[::2])
-    shape, loc, scale = gev.fit(data, loc=loc_estimate, scale=scale_estimate)
-
-    return shape, loc, scale
-    
 
 def _main(args):
     """Run the command line program."""
@@ -41,17 +30,17 @@ def _main(args):
     general_utils.set_plot_params(args.plotparams)
     
     ds_obs = fileio.open_file(args.obs_file)
-    obs_shape, obs_loc, obs_scale = gev.fit(ds_obs['tasmax'].values)
+    obs_shape, obs_loc, obs_scale = indices.fit_gev(ds_obs['tasmax'].values)
     logging.info(f'Observations GEV fit: shape={obs_shape}, location={obs_loc}, scale={obs_scale}')
 
     ds_raw = fileio.open_file(args.raw_model_file)
     ds_raw_stacked = ds_raw.stack({'sample': ['ensemble', 'init_date', 'lead_time']}).compute()
-    raw_shape, raw_loc, raw_scale = gev_fit_with_estimate(ds_raw_stacked['tasmax'].values)
+    raw_shape, raw_loc, raw_scale = indices.fit_gev(ds_raw_stacked['tasmax'].values, use_estimates=True)
     logging.info(f'Model (raw) GEV fit: shape={raw_shape}, location={raw_loc}, scale={raw_scale}')
 
     ds_bias = fileio.open_file(args.bias_corrected_model_file)
     ds_bias_stacked = ds_bias.stack({'sample': ['ensemble', 'init_date', 'lead_time']}).compute()
-    bias_shape, bias_loc, bias_scale = gev_fit_with_estimate(ds_bias_stacked['tasmax'].values)
+    bias_shape, bias_loc, bias_scale = indices.fit_gev(ds_bias_stacked['tasmax'].values, use_estimates=True)
     logging.info(f'Model (bias corrected) GEV fit: shape={bias_shape}, location={bias_loc}, scale={bias_scale}')
 
     fig, ax = plt.subplots(figsize=[10, 8])

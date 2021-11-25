@@ -19,6 +19,7 @@ from scipy.stats import genextreme as gev
 
 import fileio
 import general_utils
+import indices
 
 
 def return_period(data, score):
@@ -47,7 +48,7 @@ def _main(args):
     full_model_return_period = return_period(ds_ensemble_stacked['tasmax'].values, threshold)
     logging.info(f'TXx={threshold}C return period in full model ensemble: {full_model_return_period}')
 
-    gev_shape, gev_loc, gev_scale = gev.fit(ds_ensemble_stacked['tasmax'].values)
+    gev_shape, gev_loc, gev_scale = indices.fit_gev(ds_ensemble_stacked['tasmax'].values, use_estimates=True)
     gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=args.gev_samples)
     full_gev_return_period = return_period(gev_data, threshold)
     logging.info(f'TXx={threshold}C return period from GEV fit to full model ensemble: {full_gev_return_period}')
@@ -65,7 +66,7 @@ def _main(args):
             model_subsample = ds_ensemble_stacked['tasmax'].isel({'sample': random_indexes})
             model_return_period = return_period(model_subsample.values, threshold)
             model_estimates.append(model_return_period)
-            gev_shape, gev_loc, gev_scale = gev.fit(model_subsample.values)
+            gev_shape, gev_loc, gev_scale = indices.fit_gev(model_subsample.values, use_estimates=True)
             gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=args.gev_samples)  
             gev_return_period = return_period(gev_data, threshold)
             gev_estimates.append(gev_return_period)

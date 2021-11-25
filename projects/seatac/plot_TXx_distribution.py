@@ -37,8 +37,8 @@ def _main(args):
 
     fig = plt.figure(figsize=[14, 8])
 
-    years = np.arange(1999, 2022)
-    color = iter(matplotlib.cm.hot_r(np.linspace(0.2, 1, len(years))))
+    years = np.arange(2004, 2022)
+    color = iter(matplotlib.cm.hot_r(np.linspace(0.3, 1, len(years))))
     for year in years:
         c = next(color)
         year_da = ds_time['tasmax'].sel(time=slice(f'{year}-01-01', f'{year}-12-31'))
@@ -48,6 +48,7 @@ def _main(args):
         year_df = pd.DataFrame(year_array)
         sns.kdeplot(year_df[0], color=c, label=str(year))
 
+    plt.xlim(25, 44)
     plt.title('TXx distribution from model ensemble')
     plt.xlabel('TXx (C)')
     plt.legend(ncol=2)

@@ -35,7 +35,7 @@ FCST_BIAS_FILE=${SEATAC_DIR}/data/${VAR}_cafe-c5-d60-pX-f6_19950501-20201101_${T
 REANALYSIS_HGT_FILE=${SEATAC_DIR}/data/h500_ERA5_hourly_2021-06-28.grib
 REANALYSIS_TAS_FILE=${SEATAC_DIR}/data/tas_ERA5_hourly_2021-06-28.grib
 
-TXX_HISTOGRAM_PLOT=${SEATAC_DIR}/figures/tasmax_histogram_seatac.pdf
+TXX_HISTOGRAM_PLOT=${SEATAC_DIR}/figures/txx_histogram_seatac.pdf
 REANALYSIS_HOT_DAY_PLOT=${SEATAC_DIR}/figures/seatac_2021-06-28_era5.pdf
 MODEL_HOT_DAY_PLOT=${SEATAC_DIR}/figures/seatac_hottest_day_cafe.pdf
 TXX_SAMPLE_PLOT=${SEATAC_DIR}/figures/tasmax_samples_seatac.pdf

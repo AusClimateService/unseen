@@ -7,7 +7,7 @@ PLOT_PARAMS=${CONFIG_DIR}/plotparams_publication.yml
 
 ## plot-histogram : plot TXx histogram
 plot-histogram : ${TXX_HISTOGRAM_PLOT}
-${TXX_HISTOGRAM_PLOT} : ${OBS_DATA} ${OBS_METADATA} ${FCST_BIAS_FILE}
+${TXX_HISTOGRAM_PLOT} : ${OBS_PROCESSED_FILE} ${FCST_ENSEMBLE_FILE} ${FCST_BIAS_FILE}
 	${PYTHON} plot_seatac_TXx_histogram.py $< $(word 2,$^) $(word 3,$^) $@  --plotparams ${PLOT_PARAMS}
 
 ## plot-reanalysis-hot-day : plot reanalysis hottest day
@@ -18,7 +18,7 @@ ${REANALYSIS_HOT_DAY_PLOT} : ${REANALYSIS_HGT_FILE} ${REANALYSIS_TAS_FILE}
 ## plot-model-hot-day : plot model hottest day
 plot-model-hot-day : ${MODEL_HOT_DAY_PLOT}
 ${MODEL_HOT_DAY_PLOT} : ${FCST_CONFIG}
-	${PYTHON} plot_model_hottest_day.py ${FCST_DATA} $< $@ --plotparams ${PLOT_PARAMS} --max_index 73506 61 --point ${LON} ${LAT}
+	${PYTHON} plot_model_hottest_day.py ${FCST_BIAS_FILE} $< $@ --plotparams ${PLOT_PARAMS} --max_index 73506 61 --point ${LON} ${LAT}
 
 ## plot-sample-size-dist : plot TXx sample size distribution
 plot-sample-size-dist : ${TXX_SAMPLE_PLOT}

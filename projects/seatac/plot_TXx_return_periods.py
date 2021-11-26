@@ -66,7 +66,7 @@ def _main(args):
             model_subsample = ds_ensemble_stacked['tasmax'].isel({'sample': random_indexes})
             model_return_period = return_period(model_subsample.values, threshold)
             model_estimates.append(model_return_period)
-            gev_shape, gev_loc, gev_scale = indices.fit_gev(model_subsample.values, use_estimates=True)
+            gev_shape, gev_loc, gev_scale = indices.fit_gev(model_subsample.values, use_estimates=False)
             gev_data = gev.rvs(gev_shape, loc=gev_loc, scale=gev_scale, size=args.gev_samples)  
             gev_return_period = return_period(gev_data, threshold)
             gev_estimates.append(gev_return_period)

@@ -160,13 +160,15 @@ def open_mfforecast(infiles, **kwargs):
     """Open multi-file forecast."""
 
     datasets = []
+    time_values = []
     for infile in infiles:
         ds = open_file(infile, **kwargs)
         time_attrs = ds['time'].attrs
+        time_values.append(ds['time'].values)
         ds = array_handling.to_init_lead(ds)
         datasets.append(ds)
     ds = xr.concat(datasets, dim='init_date')
-    time_values = times_from_init_lead(ds, time_attrs['frequency'])
+    time_values = np.stack(time_values, axis=-1)
     time_dimension = xr.DataArray(time_values, attrs=time_attrs,
                                   dims={'lead_time': ds['lead_time'],
                                         'init_date': ds['init_date']})

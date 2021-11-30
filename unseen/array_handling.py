@@ -5,7 +5,7 @@ import pdb
 import numpy as np
 import xarray as xr
 
-import time_utils
+from . import time_utils
 
 
 def stack_by_init_date(ds, init_dates, n_lead_steps,
@@ -17,7 +17,7 @@ def stack_by_init_date(ds, init_dates, n_lead_steps,
     times = ds[time_dim]  
     init_dates = init_dates[np.logical_and(init_dates>=times.min(), init_dates<=times.max())]
     
-    # Initialise indices of specified inital dates and time info for each initial date
+    # Initialise indexes of specified inital dates and time info for each initial date
     time2d = np.empty((len(init_dates), n_lead_steps), 'object')
     time2d[:] = np.nan # Nans where data do not exist
     init_date_indexes = []

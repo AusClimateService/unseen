@@ -1,8 +1,10 @@
 from setuptools import find_packages, setup
+import versioneer
 
 setup(
     name="unseen",
-    version="0.0.1",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author="unseen developers",
     url="https://github.com/AusClimateService/unseen",
     description="A Python library for UNSEEN analysis.",

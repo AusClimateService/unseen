@@ -1,0 +1,5 @@
+include LICENSE
+graft unseen
+recursive-exclude * *.py[co]
+include versioneer.py
+include unseen/_version.py

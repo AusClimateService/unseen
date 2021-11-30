@@ -7,4 +7,5 @@ dependencies:
   - dask-core
   - numpy
   - pytest
+  - pytest-cov
   - cftime

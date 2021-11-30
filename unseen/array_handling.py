@@ -5,50 +5,60 @@ import pdb
 import numpy as np
 import xarray as xr
 
-import time_utils
+from . import time_utils
 
 
-def stack_by_init_date(ds, init_dates, n_lead_steps, freq='D'):
-    """Stack timeseries array in inital date / lead time format.
-
-    Args:
-      ds (xarray Dataset)
-      init_dates (list) : Initial dates in YYYY-MM-DD format
-      n_lead_steps (int) : Maximum lead time
-      freq (str) : Time-step frequency
-    """
-
-    time_utils.check_date_format(init_dates)
-    time_utils.check_cftime(ds['time'])
-
-    rounded_times = ds['time'].dt.floor(freq).values
-    ref_time = init_dates[0]
-    ref_calendar = rounded_times[0].calendar
-    ref_var = list(ds.keys())[0]
-    ref_array = ds[ref_var].sel(time=ref_time).values    
-
-    time2d = np.empty((len(init_dates), n_lead_steps), 'object')
-    init_date_indexes = []
-    offset = n_lead_steps - 1
-    for ndate, date in enumerate(init_dates):
-        date_cf = time_utils.str_to_cftime(date, ref_calendar)
-        start_index = np.where(rounded_times == date_cf)[0][0]
-        end_index = start_index + n_lead_steps
-        time2d[ndate, :] = ds['time'][start_index:end_index].values
-        init_date_indexes.append(start_index + offset)
-
-    ds = ds.rolling(time=n_lead_steps, min_periods=1).construct("lead_time")
-    ds = ds.assign_coords({'lead_time': ds['lead_time'].values})
-    ds = ds.rename({'time': 'init_date'})
-    ds = ds.isel(init_date=init_date_indexes)
-    ds = ds.assign_coords({'init_date': time2d[:, 0]})
-    ds = ds.assign_coords({'time': (['init_date', 'lead_time'], time2d)})
-    ds['lead_time'].attrs['units'] = freq
-
-    actual_array = ds[ref_var].sel({'init_date': ref_time, 'lead_time': 0}).values
-    np.testing.assert_allclose(actual_array[0], ref_array[0])
+def stack_by_init_date(ds, init_dates, n_lead_steps,
+                       time_dim='time', init_dim='init', lead_dim='lead'):
+    """ Stack timeseries array in inital date / lead time format.
     
-    # TODO: Return nans if requested times lie outside of the available range
+        Args:
+          ds (xarray Dataset)
+          init_dates (list) : Initial dates in YYYY-MM-DD format
+          n_lead_steps (int) : Maximum lead time
+          time_dim (str) : The name of the time dimension on ds
+          init_dim (str) : The name of the initial date dimension on the output array
+          lead_dim (str) : The name of the lead time dimension on the output array
+
+        Note, only initial dates that fall within the time range of the input
+        timeseries are retained. Thus, inital dates prior to the time range of
+        the input timeseries that include data at longer lead times are not 
+        included in the output dataset. To include these data, prepend the input
+        timeseries with nans so that the initial dates in question are present
+        in the time dimension of the input timeseries.
+    """
+    # Only keep init dates that fall within available times
+    times = ds[time_dim]  
+    init_dates = init_dates[np.logical_and(init_dates>=times.min(), init_dates<=times.max())]
+    
+    # Initialise indexes of specified inital dates and time info for each initial date
+    time2d = np.empty((len(init_dates), n_lead_steps), 'object')
+    time2d[:] = np.nan # Nans where data do not exist
+    init_date_indexes = []
+    for ndate, init_date in enumerate(init_dates):
+        start_index = np.where(times == init_date)[0][0]
+        end_index = start_index + n_lead_steps
+        time_slice = ds[time_dim][start_index:end_index]
+        time2d[ndate, :len(time_slice)] = time_slice
+        init_date_indexes.append(start_index)
+        
+    # Use `rolling` to stack timeseries like forecasts
+    # Note, rolling references each window to the RH edge of the window. Hence we reverse the timeseries
+    # so that each window starts at the specified initial date and includes n_lead_steps to the right of
+    # that element
+    ds = ds.copy().sel({time_dim: slice(None, None, -1)})
+    init_date_indexes = [ds.sizes[time_dim] - 1 - i for i in init_date_indexes]
+    
+    ds = ds.rolling({time_dim: n_lead_steps}, min_periods=1).construct(
+        lead_dim, keep_attrs=True)
+    ds = ds.isel({time_dim: init_date_indexes})
+
+    # Account for reversal of timeseries
+    ds = ds.sel({lead_dim: slice(None, None, -1)})
+        
+    ds = ds.rename({time_dim: init_dim})
+    ds = ds.assign_coords({lead_dim: ds[lead_dim].values})
+    ds = ds.assign_coords({time_dim: ([init_dim, lead_dim], time2d)})
     
     return ds
 

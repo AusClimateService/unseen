@@ -24,8 +24,8 @@ def _main(args):
 
     ds_fcst = fileio.open_file(args.fcst_file)
     da_fcst = ds_fcst[args.var]
-    init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
-    n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
+    # init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
+    # n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
 
     ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
     da_obs = ds_obs[args.var]

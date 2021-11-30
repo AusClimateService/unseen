@@ -1,7 +1,5 @@
 """Functions for spatial selection."""
 
-import pdb
-
 import numpy as np
 import xarray as xr
 import geopandas as gp
@@ -22,7 +20,7 @@ def select_region(
       agg (str) : Aggregation method (spatial 'mean' or 'sum')
     """
 
-    if coords == None:
+    if coords is None:
         pass
     elif len(coords) == 4:
         ds = select_box_region(ds, coords)
@@ -41,7 +39,7 @@ def select_region(
         ds = ds.sum(dim=("lat", "lon"))
     elif (agg == "mean") and not shapefile:
         ds = ds.mean(dim=("lat", "lon"))
-    elif (agg == None) or shapefile:
+    elif (agg is None) or shapefile:
         pass
     else:
         raise ValueError("""agg must be None, 'sum' or 'mean'""")
@@ -84,7 +82,7 @@ def select_shapefile_regions(
     lats = ds["lat"].values
 
     shapes = gp.read_file(shapefile)
-    if agg == None:
+    if agg is None:
         mask = regionmask.mask_geopandas(shapes, lons, lats)
         mask = xr.where(mask.notnull(), True, False)
         ds = ds.where(mask)

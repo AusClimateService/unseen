@@ -14,16 +14,16 @@ def random_resample(
 ):
     """Randomly resample from provided xarray args and return the results of the subsampled dataset passed through \
         a provided function
-                
+
         Parameters
         ----------
         *args : xarray DataArray or Dataset
-            Objects containing data to be resampled. The coordinates of the first object are used for resampling and the \
-            same resampling is applied to all objects
+            Objects containing data to be resampled. The coordinates of the first object are used for resampling \
+            and the same resampling is applied to all objects
         samples : dictionary
             Dictionary containing the dimensions to subsample, the number of samples and the continuous block size \
-            within the sample. Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}. The first \
-            object in args must contain all dimensions listed in samples, but subsequent objects need not.
+            within the sample. Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}. The \
+            first object in args must contain all dimensions listed in samples, but subsequent objects need not.
         function : function object, optional
             Function to reduced the subsampled data
         function_kwargs : dictionary, optional
@@ -33,7 +33,7 @@ def random_resample(
             separately
         replace : boolean, optional
             Whether the sample is with or without replacement
-                
+
         Returns
         -------
         sample : xarray DataArray or Dataset
@@ -111,14 +111,14 @@ def n_random_resamples(
     with_dask=True
 ):
     """
-        Repeatedly randomly resample from provided xarray objects and return the results of the subsampled dataset passed \
-        through a provided function
-                
+        Repeatedly randomly resample from provided xarray objects and return the results of the subsampled dataset \
+        passed through a provided function
+
         Parameters
         ----------
         args : xarray DataArray or Dataset
-            Objects containing data to be resampled. The coordinates of the first object are used for resampling and the \
-            same resampling is applied to all objects
+            Objects containing data to be resampled. The coordinates of the first object are used for resampling \
+            and the same resampling is applied to all objects
         samples : dictionary
             Dictionary containing the dimensions to subsample, the number of samples and the continuous block size \
             within the sample. Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}
@@ -135,7 +135,7 @@ def n_random_resamples(
             separately
         with_dask : boolean, optional
             If True, use dask to parallelize across n_repeats using dask.delayed
-                
+
         Returns
         -------
         sample : xarray DataArray or Dataset

@@ -239,7 +239,7 @@ def select_time_period(da, period):
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
         selection = da.where(mask)
     else:
-        raise ValueError(f"No time axis for masking")
+        raise ValueError("No time axis for masking")
     selection.attrs = da.attrs
 
     return selection

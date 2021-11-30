@@ -103,6 +103,6 @@ def test_stack_by_init_date_dask(example_da_timeseries):
     n_lead_steps = 10
     init_dates = data[TIME_DIM][::10]
 
-    res = stack_by_init_date(
+    stack_by_init_date(
         data, init_dates, n_lead_steps, init_dim=INIT_DIM, lead_dim=LEAD_DIM
     )

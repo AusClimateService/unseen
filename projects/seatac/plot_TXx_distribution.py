@@ -37,7 +37,7 @@ def _main(args):
     ds_init = xr.open_zarr(args.ensemble_file)
     ds_time = array_handling.reindex_forecast(ds_init)
 
-    fig = plt.figure(figsize=[14, 8])
+    # fig = plt.figure(figsize=[14, 8])
 
     years = np.arange(2004, 2022)
     color = iter(matplotlib.cm.hot_r(np.linspace(0.3, 1, len(years))))

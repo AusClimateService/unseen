@@ -75,7 +75,7 @@ def open_file(
             infile, consolidated=True, use_cftime=True
         )  # , chunks=chunks)
     else:
-        ValueError(f"File must end in .nc, .zarr or .zarr.zip")
+        ValueError("File must end in .nc, .zarr or .zarr.zip")
 
     if not chunks == "auto":
         ds = ds.chunk(chunks)
@@ -206,7 +206,7 @@ def fix_metadata(ds, metadata_file, variables):
 
     valid_keys = ["rename", "drop_coords", "round_coords", "units"]
     for key in metadata_dict.keys():
-        if not key in valid_keys:
+        if key not in valid_keys:
             raise KeyError(f"Invalid metadata key: {key}")
 
     if "rename" in metadata_dict:

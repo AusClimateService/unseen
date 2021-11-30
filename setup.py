@@ -8,7 +8,7 @@ setup(
     author="unseen developers",
     url="https://github.com/AusClimateService/unseen",
     description="A Python library for UNSEEN analysis.",
-    long_description="A Python package for implementing the UNSEEN (UNprecedented Simulated Extremes using ENsembles) approach to assessing the likelihood of extreme events.",
+    long_description="A Python library for performing UNSEEN analysis for assessing the likelihood of extreme events.",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

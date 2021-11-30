@@ -59,7 +59,7 @@ def _main(args):
 
     df_random = df_random.reindex(sorted(df_random.columns), axis=1)
 
-    fig = plt.figure(figsize=[10, 6])
+    # fig = plt.figure(figsize=[10, 6])
     df_random.boxplot()
     plt.title("Maximum TXx from model ensemble")
     plt.xlabel("sample size")

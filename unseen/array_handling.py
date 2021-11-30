@@ -10,24 +10,9 @@ import time_utils
 
 def stack_by_init_date(ds, init_dates, n_lead_steps,
                        time_dim='time', init_dim='init', lead_dim='lead'):
-    """Stack timeseries array in inital date / lead time format.
-
-    Args:
-      ds (xarray Dataset)
-      init_dates (list) : Initial dates in YYYY-MM-DD format
-      n_lead_steps (int) : Maximum lead time
-      time_dim (str) : The name of the time dimension on ds
-      init_dim (str) : The name of the initial date dimension on the output array
-      lead_dim (str) : The name of the lead time dimension on the output array
-      
-    Note, only initial dates that fall within the time range of the input
-    timeseries are retained. Thus, inital dates prior to the time range of
-    the input timeseries that include data at longer lead times are not 
-    included in the output dataset. To include these data, prepend the input
-    timeseries with nans so that the initial dates in question are present
-    in the time dimension of the input timeseries.
+    """ Stack timeseries array in inital date / lead time format.
+        Adapted from https://github.com/AusClimateService/unseen/blob/master/unseen
     """
-    
     # Only keep init dates that fall within available times
     times = ds[time_dim]  
     init_dates = init_dates[np.logical_and(init_dates>=times.min(), init_dates<=times.max())]
@@ -49,25 +34,13 @@ def stack_by_init_date(ds, init_dates, n_lead_steps,
     # that element
     ds = ds.copy().sel({time_dim: slice(None, None, -1)})
     init_date_indexes = [ds.sizes[time_dim] - 1 - i for i in init_date_indexes]
-    init_date_indexes.reverse()
     
-    strides = np.diff(init_date_indexes)
-    # If stride is regular, use `stride` in rolling construct to reduce memory usage, otherwise construct
-    # windowed object and then index out desired initial dates
-    if np.all(strides == strides[0]):
-        stride = strides[0]
-        remainder = init_date_indexes[0] % stride # Where to start so that strides fall in right place
-        ds = ds.isel({time_dim: slice(remainder, init_date_indexes[-1]+stride)})
-        ds = ds.rolling({time_dim: n_lead_steps}, min_periods=1).construct(
-            lead_dim, stride=stride, keep_attrs=True)
-        ds = ds.isel({time_dim: slice(int(init_date_indexes[0] / stride), None)})
-    else:
-        ds = ds.rolling({time_dim: n_lead_steps}, min_periods=1).construct(
-            lead_dim, keep_attrs=True)
-        ds = ds.isel({time_dim: init_date_indexes})
+    ds = ds.rolling({time_dim: n_lead_steps}, min_periods=1).construct(
+        lead_dim, keep_attrs=True)
+    ds = ds.isel({time_dim: init_date_indexes})
 
     # Account for reversal of timeseries
-    ds = ds.sel({time_dim: slice(None, None, -1), lead_dim: slice(None, None, -1)})
+    ds = ds.sel({lead_dim: slice(None, None, -1)})
         
     ds = ds.rename({time_dim: init_dim})
     ds = ds.assign_coords({lead_dim: ds[lead_dim].values})

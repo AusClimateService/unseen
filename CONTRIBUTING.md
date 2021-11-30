@@ -33,6 +33,12 @@ $ pip install --no-deps -e .
 pre-commit install
 ```
 
+You can also run `pre-commit` manually at any point to format your code:
+
+```
+pre-commit run --all-files
+```
+
 5. Start making and committing your edits, including adding tests to `unseen/tests` to check that your contributions are doing what they're suppose to. To run the test suite:
 
 ```

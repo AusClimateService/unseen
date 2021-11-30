@@ -29,15 +29,15 @@ $ pip install --no-deps -e .
 
 4. This project uses `black` to format code and `flake8` for linting. We use `pre-commit` to ensure these have been run. Please set up commit hooks by running the following. This will mean that `black` and `flake8` are run whenever you make a commit:
 
-```
-pre-commit install
-```
+  ```
+  pre-commit install
+  ```
 
-You can also run `pre-commit` manually at any point to format your code:
+  You can also run `pre-commit` manually at any point to format your code:
 
-```
-pre-commit run --all-files
-```
+  ```
+  pre-commit run --all-files
+  ```
 
 5. Start making and committing your edits, including adding tests to `unseen/tests` to check that your contributions are doing what they're suppose to. To run the test suite:
 

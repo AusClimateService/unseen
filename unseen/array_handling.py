@@ -16,7 +16,9 @@ def stack_by_init_date(ds, init_dates, n_lead_steps,
       ds (xarray Dataset)
       init_dates (list) : Initial dates in YYYY-MM-DD format
       n_lead_steps (int) : Maximum lead time
-      freq (str) : Time-step frequency
+      time_dim (str) : The name of the time dimension on ds
+      init_dim (str) : The name of the initial date dimension on the output array
+      lead_dim (str) : The name of the lead time dimension on the output array
       
     Note, only initial dates that fall within the time range of the input
     timeseries are retained. Thus, inital dates prior to the time range of
@@ -25,6 +27,7 @@ def stack_by_init_date(ds, init_dates, n_lead_steps,
     timeseries with nans so that the initial dates in question are present
     in the time dimension of the input timeseries.
     """
+    
     # Only keep init dates that fall within available times
     times = ds[time_dim]  
     init_dates = init_dates[np.logical_and(init_dates>=times.min(), init_dates<=times.max())]

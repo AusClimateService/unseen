@@ -16,9 +16,15 @@ setup(
         "License :: OSI Approved :: GNU GENERAL PUBLIC LICENSE",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     install_requires=[
-        "xarray>=0.18.0", "dask", "zarr", "pyyaml", "cmdline_provenance", "geopandas", "regionmask", "xclim",
-    ]
+        "xarray>=0.18.0",
+        "dask",
+        "zarr",
+        "pyyaml",
+        "cmdline_provenance",
+        "geopandas",
+        "regionmask",
+        "xclim",
+    ],
 )
-

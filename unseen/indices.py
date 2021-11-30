@@ -7,7 +7,7 @@ import xarray as xr
 from scipy.stats import genextreme as gev
 
 
-def calc_drought_factor(pr, time_dim='time', scale_dims=['time']):
+def calc_drought_factor(pr, time_dim="time", scale_dims=["time"]):
     """Calculate the Drought Factor index.
 
     20-day accumulated rainfall scaled to lie between 0 and 10,
@@ -33,18 +33,18 @@ def calc_drought_factor(pr, time_dim='time', scale_dims=['time']):
     pr20_min = pr20.min(scale_dims)
     pr20_max = pr20.max(scale_dims)
     df = -10 * (pr20 - pr20_min) / (pr20_max - pr20_min) + 10
-    df = df.rename('drought_factor')
+    df = df.rename("drought_factor")
 
-    return df 
-    
+    return df
 
-def calc_FFDI(ds, time_dim='time', scale_dims=['time']):
+
+def calc_FFDI(ds, time_dim="time", scale_dims=["time"]):
     """Calculate the McArthur Forest Fire Danger Index.
 
     Args:
       ds (xarray Dataset): Containing the following variables:
         pr (daily precipitation in mm)
-        tasmax (daily maximum surface temperature in degrees C) 
+        tasmax (daily maximum surface temperature in degrees C)
         hur (daily surface relative humidity)
         uas (daily eastward wind speed in km/h)
         vas (daily northward wind speed in km/h)
@@ -52,10 +52,10 @@ def calc_FFDI(ds, time_dim='time', scale_dims=['time']):
 
     Calculation:
       FFDI = DF**0.987 * e^(0.0338*tmax - 0.0345*rhmax + 0.0234*wmax + 0.243147)
-      
+
       DF is the Drought Factor index
       - 20-day accumulated rainfall scaled to lie between 0 and 10, with larger values indicating less precipitation
-      tmax is the daily maximum 2m temperature [mm] 
+      tmax is the daily maximum 2m temperature [mm]
       rhmax is the daily maximum 2m relative humidity [%] (or similar, depending on data availability)
       - Richardson et al (2021) uses mid-afternoon relative humidity at 2m
       - Squire et al (2021) uses daily mean relative humidity at 1000 hPa
@@ -69,10 +69,12 @@ def calc_FFDI(ds, time_dim='time', scale_dims=['time']):
     """
 
     xr.set_options(keep_attrs=False)
-    ds['df'] = calc_drought_factor(ds['pr'], time_dim=time_dim, scale_dims=scale_dims)
-    ds['wsp'] = calc_wind_speed(ds)
+    ds["df"] = calc_drought_factor(ds["pr"], time_dim=time_dim, scale_dims=scale_dims)
+    ds["wsp"] = calc_wind_speed(ds)
 
-    ffdi = ( ds['df'] ** 0.987 ) * np.exp( (0.0338 * ds['tasmax']) - (0.0345 * ds['hur']) + (0.0234 * ds['wsp']) + 0.243147 )
+    ffdi = (ds["df"] ** 0.987) * np.exp(
+        (0.0338 * ds["tasmax"]) - (0.0345 * ds["hur"]) + (0.0234 * ds["wsp"]) + 0.243147
+    )
 
     return ffdi
 
@@ -89,7 +91,7 @@ def calc_wind_speed(ds):
       wsp (xarray DataArray): Wind speed
     """
 
-    wsp = xr.ufuncs.sqrt(ds['uas'] ** 2 + ds['vas'] ** 2)
+    wsp = xr.ufuncs.sqrt(ds["uas"] ** 2 + ds["vas"] ** 2)
 
     return wsp
 
@@ -110,4 +112,3 @@ def fit_gev(data, use_estimates=False):
         shape, loc, scale = gev.fit(data)
 
     return shape, loc, scale
-

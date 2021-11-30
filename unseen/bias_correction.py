@@ -19,25 +19,25 @@ def get_bias(fcst, obs, method, time_period=None, monthly=False):
       monthly (bool) : Use monthly climatology
     """
 
-    fcst_ensmean = fcst.mean('ensemble', keep_attrs=True)
-    fcst_clim = time_utils.get_clim(fcst_ensmean, 'init_date',
-                                    time_period=time_period,
-                                    monthly=monthly)
-    obs_clim = time_utils.get_clim(obs, 'time',
-                                   time_period=time_period,
-                                   monthly=monthly)
+    fcst_ensmean = fcst.mean("ensemble", keep_attrs=True)
+    fcst_clim = time_utils.get_clim(
+        fcst_ensmean, "init_date", time_period=time_period, monthly=monthly
+    )
+    obs_clim = time_utils.get_clim(
+        obs, "time", time_period=time_period, monthly=monthly
+    )
 
     with xr.set_options(keep_attrs=True):
-        if method == 'additive':
+        if method == "additive":
             bias = fcst_clim - obs_clim
-        elif method == 'multiplicative':
+        elif method == "multiplicative":
             bias = fcst_clim / obs_clim
         else:
-            raise ValueError(f'Unrecognised bias removal method {method}')
+            raise ValueError(f"Unrecognised bias removal method {method}")
 
-    bias.attrs['bias_correction_method'] = method
+    bias.attrs["bias_correction_method"] = method
     if time_period:
-        bias.attrs['bias_correction_period'] = '-'.join(time_period)
+        bias.attrs["bias_correction_period"] = "-".join(time_period)
 
     return bias
 
@@ -52,24 +52,23 @@ def remove_bias(fcst, bias, method, monthly=False):
       monthly (bool) : Monthly bias removal
     """
 
-    if method == 'additive':
+    if method == "additive":
         op = operator.sub
-    elif method == 'multiplicative':
+    elif method == "multiplicative":
         op = operator.div
     else:
-        raise ValueError(f'Unrecognised bias removal method {method}')
+        raise ValueError(f"Unrecognised bias removal method {method}")
 
     with xr.set_options(keep_attrs=True):
         if monthly:
-            fcst_bc = op(fcst.groupby('init_date.month'), bias).drop('month')
+            fcst_bc = op(fcst.groupby("init_date.month"), bias).drop("month")
         else:
             fcst_bc = op(fcst, bias)
 
-    fcst_bc.attrs['bias_correction_method'] = bias.attrs['bias_correction_method']
+    fcst_bc.attrs["bias_correction_method"] = bias.attrs["bias_correction_method"]
     try:
-        fcst_bc.attrs['bias_correction_period'] = bias.attrs['bias_correction_period']
+        fcst_bc.attrs["bias_correction_period"] = bias.attrs["bias_correction_period"]
     except KeyError:
         pass
 
     return fcst_bc
-

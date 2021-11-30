@@ -18,13 +18,7 @@ setup(
     ],
     python_requires=">=3.7",
     install_requires=[
-        "xarray>=0.18.0",
+        "xarray",
         "dask",
-        "zarr",
-        "pyyaml",
-        "cmdline_provenance",
-        "geopandas",
-        "regionmask",
-        "xclim",
     ],
 )

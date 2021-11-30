@@ -35,6 +35,7 @@ dependencies:
   - cf_xarray=0.5.2=pyh6c4a22f_0
   - cffi=1.14.5=py39he32792d_0
   - cfgrib=0.9.9.0=pyhd8ed1ab_1
+  - cfgv=3.3.1=pyhd8ed1ab_0
   - cfitsio=3.470=hb418390_7
   - cftime=1.5.0=py39hce5d2b2_0
   - chardet=4.0.0=py39hf3d152e_1
@@ -55,13 +56,16 @@ dependencies:
   - dbus=1.13.6=h48d8840_2
   - decorator=5.0.9=pyhd8ed1ab_0
   - defusedxml=0.7.1=pyhd8ed1ab_0
+  - distlib=0.3.3=pyhd8ed1ab_0
   - distributed=2021.6.0=py39hf3d152e_0
   - eccodes=2.21.0=ha0e6eb6_0
+  - editdistance-s=1.0.0=py39h1a9c180_1
   - entrypoints=0.3=pyhd8ed1ab_1003
   - esmf=8.1.0=nompi_hed08645_0
   - esmpy=8.1.0=nompi_py39hc8aa433_0
   - expat=2.4.1=h9c3ff4c_0
   - fasteners=0.16=pyhd8ed1ab_0
+  - filelock=3.4.0=pyhd8ed1ab_0
   - fiona=1.8.18=py39h494ca2c_1
   - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
   - font-ttf-inconsolata=3.000=h77eed37_0
@@ -97,6 +101,7 @@ dependencies:
   - hdf5=1.10.6=nompi_h6a2412b_1114
   - heapdict=1.0.1=py_0
   - icu=68.1=h58526e2_0
+  - identify=2.3.7=pyhd8ed1ab_0
   - idna=2.10=pyh9f0ad1d_0
   - importlib-metadata=4.5.0=py39hf3d152e_0
   - importlib_metadata=4.5.0=hd8ed1ab_0
@@ -203,6 +208,7 @@ dependencies:
   - netcdf-fortran=4.5.3=nompi_h996563d_103
   - netcdf4=1.5.6=nompi_py39h36800e2_102
   - networkx=2.5=py_0
+  - nodeenv=1.6.0=pyhd8ed1ab_0
   - nodejs=16.5.0=h92b4a50_0
   - notebook=6.4.0=pyha770c72_0
   - nspr=4.30=h9c3ff4c_0
@@ -233,6 +239,7 @@ dependencies:
   - poppler=0.89.0=h2de54a5_5
   - poppler-data=0.4.10=0
   - postgresql=13.3=h2510834_0
+  - pre-commit=2.15.0=py39hf3d152e_1
   - proj=7.2.0=h277dcde_2
   - prometheus_client=0.11.0=pyhd8ed1ab_0
   - prompt-toolkit=3.0.18=pyha770c72_0
@@ -304,6 +311,7 @@ dependencies:
   - tzcode=2021a=h7f98852_1
   - tzdata=2021a=he74cb21_0
   - urllib3=1.26.5=pyhd8ed1ab_0
+  - virtualenv=20.4.7=py39hf3d152e_1
   - wcwidth=0.2.5=pyh9f0ad1d_2
   - webencodings=0.5.1=py_1
   - wheel=0.36.2=pyhd3deb0d_0
@@ -334,3 +342,4 @@ dependencies:
   - zipp=3.4.1=pyhd8ed1ab_0
   - zlib=1.2.11=h516909a_1010
   - zstd=1.4.9=ha95c52a_0
+prefix: /g/data/xv83/users/ds0092/software/miniconda3/envs/unseen

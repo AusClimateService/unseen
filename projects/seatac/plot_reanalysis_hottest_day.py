@@ -58,7 +58,7 @@ def plot_usa(da_tasmax, da_h500, outfile, metadata_key, command_log,
         ax.plot(lon, lat, 'bo', transform=ccrs.PlateCarree())
     ax.coastlines()
     ax.set_extent([-140, -60, 20, 70])
-    ax.gridlines(linestyle='--')
+    ax.gridlines(linestyle='--', draw_labels=True)
     ax.set_title(f'Hottest day: {data_source}')
     plt.savefig(outfile, metadata={metadata_key: command_log}, bbox_inches='tight', facecolor='white')
 

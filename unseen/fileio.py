@@ -11,10 +11,10 @@ import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
 
-import general_utils
-import spatial_selection
-import time_utils
-import array_handling
+from . import general_utils
+from . import spatial_selection
+from . import time_utils
+from . import array_handling
 
 
 image_metadata_keys = {

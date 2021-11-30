@@ -5,7 +5,7 @@ import operator
 
 import xarray as xr
 
-import time_utils
+from . import time_utils
 
 
 def get_bias(fcst, obs, method, time_period=None, monthly=False):

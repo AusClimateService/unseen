@@ -183,24 +183,25 @@ def monthly_downsample_mean(ds, target_freq, variables):
     return weighted_mean
 
 
-def get_clim(da, dim, time_period=None, monthly=False):
+def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     """Calculate climatology
 
     Args:
-      da (xarray DataArray)
-      dim (str) : Dimension over which to calculate climatology (e.g. init_date)
+      da (xarray DataSet or DataArray)
+      dims (str or list) : Dimension/s over which to calculate climatology
       time_period (list) : Time period
-      monthly (bool) : Calculate monthly climatology
+      groupby_init_month (bool) : Calculate separate climatologies for each
+                                  forecast initialisation month
     """
 
     if time_period is not None:
         da = select_time_period(da.copy(), time_period)
         da.attrs['climatological_period'] = str(time_period)
     
-    if monthly:
-        clim = da.groupby(f'{dim}.month').mean(dim, keep_attrs=True)
+    if groupby_init_month:
+        clim = da.groupby(f'init_date.month').mean(dims, keep_attrs=True)
     else:
-        clim = da.mean(dim, keep_attrs=True)
+        clim = da.mean(dims, keep_attrs=True)
 
     return clim
 

@@ -5,11 +5,11 @@ import pdb
 import numpy as np
 import xarray as xr
 
-from . import time_utils
+import time_utils
 
 
 def stack_by_init_date(ds, init_dates, n_lead_steps,
-                       time_dim='time', init_dim='init', lead_dim='lead'):
+                       time_dim='time', init_dim='init_date', lead_dim='lead_time'):
     """ Stack timeseries array in inital date / lead time format.
     
         Args:

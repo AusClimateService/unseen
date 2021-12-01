@@ -21,19 +21,17 @@ import time_utils
 def _main(args):
     """Run the command line program."""
 
-    ds_fcst = fileio.open_file(args.fcst_file)
+    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
+    da_obs = ds_obs[args.var]
+
+    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
     init_dates = time_utils.cftime_to_str(da_fcst['init_date'])
     n_lead_steps = int(da_fcst['lead_time'].values.max()) + 1
-
-    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
-    da_obs = ds_obs[args.var]
     
     bias = bias_correction.get_bias(da_fcst, da_obs, args.method,
-                                    time_period=args.base_period,
-                                    monthly=args.monthly) 
-    da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method,
-                                             monthly=args.monthly)
+                                    time_period=args.base_period)
+    da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method)
     
     ds_fcst_bc = da_fcst_bc.to_dataset()
     infile_logs = {args.fcst_file: ds_fcst.attrs['history'],
@@ -60,8 +58,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--base_period", type=str, nargs=2,
                         help="Start and end date for baseline (YYYY-MM-DD format)")
-    parser.add_argument("--monthly", action="store_true", default=False,
-                        help="Monthly climatology / bias removal [default=False]")
     parser.add_argument("--output_chunks", type=str, nargs='*', action=general_utils.store_dict,
                         default={}, help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)")
 

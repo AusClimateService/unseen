@@ -27,6 +27,13 @@ $ conda activate unseen
 $ pip install --no-deps -e .
 ```
 
+Aside: to have the changes you make to the package register immediately when running IPython (e.g. a Jupyter notebook), run the following magic commands:
+
+```
+%load_ext autoreload
+%autoreload 2 
+```
+
 5. This project uses `black` to format code and `flake8` for linting. We use `pre-commit` to ensure these have been run. Please set up commit hooks by running the following. This will mean that `black` and `flake8` are run whenever you make a commit:
 
 ```

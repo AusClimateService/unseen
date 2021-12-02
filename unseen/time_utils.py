@@ -221,6 +221,16 @@ def select_time_period(da, period):
     Only works for cftime objects.
     """
 
+    def _inbounds(t, bnds):
+        """Check if time in bounds, allowing for nans"""
+        if t != t:
+            return False
+        else:
+            return (t >= bnds[0]) & (t <= bnds[1])
+
+    _vinbounds = np.vectorize(_inbounds)
+    _vinbounds.excluded.add(1)
+
     check_date_format(period)
     start, stop = period
 
@@ -234,9 +244,8 @@ def select_time_period(da, period):
         time_bounds = xr.cftime_range(
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
-        time_values = da["time"].compute()
-        check_cftime(time_values)
-        mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
+        time_values = da["time"].values
+        mask = _vinbounds(time_values, time_bounds)
         selection = da.where(mask)
     else:
         raise ValueError("No time axis for masking")

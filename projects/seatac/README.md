@@ -4,13 +4,7 @@ Risbey JS, Irving DB, Squire DT, Matear RJ, Monselesan DP, Richardson D & Tozer 
 On the role of weather and sampling in assessing a record-breaking heat extreme.
 *Environmental Research Letters*.
 
-The biased corrected forecast ensemble file was created by running the `Makefile` in the root directory of this repository:
-```bash
-$ make bias-correction CONFIG=projects/seatac/config_seatac.mk
-```
-
-The `projects/seatac/Makefile` then defines the rules to use that ensemble file to
-make most of the figures in the paper.
+The `Makefile` defines the rules to make the figures in the paper.
 - Figure 2: `make plot-historgram CONFIG=config_seatac.mk`
 - Figure 4: `make plot-reanalysis-hot-day CONFIG=config_seatac.mk`
 - Figure 5: `make plot-model-hot-day CONFIG=config_seatac.mk`

@@ -4,6 +4,7 @@ import pdb
 
 import numpy as np
 import xarray as xr
+import cftime
 
 import time_utils
 
@@ -33,7 +34,7 @@ def stack_by_init_date(ds, init_dates, n_lead_steps,
     
     # Initialise indexes of specified inital dates and time info for each initial date
     time2d = np.empty((len(init_dates), n_lead_steps), 'object')
-    time2d[:] = np.nan # Nans where data do not exist
+    time2d[:] = cftime.DatetimeGregorian(3000, 1, 1) # Year 3000 where data do not exist
     init_date_indexes = []
     for ndate, init_date in enumerate(init_dates):
         start_index = np.where(times == init_date)[0][0]
@@ -88,11 +89,34 @@ def reindex_forecast(ds, dropna=False):
     return concat
 
 
-def to_init_lead(ds):
+def time_to_lead(ds, freq):
+    """Convert from time to (a newly created) lead_time dimension."""
+
+    time_values = []
+    datasets = []
+    time_attrs = ds['time'].attrs
+    for init_date, ds_init_date in list(ds.groupby('init_date')):
+        ds_init_date_cropped = ds_init_date.dropna('time')
+        time_values.append(ds_init_date_cropped['time'].values)
+        ds_init_date_cropped = to_init_lead(ds_init_date_cropped, init_date=init_date)
+        datasets.append(ds_init_date_cropped)
+    ds = xr.concat(datasets, dim='init_date')
+    time_values = np.stack(time_values, axis=-1)
+    time_dimension = xr.DataArray(time_values, attrs=time_attrs,
+                                  dims={'lead_time': ds['lead_time'],
+                                        'init_date': ds['init_date']})
+    ds = ds.assign_coords({'time': time_dimension})
+    ds['lead_time'].attrs['units'] = freq
+
+    return ds
+
+
+def to_init_lead(ds, init_date=None):
     """Switch out time axis for init_date and lead_time."""
 
     lead_time = range(len(ds['time']))
-    init_date = time_utils.str_to_cftime(ds['time'].values[0].strftime('%Y-%m-%d'))
+    if not init_date:
+        init_date = time_utils.str_to_cftime(ds['time'].values[0].strftime('%Y-%m-%d'))
     new_coords = {'lead_time': lead_time, 'init_date': init_date}
     ds = ds.rename({'time': 'lead_time'})
     ds = ds.assign_coords(new_coords)

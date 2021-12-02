@@ -8,6 +8,8 @@ import cftime
 from datetime import datetime
 import xarray as xr
 
+import array_handling
+
 
 def check_date_format(date_list):
     """Check for YYYY-MM-DD format."""
@@ -99,13 +101,7 @@ def crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
                   ('Q', 'M'): 3,
                   ('Q', 'D'): 89}
     min_sample = count_dict[(output_freq[0], input_freq)]
-
-    dims_dict = dict(ds.dims)
-    del dims_dict['time']
-    dims_selection = dict.fromkeys(dims_dict, 0)
-    time_selection = counts.isel(dims_selection).values >= min_sample
-    
-    ds = ds.sel(time=time_selection)
+    ds = ds.where(counts >= min_sample)
 
     return ds
 
@@ -133,6 +129,12 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables,
 
     assert target_freq in ['A-DEC', 'M', 'Q-NOV', 'A-NOV']
     assert input_freq in ['D', 'M', 'Q', 'A']
+
+    if not 'time' in ds.dims:
+        ds = array_handling.reindex_forecast(ds)
+        reindexed = True
+    else:
+        reindexed = False        
 
     start_time = ds['time'].values[0]
     counts = ds[variables[0]].resample(time=target_freq).count(dim='time')
@@ -165,6 +167,10 @@ def temporal_aggregation(ds, target_freq, input_freq, agg_method, variables,
     if complete:
         ds = crop_to_complete_time_periods(ds, counts, input_freq, target_freq)
 
+    if reindexed:
+        ds = ds.compute()
+        ds = array_handling.time_to_lead(ds, target_freq[0])
+
     return ds
 
 
@@ -184,10 +190,10 @@ def monthly_downsample_mean(ds, target_freq, variables):
 
 
 def get_clim(ds, dims, time_period=None, groupby_init_month=False):
-    """Calculate climatology
+    """Calculate climatology.
 
     Args:
-      da (xarray DataSet or DataArray)
+      ds (xarray DataSet or DataArray)
       dims (str or list) : Dimension/s over which to calculate climatology
       time_period (list) : Time period
       groupby_init_month (bool) : Calculate separate climatologies for each
@@ -195,22 +201,22 @@ def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     """
 
     if time_period is not None:
-        da = select_time_period(da.copy(), time_period)
-        da.attrs['climatological_period'] = str(time_period)
+        ds = select_time_period(ds.copy(), time_period)
+        ds.attrs['climatological_period'] = str(time_period)
     
     if groupby_init_month:
-        clim = da.groupby(f'init_date.month').mean(dims, keep_attrs=True)
+        clim = ds.groupby(f'init_date.month').mean(dims, keep_attrs=True)
     else:
-        clim = da.mean(dims, keep_attrs=True)
+        clim = ds.mean(dims, keep_attrs=True)
 
     return clim
 
 
-def select_time_period(da, period):
+def select_time_period(ds, period):
     """Select a period of time.
 
     Args:
-      da (xarray DataArray)
+      ds (xarray DataSet or DataArray)
       period (list) : Start and stop dates (in YYYY-MM-DD format)
 
     Only works for cftime objects.
@@ -219,23 +225,23 @@ def select_time_period(da, period):
     check_date_format(period)
     start, stop = period
 
-    if 'time' in da.dims:
-        selection = da.sel({'time': slice(start, stop)})
-    elif 'time' in da.coords:
+    if 'time' in ds.dims:
+        selection = ds.sel({'time': slice(start, stop)})
+    elif 'time' in ds.coords:
         try:
-            calendar = da['time'].calendar_type.lower()
+            calendar = ds['time'].calendar_type.lower()
         except AttributeError:
             calendar = 'standard'
         time_bounds = xr.cftime_range(start=start, end=stop,
                                       periods=2, freq=None,
                                       calendar=calendar)
-        time_values = da['time'].compute()
+        time_values = ds['time'].compute()
         check_cftime(time_values)
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
-        selection = da.where(mask)
+        selection = ds.where(mask)
     else:
         raise ValueError(f'No time axis for masking')
-    selection.attrs = da.attrs
+    selection.attrs = ds.attrs
 
     return selection
 

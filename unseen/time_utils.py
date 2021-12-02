@@ -214,11 +214,18 @@ def get_clim(da, dim, time_period=None, monthly=False):
 def select_time_period(da, period):
     """Select a period of time.
 
-    Args:
-      da (xarray DataArray)
-      period (list) : Start and stop dates (in YYYY-MM-DD format)
+    Parameters
+    ----------
+    da : xarray DataArray
+        Input array containing time dimension or variable. The time
+        dimension of variable should be cftime but can contain nans.
+    period : list of str
+        Start and stop dates (in YYYY-MM-DD format)
 
-    Only works for cftime objects.
+    Returns
+    -------
+    masked : xarray DataArray
+        Array containing only times within provided period
     """
 
     def _inbounds(t, bnds):

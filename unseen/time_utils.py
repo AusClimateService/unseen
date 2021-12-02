@@ -211,7 +211,7 @@ def get_clim(da, dim, time_period=None, monthly=False):
     return clim
 
 
-def select_time_period(da, period):
+def select_time_period(da, period, time_name="time"):
     """Select a period of time.
 
     Parameters
@@ -221,6 +221,8 @@ def select_time_period(da, period):
         dimension of variable should be cftime but can contain nans.
     period : list of str
         Start and stop dates (in YYYY-MM-DD format)
+    time_name: str
+        Name of the time dimension or variable
 
     Returns
     -------
@@ -241,17 +243,17 @@ def select_time_period(da, period):
     check_date_format(period)
     start, stop = period
 
-    if "time" in da.dims:
-        selection = da.sel({"time": slice(start, stop)})
-    elif "time" in da.coords:
+    if time_name in da.dims:
+        selection = da.sel({time_name: slice(start, stop)})
+    elif time_name in da.coords:
         try:
-            calendar = da["time"].calendar_type.lower()
+            calendar = da[time_name].calendar_type.lower()
         except AttributeError:
             calendar = "standard"
         time_bounds = xr.cftime_range(
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
-        time_values = da["time"].values
+        time_values = da[time_name].values
         mask = _vinbounds(time_values, time_bounds)
         selection = da.where(mask)
     else:

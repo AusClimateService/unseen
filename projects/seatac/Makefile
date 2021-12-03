@@ -59,7 +59,7 @@ ${REANALYSIS_HOT_DAY_PLOT} : ${REANALYSIS_HGT_FILE} ${REANALYSIS_TAS_FILE}
 ## plot-model-hot-day : plot model hottest day
 plot-model-hot-day : ${MODEL_HOT_DAY_PLOT}
 ${MODEL_HOT_DAY_PLOT} : ${FCST_HOT_DAY_DATA} ${FCST_METADATA}
-	${PYTHON} plot_model_hottest_day.py $< $(word 2,$^) ${LAT} ${LON} $@ --plotparams ${PLOT_PARAMS}
+	${PYTHON} plot_model_hottest_day.py $< $(word 2,$^) ${LAT} ${LON} ${FCST_HOT_DAY_YEAR} $@ --plotparams ${PLOT_PARAMS}
 
 ## plot-sample-size-dist : plot TXx sample size distribution
 plot-sample-size-dist : ${TXX_SAMPLE_PLOT}

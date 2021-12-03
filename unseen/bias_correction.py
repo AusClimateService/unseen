@@ -26,7 +26,7 @@ def get_bias(fcst, obs, method, time_period=None):
     obs_stacked = array_handling.stack_by_init_date(obs,
                                                     init_dates=fcst['init_date'],
                                                     n_lead_steps=fcst.sizes['lead_time'])
-    obs_clim = time_utils.get_clim(obs_stacked, ['ensemble', 'init_date'],
+    obs_clim = time_utils.get_clim(obs_stacked, 'init_date',
                                    time_period=time_period,
                                    groupby_init_month=True)
 

@@ -22,21 +22,25 @@ import general_utils
 import plot_reanalysis_hottest_day as prhd
 
 
-def get_max_indices(infile, config_file, lat, lon):
+def get_max_indices(infile, config_file, lat, lon, time_bounds):
     """Get the time and ensemble index for hottest day at SeaTac"""
 
     ds = fileio.open_file(infile,
                           variables=['tasmax'],
                           metadata_file=config_file,
-                          spatial_coords=[lat, lon])
+                          spatial_coords=[lat, lon],
+                          sel={'time': time_bounds}
+                         )
 
     argmax = ds['tasmax'].argmax(dim=['ensemble', 'time'])
 
     time_idx = int(argmax['time'].values)
-    logging.info(f'Max temperature at SeaTac, time index: {time_idx}')
+    date = ds['time'].values[time_idx].strftime('%Y-%m-%d')
+    logging.info(f'Max temperature at SeaTac, date: {date}')
 
     ens_idx = int(argmax['ensemble'].values)
-    logging.info(f'Max temperature at SeaTac, ensemble index: {ens_idx}')
+    ensemble_member = ds['ensemble'].values[ens_idx]
+    logging.info(f'Max temperature at SeaTac, ensemble member: {ensemble_member}')
 
     max_temp = float(ds['tasmax'].isel({'ensemble': ens_idx , 'time': time_idx}).values)
     max_temp = max_temp - 273.15
@@ -51,15 +55,14 @@ def _main(args):
     logfile = args.logfile if args.logfile else args.outfile.split('.')[0] + '.log'
     logging.basicConfig(level=logging.INFO, filename=logfile, filemode='w')
     general_utils.set_plot_params(args.plotparams)
+    time_bounds = slice(f'{args.year}-01-01', f'{args.year}-12-31')
 
-    if args.max_index:
-        time_idx, ens_idx = args.max_index
-    else:
-        time_idx, ens_idx = get_max_indices(args.infile, args.config, args.lat, args.lon) 
+    time_idx, ens_idx = get_max_indices(args.infile, args.config, args.lat, args.lon, time_bounds) 
 
     ds = fileio.open_file(args.infile,
                           variables=['h500', 'tasmax'],
-                          metadata_file=args.config)
+                          metadata_file=args.config,
+                          sel={'time': time_bounds})
     ds_max = ds.isel({'ensemble': ens_idx, 'time': time_idx})
     ds_max['tasmax'] = general_utils.convert_units(ds_max['tasmax'], 'C')
     ds_max = ds_max.compute()
@@ -78,10 +81,9 @@ if __name__ == '__main__':
     parser.add_argument("config", type=str, help="configuration file")
     parser.add_argument("lat", type=float, help="latitude of SeaTac")
     parser.add_argument("lon", type=float, help="longitude of SeaTac")
+    parser.add_argument("year", type=str, help="year that the max TXx occurs in")
     parser.add_argument("outfile", type=str, help="output file")
     
-    parser.add_argument('--max_index', type=int, nargs=2, default=None,
-                        help='time and ensemble index of hottest day')
     parser.add_argument('--plotparams', type=str, default=None,
                         help='matplotlib parameters (YAML file)')
     parser.add_argument('--logfile', type=str, default=None,

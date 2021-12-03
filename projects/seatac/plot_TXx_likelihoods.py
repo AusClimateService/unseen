@@ -49,7 +49,7 @@ def _main(args):
     ds_ensemble_stacked = ds_ensemble.stack({'sample': ['ensemble', 'init_date', 'lead_time']}).compute()
 
     fig, ax = plt.subplots(figsize=[10, 6])
-    thresholds = [35, 37, 39, 41, 43]
+    thresholds = [37, 39, 41, 43, 45]
     for threshold in thresholds:
         likelihoods, sample_sizes = likelihood_curve(ds_ensemble_stacked['tasmax'], threshold)
         xvals = np.arange(len(sample_sizes)) + 1

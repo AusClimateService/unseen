@@ -48,7 +48,7 @@ def _main(args):
         year_df = pd.DataFrame(year_array)
         sns.kdeplot(year_df[0], color=c, label=str(year))
 
-    plt.xlim(25, 44)
+    plt.xlim(26, 46)
     plt.title('TXx distribution from model ensemble')
     plt.xlabel('TXx (C)')
     plt.legend(ncol=2)

@@ -7,7 +7,6 @@ repo_dir = "/".join(script_dir.split("/")[:-1])
 module_dir = repo_dir + "/unseen"
 sys.path.insert(1, module_dir)
 
-import pdb
 import argparse
 import calendar
 import itertools
@@ -18,6 +17,7 @@ import xarray as xr
 import xskillscore as xs
 import matplotlib.pyplot as plt
 
+import dask_setup
 import fileio
 import general_utils
 

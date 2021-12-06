@@ -1,6 +1,5 @@
 """Utilities for repeated random sampling"""
 
-import pdb
 import itertools
 
 import numpy as np

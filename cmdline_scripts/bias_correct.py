@@ -7,16 +7,11 @@ repo_dir = "/".join(script_dir.split("/")[:-1])
 module_dir = repo_dir + "/unseen"
 sys.path.insert(1, module_dir)
 
-import pdb
 import argparse
 
-import xarray as xr
-
 import fileio
-import array_handling
 import bias_correction
 import general_utils
-import time_utils
 
 
 def _main(args):
@@ -27,8 +22,6 @@ def _main(args):
 
     ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
-    init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
-    n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
 
     bias = bias_correction.get_bias(
         da_fcst, da_obs, args.method, time_period=args.base_period

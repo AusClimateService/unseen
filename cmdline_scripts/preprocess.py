@@ -1,6 +1,7 @@
 """Command line program for preprocessing data."""
 
 import sys
+
 script_dir = sys.path[0]
 repo_dir = "/".join(script_dir.split("/")[:-1])
 module_dir = repo_dir + "/unseen"

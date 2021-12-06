@@ -1,6 +1,5 @@
 """Functions for bias correction."""
 
-import pdb
 import operator
 
 import xarray as xr
@@ -19,28 +18,27 @@ def get_bias(fcst, obs, method, time_period=None):
       time_period (list) : Start and end dates (in YYYY-MM-DD format)
     """
 
-    fcst_clim = time_utils.get_clim(fcst, ['ensemble', 'init_date'],
-                                    time_period=time_period,
-                                    groupby_init_month=True)
+    fcst_clim = time_utils.get_clim(
+        fcst, ["ensemble", "init_date"], time_period=time_period, groupby_init_month=True
+    )
 
-    obs_stacked = array_handling.stack_by_init_date(obs,
-                                                    init_dates=fcst['init_date'],
-                                                    n_lead_steps=fcst.sizes['lead_time'])
-    obs_clim = time_utils.get_clim(obs_stacked, 'init_date',
-                                   time_period=time_period,
-                                   groupby_init_month=True)
+    obs_stacked = array_handling.stack_by_init_date(
+        obs, init_dates=fcst["init_date"], n_lead_steps=fcst.sizes["lead_time"])
+    obs_clim = time_utils.get_clim(
+        obs_stacked, "init_date", time_period=time_period, groupby_init_month=True
+    )
 
     with xr.set_options(keep_attrs=True):
-        if method == 'additive':
+        if method == "additive":
             bias = fcst_clim - obs_clim
-        elif method == 'multiplicative':
+        elif method == "multiplicative":
             bias = fcst_clim / obs_clim
         else:
-            raise ValueError(f'Unrecognised bias removal method {method}')
+            raise ValueError(f"Unrecognised bias removal method {method}")
 
-    bias.attrs['bias_correction_method'] = method
+    bias.attrs["bias_correction_method"] = method
     if time_period:
-        bias.attrs['bias_correction_period'] = '-'.join(time_period)
+        bias.attrs["bias_correction_period"] = "-".join(time_period)
 
     return bias
 
@@ -54,21 +52,20 @@ def remove_bias(fcst, bias, method):
       method (str) : Bias removal method
     """
 
-    if method == 'additive':
+    if method == "additive":
         op = operator.sub
-    elif method == 'multiplicative':
+    elif method == "multiplicative":
         op = operator.div
     else:
-        raise ValueError(f'Unrecognised bias removal method {method}')
+        raise ValueError(f"Unrecognised bias removal method {method}")
 
     with xr.set_options(keep_attrs=True):
-        fcst_bc = op(fcst.groupby('init_date.month'), bias).drop('month')
+        fcst_bc = op(fcst.groupby("init_date.month"), bias).drop("month")
 
-    fcst_bc.attrs['bias_correction_method'] = bias.attrs['bias_correction_method']
+    fcst_bc.attrs["bias_correction_method"] = bias.attrs["bias_correction_method"]
     try:
-        fcst_bc.attrs['bias_correction_period'] = bias.attrs['bias_correction_period']
+        fcst_bc.attrs["bias_correction_period"] = bias.attrs["bias_correction_period"]
     except KeyError:
         pass
 
     return fcst_bc
-

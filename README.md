@@ -1,5 +1,9 @@
 ## UNSEEN
 
+[![tests](https://github.com/AusClimateService/unseen/actions/workflows/tests.yml/badge.svg)](https://github.com/AusClimateService/unseen/actions/workflows/tests.yml)
+[![pre-commit](https://github.com/AusClimateService/unseen/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/AusClimateService/unseen/actions/workflows/pre-commit.yml)
+[![codecov](https://codecov.io/gh/AusClimateService/unseen/branch/master/graph/badge.svg?token=OCNJ29LV5C)](https://codecov.io/gh/AusClimateService/unseen)
+
 Python package for implementing the UNSEEN (UNprecedented Simulated Extremes using ENsembles)
 approach to assessing the likelihood of extreme events.
 

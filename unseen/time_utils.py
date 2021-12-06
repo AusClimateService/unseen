@@ -237,9 +237,9 @@ def select_time_period(ds, period):
             calendar = ds["time"].calendar_type.lower()
         except AttributeError:
             calendar = "standard"
-        time_bounds = xr.cftime_range(start=start, end=stop,
-                                      periods=2, freq=None,
-                                      calendar=calendar)
+        time_bounds = xr.cftime_range(
+            start=start, end=stop, periods=2, freq=None, calendar=calendar
+        )
         time_values = ds["time"].compute()
         check_cftime(time_values)
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])

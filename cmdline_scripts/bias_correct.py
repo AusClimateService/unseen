@@ -29,12 +29,12 @@ def _main(args):
     da_fcst = ds_fcst[args.var]
     init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
     n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
-    
+
     bias = bias_correction.get_bias(
         da_fcst, da_obs, args.method, time_period=args.base_period
     )
     da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method)
-    
+
     ds_fcst_bc = da_fcst_bc.to_dataset()
     infile_logs = {
         args.fcst_file: ds_fcst.attrs["history"],

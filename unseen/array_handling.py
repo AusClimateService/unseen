@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 import cftime
 
-import time_utils
+from . import time_utils
 
 
 def stack_by_init_date(

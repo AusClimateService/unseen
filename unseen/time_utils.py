@@ -7,7 +7,7 @@ import cftime
 from datetime import datetime
 import xarray as xr
 
-import array_handling
+from . import array_handling
 
 
 def check_date_format(date_list):

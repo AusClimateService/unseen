@@ -4,8 +4,8 @@ import operator
 
 import xarray as xr
 
-import array_handling
-import time_utils
+from . import array_handling
+from . import time_utils
 
 
 def get_bias(fcst, obs, method, time_period=None):

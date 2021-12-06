@@ -1,6 +1,5 @@
 """Utilities for working with time axes and values"""
 
-import pdb
 import re
 
 import numpy as np
@@ -134,11 +133,11 @@ def temporal_aggregation(
     assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV"]
     assert input_freq in ["D", "M", "Q", "A"]
 
-    if not "time" in ds.dims:
+    if "time" not in ds.dims:
         ds = array_handling.reindex_forecast(ds)
         reindexed = True
     else:
-        reindexed = False        
+        reindexed = False
 
     start_time = ds["time"].values[0]
     counts = ds[variables[0]].resample(time=target_freq).count(dim="time")
@@ -209,7 +208,7 @@ def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     if time_period is not None:
         ds = select_time_period(ds.copy(), time_period)
         ds.attrs["climatological_period"] = str(time_period)
-    
+
     if groupby_init_month:
         clim = ds.groupby("init_date.month").mean(dims, keep_attrs=True)
     else:

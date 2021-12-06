@@ -1,7 +1,5 @@
 """Functions for array handling and manipulation."""
 
-import pdb
-
 import numpy as np
 import xarray as xr
 import cftime
@@ -38,7 +36,7 @@ def stack_by_init_date(
 
     # Initialise indexes of specified inital dates and time info for each initial date
     time2d = np.empty((len(init_dates), n_lead_steps), "object")
-    time2d[:] = cftime.DatetimeGregorian(3000, 1, 1) # Year 3000 where data do not exist
+    time2d[:] = cftime.DatetimeGregorian(3000, 1, 1)  # Year 3000 where data do not exist
     init_date_indexes = []
     for ndate, init_date in enumerate(init_dates):
         start_index = np.where(times == init_date)[0][0]

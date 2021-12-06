@@ -42,9 +42,10 @@ def example_da_timeseries(request):
 @pytest.fixture()
 def example_da_forecast(request):
     """An example forecast DataArray"""
-    N_INIT = 24
-    N_LEAD = 12
-    init = xr.cftime_range(start="2000-01-01", periods=N_INIT, freq="MS")
+    N_INIT = 24  # Keep at least 6
+    N_LEAD = 12  # Keep at least 6
+    START = "2000-01-01"  # DO NOT CHANGE
+    init = xr.cftime_range(start=START, periods=N_INIT, freq="MS")
     lead = range(N_LEAD)
     time = [init.shift(i, freq="MS")[:N_LEAD] for i in range(len(init))]
     if request.param == "dask":

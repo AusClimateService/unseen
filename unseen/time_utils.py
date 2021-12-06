@@ -212,7 +212,7 @@ def get_clim(da, dim, time_period=None, monthly=False):
 
 
 def select_time_period(da, period, time_name="time"):
-    """Select a period of time
+    """Select a period of time.
 
     Parameters
     ----------

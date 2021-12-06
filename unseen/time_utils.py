@@ -134,11 +134,11 @@ def temporal_aggregation(
     assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV"]
     assert input_freq in ["D", "M", "Q", "A"]
 
-    if not "time" in ds.dims:
+    if "time" not in ds.dims:
         ds = array_handling.reindex_forecast(ds)
         reindexed = True
     else:
-        reindexed = False        
+        reindexed = False
 
     start_time = ds["time"].values[0]
     counts = ds[variables[0]].resample(time=target_freq).count(dim="time")
@@ -209,7 +209,7 @@ def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     if time_period is not None:
         ds = select_time_period(ds.copy(), time_period)
         ds.attrs["climatological_period"] = str(time_period)
-    
+
     if groupby_init_month:
         clim = ds.groupby("init_date.month").mean(dims, keep_attrs=True)
     else:
@@ -238,9 +238,9 @@ def select_time_period(ds, period):
             calendar = ds["time"].calendar_type.lower()
         except AttributeError:
             calendar = "standard"
-        time_bounds = xr.cftime_range(start=start, end=stop,
-                                      periods=2, freq=None,
-                                      calendar=calendar)
+        time_bounds = xr.cftime_range(
+            start=start, end=stop, periods=2, freq=None, calendar=calendar
+        )
         time_values = ds["time"].compute()
         check_cftime(time_values)
         mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])

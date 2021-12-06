@@ -10,7 +10,12 @@ import time_utils
 
 
 def stack_by_init_date(
-    ds, init_dates, n_lead_steps, time_dim="time", init_dim="init_date", lead_dim="lead_time"
+    ds,
+    init_dates,
+    n_lead_steps,
+    time_dim="time",
+    init_dim="init_date",
+    lead_dim="lead_time",
 ):
     """Stack timeseries array in inital date / lead time format.
 
@@ -38,7 +43,9 @@ def stack_by_init_date(
 
     # Initialise indexes of specified inital dates and time info for each initial date
     time2d = np.empty((len(init_dates), n_lead_steps), "object")
-    time2d[:] = cftime.DatetimeGregorian(3000, 1, 1) # Year 3000 where data do not exist
+    time2d[:] = cftime.DatetimeGregorian(
+        3000, 1, 1
+    )  # Year 3000 where data do not exist
     init_date_indexes = []
     for ndate, init_date in enumerate(init_dates):
         start_index = np.where(times == init_date)[0][0]
@@ -99,19 +106,21 @@ def time_to_lead(ds, freq):
 
     time_values = []
     datasets = []
-    time_attrs = ds['time'].attrs
-    for init_date, ds_init_date in list(ds.groupby('init_date')):
-        ds_init_date_cropped = ds_init_date.dropna('time')
-        time_values.append(ds_init_date_cropped['time'].values)
+    time_attrs = ds["time"].attrs
+    for init_date, ds_init_date in list(ds.groupby("init_date")):
+        ds_init_date_cropped = ds_init_date.dropna("time")
+        time_values.append(ds_init_date_cropped["time"].values)
         ds_init_date_cropped = to_init_lead(ds_init_date_cropped, init_date=init_date)
         datasets.append(ds_init_date_cropped)
-    ds = xr.concat(datasets, dim='init_date')
+    ds = xr.concat(datasets, dim="init_date")
     time_values = np.stack(time_values, axis=-1)
-    time_dimension = xr.DataArray(time_values, attrs=time_attrs,
-                                  dims={'lead_time': ds['lead_time'],
-                                        'init_date': ds['init_date']})
-    ds = ds.assign_coords({'time': time_dimension})
-    ds['lead_time'].attrs['units'] = freq
+    time_dimension = xr.DataArray(
+        time_values,
+        attrs=time_attrs,
+        dims={"lead_time": ds["lead_time"], "init_date": ds["init_date"]},
+    )
+    ds = ds.assign_coords({"time": time_dimension})
+    ds["lead_time"].attrs["units"] = freq
 
     return ds
 

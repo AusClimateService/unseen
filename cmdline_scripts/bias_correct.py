@@ -22,21 +22,19 @@ import time_utils
 def _main(args):
     """Run the command line program."""
 
-    ds_fcst = fileio.open_file(args.fcst_file)
-    da_fcst = ds_fcst[args.var]
-    # init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
-    # n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
-
     ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
     da_obs = ds_obs[args.var]
 
+    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
+    da_fcst = ds_fcst[args.var]
+    init_dates = time_utils.cftime_to_str(da_fcst["init_date"])
+    n_lead_steps = int(da_fcst["lead_time"].values.max()) + 1
+    
     bias = bias_correction.get_bias(
-        da_fcst, da_obs, args.method, time_period=args.base_period, monthly=args.monthly
+        da_fcst, da_obs, args.method, time_period=args.base_period
     )
-    da_fcst_bc = bias_correction.remove_bias(
-        da_fcst, bias, args.method, monthly=args.monthly
-    )
-
+    da_fcst_bc = bias_correction.remove_bias(da_fcst, bias, args.method)
+    
     ds_fcst_bc = da_fcst_bc.to_dataset()
     infile_logs = {
         args.fcst_file: ds_fcst.attrs["history"],
@@ -72,12 +70,6 @@ if __name__ == "__main__":
         type=str,
         nargs=2,
         help="Start and end date for baseline (YYYY-MM-DD format)",
-    )
-    parser.add_argument(
-        "--monthly",
-        action="store_true",
-        default=False,
-        help="Monthly climatology / bias removal [default=False]",
     )
     parser.add_argument(
         "--output_chunks",

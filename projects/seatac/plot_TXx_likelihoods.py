@@ -55,7 +55,7 @@ def _main(args):
     ).compute()
 
     fig, ax = plt.subplots(figsize=[10, 6])
-    thresholds = [35, 37, 39, 41, 43]
+    thresholds = [37, 39, 41, 43, 45]
     for threshold in thresholds:
         likelihoods, sample_sizes = likelihood_curve(
             ds_ensemble_stacked["tasmax"], threshold

@@ -1,7 +1,5 @@
 """Climate indices."""
 
-import pdb
-
 import numpy as np
 import xarray as xr
 from scipy.stats import genextreme as gev

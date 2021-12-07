@@ -1,7 +1,5 @@
 """Setup dask scheduling client"""
 
-import pdb
-
 import yaml
 import dask
 from dask.distributed import Client, LocalCluster

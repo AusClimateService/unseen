@@ -7,14 +7,12 @@ repo_dir = "/".join(script_dir.split("/")[:-1])
 module_dir = repo_dir + "/unseen"
 sys.path.insert(1, module_dir)
 
-import pdb
 import argparse
 
 import fileio
 import indices
 import dask_setup
 import general_utils
-import spatial_selection
 
 
 def indices_setup(kwargs, variables):

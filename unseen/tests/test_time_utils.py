@@ -1,7 +1,6 @@
 import pytest
 
 import numpy as np
-import xarray as xr
 from xarray.coding.times import cftime_to_nptime
 
 from unseen.time_utils import (

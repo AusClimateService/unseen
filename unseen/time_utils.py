@@ -264,6 +264,6 @@ def select_time_period(da, period, time_name="time"):
         selection = da.where(mask)
     else:
         raise ValueError("No time axis for masking")
-    selection.attrs = ds.attrs
+    selection.attrs = da.attrs
 
     return selection

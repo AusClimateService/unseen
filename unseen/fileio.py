@@ -17,6 +17,8 @@ from . import general_utils
 from . import spatial_selection
 from . import time_utils
 from . import array_handling
+from . import dask_setup
+from . import indices
 
 
 image_metadata_keys = {
@@ -433,7 +435,7 @@ def _parse_command_line():
     )
 
     args = parser.parse_args()
-    
+
     return args
 
 
@@ -487,9 +489,8 @@ def _main():
     ds = ds[args.variables]
 
     ds.attrs["history"] = get_new_log()
-    fileio.to_zarr(ds, args.outfile)
+    to_zarr(ds, args.outfile)
 
 
 if __name__ == "__main__":
     _main()
-

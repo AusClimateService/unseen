@@ -127,9 +127,7 @@ def _main():
     ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
 
-    bias = get_bias(
-        da_fcst, da_obs, args.method, time_period=args.base_period
-    )
+    bias = get_bias(da_fcst, da_obs, args.method, time_period=args.base_period)
     da_fcst_bc = remove_bias(da_fcst, bias, args.method)
 
     ds_fcst_bc = da_fcst_bc.to_dataset()
@@ -146,4 +144,3 @@ def _main():
 
 if __name__ == "__main__":
     _main()
-

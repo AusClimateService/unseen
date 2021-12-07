@@ -74,7 +74,7 @@ def _parse_command_line():
     )
 
     args = parser.parse_args()
-    
+
     return args
 
 
@@ -106,9 +106,7 @@ def _main():
         args.fcst_file: ds_fcst.attrs["history"],
         args.obs_file: ds_obs.attrs["history"],
     }
-    ds_similarity.attrs["history"] = fileio.get_new_log(
-        infile_logs=infile_logs, repo_dir=repo_dir
-    )
+    ds_similarity.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
 
     if args.output_chunks:
         ds_similarity = ds_similarity.chunk(args.output_chunks)
@@ -117,4 +115,3 @@ def _main():
 
 if __name__ == "__main__":
     _main()
-

@@ -1,11 +1,14 @@
-"""Functions for bias correction."""
+"""Functions and command line program for bias correction."""
 
+import argparse
 import operator
 
 import xarray as xr
 
-from . import array_handling
-from . import time_utils
+import array_handling
+import time_utils
+import fileio
+import general_utils
 
 
 def get_bias(fcst, obs, method, time_period=None):
@@ -73,3 +76,74 @@ def remove_bias(fcst, bias, method):
         pass
 
     return fcst_bc
+
+
+def _parse_command_line():
+    """Parse the command line for input agruments"""
+
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    parser.add_argument("fcst_file", type=str, help="Forecast file")
+    parser.add_argument("obs_file", type=str, help="Observations file")
+    parser.add_argument("var", type=str, help="Variable name")
+    parser.add_argument(
+        "method",
+        type=str,
+        choices=("multiplicative", "additive"),
+        help="Bias correction method",
+    )
+    parser.add_argument("outfile", type=str, help="Output file")
+
+    parser.add_argument(
+        "--base_period",
+        type=str,
+        nargs=2,
+        help="Start and end date for baseline (YYYY-MM-DD format)",
+    )
+    parser.add_argument(
+        "--output_chunks",
+        type=str,
+        nargs="*",
+        action=general_utils.store_dict,
+        default={},
+        help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)",
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
+def _main(args):
+    """Run the command line program."""
+
+    args = _parse_command_line()
+
+    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
+    da_obs = ds_obs[args.var]
+
+    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
+    da_fcst = ds_fcst[args.var]
+
+    bias = get_bias(
+        da_fcst, da_obs, args.method, time_period=args.base_period
+    )
+    da_fcst_bc = remove_bias(da_fcst, bias, args.method)
+
+    ds_fcst_bc = da_fcst_bc.to_dataset()
+    infile_logs = {
+        args.fcst_file: ds_fcst.attrs["history"],
+        args.obs_file: ds_obs.attrs["history"],
+    }
+    ds_fcst_bc.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
+
+    if args.output_chunks:
+        ds_fcst_bc = ds_fcst_bc.chunk(args.output_chunks)
+    fileio.to_zarr(ds_fcst_bc, args.outfile)
+
+
+if __name__ == "__main__":
+    _main()
+

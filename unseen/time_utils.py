@@ -1,13 +1,13 @@
 """Utilities for working with time axes and values"""
 
 import re
+from datetime import datetime
 
 import numpy as np
 import cftime
-from datetime import datetime
 import xarray as xr
 
-from . import array_handling
+import array_handling
 
 
 def check_date_format(date_list):

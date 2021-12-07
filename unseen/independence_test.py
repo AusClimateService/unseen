@@ -1,11 +1,4 @@
-"""Command line program for independence testing."""
-
-import sys
-
-script_dir = sys.path[0]
-repo_dir = "/".join(script_dir.split("/")[:-1])
-module_dir = repo_dir + "/unseen"
-sys.path.insert(1, module_dir)
+"""Functions and command line program for independence testing."""
 
 import argparse
 import calendar
@@ -149,8 +142,44 @@ def create_plot(mean_correlations, null_correlation_bounds, max_lead_times, outf
     plt.savefig(outfile)
 
 
+def _parse_command_line():
+    """Parse the command line for input agruments"""
+
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    parser.add_argument("fcst_file", type=str, help="Forecast file")
+    parser.add_argument("var", type=str, help="Variable name")
+    parser.add_argument("outfile", type=str, help="Output file")
+
+    parser.add_argument(
+        "--dask_config", type=str, help="YAML file specifying dask client configuration"
+    )
+    parser.add_argument(
+        "--lead_time_increment",
+        type=int,
+        default=None,
+        help="Increment the lead time (e.g. to account for exclusion of non-complete years)",
+    )
+    parser.add_argument(
+        "--spatial_selection",
+        type=str,
+        nargs="*",
+        default={},
+        action=general_utils.store_dict,
+        help="Spatial variable / selection pair (e.g. region=all)",
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
 def _main(args):
     """Run the command line program."""
+
+    args = _parse_command_line()
 
     if args.dask_config:
         client = dask_setup.launch_client(args.dask_config)
@@ -187,31 +216,5 @@ def _main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    _main()
 
-    parser.add_argument("fcst_file", type=str, help="Forecast file")
-    parser.add_argument("var", type=str, help="Variable name")
-    parser.add_argument("outfile", type=str, help="Output file")
-
-    parser.add_argument(
-        "--dask_config", type=str, help="YAML file specifying dask client configuration"
-    )
-    parser.add_argument(
-        "--lead_time_increment",
-        type=int,
-        default=None,
-        help="Increment the lead time (e.g. to account for exclusion of non-complete years)",
-    )
-    parser.add_argument(
-        "--spatial_selection",
-        type=str,
-        nargs="*",
-        default={},
-        action=general_utils.store_dict,
-        help="Spatial variable / selection pair (e.g. region=all)",
-    )
-
-    args = parser.parse_args()
-    _main(args)

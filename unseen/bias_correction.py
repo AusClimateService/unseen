@@ -5,10 +5,10 @@ import operator
 
 import xarray as xr
 
-import array_handling
-import time_utils
-import fileio
-import general_utils
+from . import array_handling
+from . import time_utils
+from . import fileio
+from . import general_utils
 
 
 def get_bias(fcst, obs, method, time_period=None):
@@ -116,7 +116,7 @@ def _parse_command_line():
     return args
 
 
-def _main(args):
+def _main():
     """Run the command line program."""
 
     args = _parse_command_line()

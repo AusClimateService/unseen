@@ -4,9 +4,9 @@ import argparse
 
 import xarray as xr
 
-import dask_setup
-import fileio
-import general_utils
+from . import dask_setup
+from . import fileio
+from . import general_utils
 import xks
 
 

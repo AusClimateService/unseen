@@ -23,9 +23,9 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "fileio = unseen.fileio._main",
-            "independence_test = unseen.independence_test._main",
-            "similarity_test = unseen.similarity_test._main",
-            "bias_correction = unseen.bias_correction._main"]}
+            "fileio = unseen.fileio:_main",
+            "independence_test = unseen.independence_test:_main",
+            "similarity_test = unseen.similarity_test:_main",
+            "bias_correction = unseen.bias_correction:_main"]}
             
 )

@@ -10,9 +10,9 @@ import xarray as xr
 import xskillscore as xs
 import matplotlib.pyplot as plt
 
-import dask_setup
-import fileio
-import general_utils
+from . import dask_setup
+from . import fileio
+from . import general_utils
 
 
 def remove_ensemble_mean_trend(da, dim="init_date"):
@@ -176,7 +176,7 @@ def _parse_command_line():
     return args
 
 
-def _main(args):
+def _main():
     """Run the command line program."""
 
     args = _parse_command_line()

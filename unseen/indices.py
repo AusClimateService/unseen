@@ -105,7 +105,7 @@ def fit_gev(data, user_estimates=[], generate_estimates=False):
     """
 
     if user_estimates:
-        loc_estimate, scale_estimate = user_estimates 
+        loc_estimate, scale_estimate = user_estimates
         shape, loc, scale = gev.fit(data, loc=loc_estimate, scale=scale_estimate)
     elif generate_estimates:
         shape_estimate, loc_estimate, scale_estimate = gev.fit(data[::2])

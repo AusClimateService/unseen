@@ -1,7 +1,6 @@
 """Functions and command line program for file I/O"""
 
 import os
-import sys
 import zipfile
 import shutil
 import argparse

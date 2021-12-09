@@ -236,20 +236,19 @@ def fix_metadata(ds, metadata_file, variables):
     return ds
 
 
-def get_new_log(infile_logs=None):
+def get_new_log(infile_logs=None, repo_dir=None):
     """Generate command log for output file.
 
     Args:
       infile_logs (dict) : keys are file names,
         values are the command log
+      repo_dir (str) : Path for git repository
     """
 
-    script_dir = sys.path[0]
-    repo_dir = "/".join(script_dir.split("/")[:-1])
     try:
         repo = git.Repo(repo_dir)
         repo_url = repo.remotes[0].url.split(".git")[0]
-    except git.exc.InvalidGitRepositoryError:
+    except (git.exc.InvalidGitRepositoryError, NameError):
         repo_url = None
     new_log = cmdprov.new_log(code_url=repo_url, infile_logs=infile_logs)
 

@@ -8,9 +8,9 @@ Python package for implementing the UNSEEN (UNprecedented Simulated Extremes usi
 [Thompson et al 2017](https://doi.org/10.1038/s41467-017-00275-3))
 approach to assessing the likelihood of extreme events.
 
-## Installation
+## Dependencies
 
-The following packages are dependencies: 
+The UNSEEN package depends on the following libraries: 
 ```
 cftime cmdline_provenance dask dask-jobqueue geopandas gitpython matplotlib netCDF4 numpy pytest pyyaml regionmask scipy xarray xclim xskillscore zarr
 ```
@@ -29,7 +29,7 @@ The `environment.yml` file includes other useful analysis libraries
 such as cartopy and jupyter.
 
 The `xks` package is only needed for similarity testing
-(i.e. when using [`similarity.py`](https://github.com/AusClimateService/unseen/blob/master/unseen/similarity.py)).
+(i.e. when using `unseen/similarity.py`).
 It isn't available on PyPI,
 so in order to install it in your environment you'll need to clone
 the `xks` repository and pip install as follows:
@@ -39,6 +39,22 @@ $ git clone https://github.com/dougiesquire/xks
 $ cd xks
 $ pip install .
 ```
+
+## Installation
+
+The UNSEEN package isn't currently available on PyPI,
+so in order to install it in your conda environemnt along with all the dependencies
+you'll need to close this repository and pip install as follows:
+
+```bash
+$ git clone https://github.com/AusClimateService/unseen
+$ cd unseen
+$ pip install .
+```
+
+If you're thinking of modifying and possibly contributing changes to the package,
+follow the installation instructions in CONTRIBUTING.md instead.
+
 
 ## Module index
 

@@ -43,8 +43,8 @@ $ pip install .
 ## Installation
 
 The UNSEEN package isn't currently available on PyPI,
-so in order to install it in your conda environemnt along with all the dependencies
-you'll need to close this repository and pip install as follows:
+so in order to install it in your conda environemnt (along with all the dependencies)
+you'll need to clone this repository and pip install as follows:
 
 ```bash
 $ git clone https://github.com/AusClimateService/unseen

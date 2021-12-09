@@ -94,16 +94,20 @@ def calc_wind_speed(ds):
     return wsp
 
 
-def fit_gev(data, use_estimates=False):
+def fit_gev(data, user_estimates=[], generate_estimates=False):
     """Fit a GEV by providing fit and scale estimates.
 
     Args:
       data (numpy ndarray)
-      use_estimates (bool) : Fit GEV to data subset first to estimate parameters.
-                             Useful for large datasets.
+      user_estimates (bool) : Estimate of the location and scale parameters
+      generate_estimates (bool) : Fit GEV to data subset first to estimate parameters.
+                                  Useful for large datasets.
     """
 
-    if use_estimates:
+    if user_estimates:
+        loc_estimate, scale_estimate = user_estimates
+        shape, loc, scale = gev.fit(data, loc=loc_estimate, scale=scale_estimate)
+    elif generate_estimates:
         shape_estimate, loc_estimate, scale_estimate = gev.fit(data[::2])
         shape, loc, scale = gev.fit(data, loc=loc_estimate, scale=scale_estimate)
     else:

@@ -1,6 +1,0 @@
-# Configuration for local dask cluster
-
-LocalCluster: {}
-
-temporary_directory: /g/data/xv83/dbi599/
-

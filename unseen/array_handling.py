@@ -17,21 +17,35 @@ def stack_by_init_date(
 ):
     """Stack timeseries array in inital date / lead time format.
 
-    Args:
-      ds (xarray Dataset)
-      init_dates (list) : Initial dates in YYYY-MM-DD format
-      n_lead_steps (int) : Maximum lead time
-      time_dim (str) : The name of the time dimension on ds
-      init_dim (str) : The name of the initial date dimension on the output array
-      lead_dim (str) : The name of the lead time dimension on the output array
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input array containing a time dimension
+    period : list
+        List of initial dates of the same object type as the times in
+        the time dimension of ds
+    n_lead_steps: int
+        Maximum number of lead time steps
+    time_name: str
+        Name of the time dimension in ds
+    init_name: str
+        Name of the initial date dimension to create in the output
+    lead_name: str
+        Name of the lead time dimension to create in the output
 
-    Note, only initial dates that fall within the time range of the input
+    Returns
+    -------
+    stacked : xarray DataArray or Dataset
+        Array with data stacked by specified initial dates and lead steps
+
+    Notes
+    -----
+    Only initial dates that fall within the time range of the input
     timeseries are retained. Thus, inital dates prior to the time range of
     the input timeseries that include data at longer lead times are not
     included in the output dataset. To include these data, prepend the input
     timeseries with nans so that the initial dates in question are present
     in the time dimension of the input timeseries.
-
     """
     # Only keep init dates that fall within available times
     times = ds[time_dim]

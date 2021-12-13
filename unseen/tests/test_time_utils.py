@@ -10,11 +10,14 @@ from unseen.time_utils import (
 
 @pytest.mark.parametrize("example_da_forecast", ["numpy"], indirect=True)
 @pytest.mark.parametrize("add_nans", [False, True])
-def test_select_time_period(example_da_forecast, add_nans):
+@pytest.mark.parametrize("data_object", ["DataArray", "Dataset"])
+def test_select_time_period(example_da_forecast, add_nans, data_object):
     """Test values returned by select_time_period"""
     PERIOD = ["2000-06-01", "2001-06-01"]
 
     data = example_da_forecast
+    if data_object == "Datatset":
+        data = data.to_dataset(name="var")
 
     if add_nans:
         time_nans = data[pytest.TIME_DIM].where(data[pytest.LEAD_DIM] > 3)

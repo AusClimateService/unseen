@@ -14,7 +14,10 @@ from unseen.array_handling import (
 @pytest.mark.parametrize("offset", [0, 10])
 @pytest.mark.parametrize("stride", [1, 10, "irregular"])
 @pytest.mark.parametrize("n_lead_steps", [1, 10])
-def test_stack_by_init_date(example_da_timeseries, offset, stride, n_lead_steps):
+@pytest.mark.parametrize("data_object", ["DataArray", "Dataset"])
+def test_stack_by_init_date(
+    example_da_timeseries, offset, stride, n_lead_steps, data_object
+):
     """Test values returned by stack_by_init_date"""
 
     def _np_stack_by_init_date(data, indexes, n_lead_steps):
@@ -27,6 +30,8 @@ def test_stack_by_init_date(example_da_timeseries, offset, stride, n_lead_steps)
         return ver
 
     data = example_da_timeseries
+    if data_object == "Dataset":
+        data = data.to_dataset(name="var")
 
     if stride == "irregular":
         indexes = np.concatenate(
@@ -44,6 +49,11 @@ def test_stack_by_init_date(example_da_timeseries, offset, stride, n_lead_steps)
         init_dim=pytest.INIT_DIM,
         lead_dim=pytest.LEAD_DIM,
     )
+
+    if data_object == "Dataset":
+        res = res["var"]
+        data = data["var"]
+
     ver = _np_stack_by_init_date(data, indexes, n_lead_steps)
 
     # Check that values are correct

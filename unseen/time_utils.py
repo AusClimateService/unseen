@@ -217,32 +217,50 @@ def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     return clim
 
 
-def select_time_period(ds, period):
+def select_time_period(ds, period, time_name="time"):
     """Select a period of time.
 
-    Args:
-      ds (xarray DataSet or DataArray)
-      period (list) : Start and stop dates (in YYYY-MM-DD format)
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input array containing time dimension or variable. The time
+        dimension of variable should be cftime but can contain nans.
+    period : list of str
+        Start and stop dates (in YYYY-MM-DD format)
+    time_name: str
+        Name of the time dimension, coordinate or variable
 
-    Only works for cftime objects.
+    Returns
+    -------
+    masked : xarray DataArray
+        Array containing only times within provided period
     """
+
+    def _inbounds(t, bnds):
+        """Check if time in bounds, allowing for nans"""
+        if t != t:
+            return False
+        else:
+            return (t >= bnds[0]) & (t <= bnds[1])
+
+    _vinbounds = np.vectorize(_inbounds)
+    _vinbounds.excluded.add(1)
 
     check_date_format(period)
     start, stop = period
 
-    if "time" in ds.dims:
-        selection = ds.sel({"time": slice(start, stop)})
-    elif "time" in ds.coords:
+    if time_name in ds.dims:
+        selection = ds.sel({time_name: slice(start, stop)})
+    elif time_name in ds.coords:
         try:
-            calendar = ds["time"].calendar_type.lower()
+            calendar = ds[time_name].calendar_type.lower()
         except AttributeError:
             calendar = "standard"
         time_bounds = xr.cftime_range(
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
-        time_values = ds["time"].compute()
-        check_cftime(time_values)
-        mask = (time_values >= time_bounds[0]) & (time_values <= time_bounds[1])
+        time_values = ds[time_name].values
+        mask = _vinbounds(time_values, time_bounds)
         selection = ds.where(mask)
     else:
         raise ValueError("No time axis for masking")

@@ -1,0 +1,6 @@
+# HadISST required metadata changes
+
+rename:
+  latitude: lat
+  longitude: lon
+

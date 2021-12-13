@@ -1,0 +1,6 @@
+# ERA5 required metadata changes
+
+rename:
+  latitude: lat
+  longitude: lon
+

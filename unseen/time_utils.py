@@ -217,18 +217,18 @@ def get_clim(ds, dims, time_period=None, groupby_init_month=False):
     return clim
 
 
-def select_time_period(da, period, time_name="time"):
+def select_time_period(ds, period, time_name="time"):
     """Select a period of time.
 
     Parameters
     ----------
-    da : xarray DataArray
+    ds : xarray DataArray or Dataset
         Input array containing time dimension or variable. The time
         dimension of variable should be cftime but can contain nans.
     period : list of str
         Start and stop dates (in YYYY-MM-DD format)
     time_name: str
-        Name of the time dimension or variable
+        Name of the time dimension, coordinate or variable
 
     Returns
     -------
@@ -249,21 +249,21 @@ def select_time_period(da, period, time_name="time"):
     check_date_format(period)
     start, stop = period
 
-    if time_name in da.dims:
-        selection = da.sel({time_name: slice(start, stop)})
-    elif time_name in da.coords:
+    if time_name in ds.dims:
+        selection = ds.sel({time_name: slice(start, stop)})
+    elif time_name in ds.coords:
         try:
-            calendar = da[time_name].calendar_type.lower()
+            calendar = ds[time_name].calendar_type.lower()
         except AttributeError:
             calendar = "standard"
         time_bounds = xr.cftime_range(
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
-        time_values = da[time_name].values
+        time_values = ds[time_name].values
         mask = _vinbounds(time_values, time_bounds)
-        selection = da.where(mask)
+        selection = ds.where(mask)
     else:
         raise ValueError("No time axis for masking")
-    selection.attrs = da.attrs
+    selection.attrs = ds.attrs
 
     return selection

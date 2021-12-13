@@ -21,6 +21,12 @@ $ conda env create -f environment.yml
 $ conda activate unseen
 ```
 
+Aside: it is handy to install your conda environment as an ipykernel. This makes a kernel with the `unseen` environment available from within Jupyter and you won't have to restart Jupyter to effectuate any changes/updates you make to the environment (simply restarting the kernel will do):
+
+```
+python -m ipykernel install --user --name unseen --display-name "Python (unseen)"
+```
+
 4. Install `unseen` using the editable flag (meaning any changes you make to the package will be reflected directly in your environment):
 
 ```
@@ -46,7 +52,7 @@ You can also run `pre-commit` manually at any point to format your code:
 pre-commit run --all-files
  ```
 
-6. Start making and committing your edits, including adding tests to `unseen/tests` to check that your contributions are doing what they're suppose to. To run the test suite:
+6. Start making and committing your edits, including adding docstrings to your functions and tests to `unseen/tests` to check that your contributions are doing what they're suppose to. Please try to follow [numpydoc style](https://numpydoc.readthedocs.io/en/latest/format.html) for docstrings. To run the test suite:
 
 ```
 pytest unseen

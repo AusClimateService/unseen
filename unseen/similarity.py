@@ -87,9 +87,9 @@ def _main():
         client = dask_setup.launch_client(args.dask_config)
         print(client)
 
-    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
+    ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
 
-    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
+    ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
         time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
         ds_obs = ds_obs.sel({"time": time_slice})

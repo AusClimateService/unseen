@@ -28,8 +28,27 @@ image_metadata_keys = {
 }
 
 
-def open_file(
-    infile,
+def guess_file_format(filenames):
+    """Guess file format from file name."""
+
+    if type(filenames) == list:
+        filename = filenames[0]
+    else:
+        filename = filenames
+
+    if ".nc" in filename:
+        file_format = "netcdf4"
+    elif ".zarr" in filename:
+        file_format = "zarr"
+    else:
+        ValueError("File must contain .nc or .zarr")
+
+    return file_format
+
+
+def open_dataset(
+    infiles,
+    file_format=None,
     chunks="auto",
     metadata_file=None,
     variables=[],
@@ -48,10 +67,11 @@ def open_file(
     sel={},
     units={},
 ):
-    """Create an xarray Dataset from an input zarr file.
+    """Create an xarray Dataset from one or more data files.
 
     Args:
-      infile (str) : Input file path
+      infiles (str or list) : Input file path/s
+      file_format (str) : File format of input files (e.g. netcdf4, zarr)
       chunks (dict) : Chunks for xarray.open_zarr
       metadata_file (str) : YAML file specifying required file metadata changes
       variables (list) : Variables of interest
@@ -71,14 +91,8 @@ def open_file(
       units (dict) : Variable/s (keys) and desired units (values)
     """
 
-    if infile[-3:] == ".nc":
-        ds = xr.open_dataset(infile, use_cftime=True)
-    elif "zarr" in infile[-9:]:
-        ds = xr.open_zarr(
-            infile, consolidated=True, use_cftime=True
-        )  # , chunks=chunks)
-    else:
-        ValueError("File must end in .nc, .zarr or .zarr.zip")
+    engine = file_format if file_format else guess_file_format(infiles)
+    ds = xr.open_mfdataset(infiles, engine=engine, use_cftime=True)
 
     if not chunks == "auto":
         ds = ds.chunk(chunks)
@@ -159,25 +173,13 @@ def times_from_init_lead(ds, time_freq):
     return times_cftime
 
 
-def open_mfzarr(infiles, **kwargs):
-    """Open multiple zarr files"""
-
-    datasets = []
-    for infile in infiles:
-        ds = open_file(infile, **kwargs)
-        datasets.append(ds)
-    ds = xr.concat(datasets, dim="time")
-
-    return ds
-
-
 def open_mfforecast(infiles, **kwargs):
     """Open multi-file forecast."""
 
     datasets = []
     time_values = []
     for infile in infiles:
-        ds = open_file(infile, **kwargs)
+        ds = open_dataset(infile, **kwargs)
         time_attrs = ds["time"].attrs
         time_values.append(ds["time"].values)
         ds = array_handling.to_init_lead(ds)
@@ -309,10 +311,14 @@ def _parse_command_line():
     )
 
     parser.add_argument("infiles", type=str, nargs="*", help="Input files")
-    parser.add_argument(
-        "data_type", type=str, choices=("forecast", "obs"), help="Data type"
-    )
     parser.add_argument("outfile", type=str, help="Output file")
+
+    parser.add_argument(
+        "--forecast",
+        action="store_true",
+        default=False,
+        help="Input files are a forecast dataset [default=False]",
+    )
 
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
@@ -431,6 +437,13 @@ def _parse_command_line():
         action=general_utils.store_dict,
         help="Index selection along dimensions (e.g. ensemble=1:5)",
     )
+    parser.add_argument(
+        "--sel",
+        type=str,
+        nargs="*",
+        action=general_utils.store_dict,
+        help="Selection along dimensions (e.g. ensemble=1:5)",
+    )
 
     args = parser.parse_args()
 
@@ -462,20 +475,18 @@ def _main():
         "complete_time_agg_periods": args.complete_time_agg_periods,
         "input_freq": args.input_freq,
         "isel": args.isel,
+        "sel": args.sel,
         "units": args.units,
     }
 
     kwargs, index = _indices_setup(kwargs, args.variables)
 
-    if args.data_type == "obs":
-        assert len(args.infiles) == 1
-        ds = open_file(args.infiles[0], **kwargs)
-        temporal_dim = "time"
-    elif args.data_type == "forecast":
+    if args.forecast:
         ds = open_mfforecast(args.infiles, **kwargs)
         temporal_dim = "lead_time"
     else:
-        raise ValueError(f"Unrecognised data type: {args.data_type}")
+        ds = open_dataset(args.infiles, **kwargs)
+        temporal_dim = "time"
 
     if index == "ffdi":
         ds["ffdi"] = indices.calc_FFDI(

@@ -121,10 +121,10 @@ def _main():
 
     args = _parse_command_line()
 
-    ds_obs = fileio.open_file(args.obs_file, variables=[args.var])
+    ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     da_obs = ds_obs[args.var]
 
-    ds_fcst = fileio.open_file(args.fcst_file, variables=[args.var])
+    ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
 
     bias = get_bias(da_fcst, da_obs, args.method, time_period=args.base_period)

@@ -86,8 +86,7 @@ Setup dask scheduling client:
 
 #### `fileio.py`
 Functions and command line program for file I/O:
-- `open_file`: create an xarray dataset from a single netCDF or zarr file, with many processing options (spatial/temporal selection and aggregation, unit conversion, etc)
-- `open_mfzarr`: open multiple zarr files
+- `open_dataset`: create an xarray dataset from one or more data files, with many processing options (spatial/temporal selection and aggregation, unit conversion, etc)
 - `open_mfforecast`: open multi-file forecast
 - `get_new_log`: generate command log for output file
 - `to_zarr`: write to zarr file

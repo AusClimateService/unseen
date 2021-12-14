@@ -185,7 +185,7 @@ def _main():
         client = dask_setup.launch_client(args.dask_config)
         print(client)
 
-    ds_fcst = fileio.open_file(
+    ds_fcst = fileio.open_dataset(
         args.fcst_file, variables=[args.var], sel=args.spatial_selection
     )
     da_fcst = ds_fcst[args.var]

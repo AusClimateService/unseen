@@ -11,6 +11,8 @@ def pytest_configure():
     pytest.TIME_DIM = "time"
     pytest.INIT_DIM = "init"
     pytest.LEAD_DIM = "lead"
+    pytest.LAT_DIM = "lat"
+    pytest.LON_DIM = "lon"
 
 
 def empty_dask_array(shape, dtype=float, chunks=None):
@@ -37,6 +39,17 @@ def example_da_timeseries(request):
         data = np.array([t.toordinal() for t in time])
         data -= data[0]
     return xr.DataArray(data, coords=[time], dims=[pytest.TIME_DIM])
+
+
+@pytest.fixture()
+def example_da_lon(request):
+    """An example DataArray of longitude values"""
+    maxlon = request.param
+    lats = np.arange(-90, 91)
+    lons = np.arange(maxlon - 360, maxlon)
+    data = np.tile((lons + 360) % 360, (len(lats), 1))
+    da = xr.DataArray(data, coords=[lats, lons], dims=[pytest.LAT_DIM, pytest.LON_DIM])
+    return da
 
 
 @pytest.fixture()

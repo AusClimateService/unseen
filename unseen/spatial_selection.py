@@ -145,6 +145,7 @@ def select_point_region(ds, point):
     """
 
     ds = ds.assign_coords({"lon": (ds["lon"] + 360) % 360})
+    ds = ds.sortby(ds["lon"])
 
     lat, lon = point
     lon = (lon + 360) % 360

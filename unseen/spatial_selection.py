@@ -120,18 +120,19 @@ def select_box_region(ds, box):
 
     lon_east_bound = (lon_east_bound + 360) % 360
     lon_west_bound = (lon_west_bound + 360) % 360
-    assert 0 <= lon_east_bound < 360, "Valid longitude range is [0, 360)"
-    assert 0 <= lon_west_bound < 360, "Valid longitude range is [0, 360)"
+    assert 0 <= lon_east_bound <= 360, "Valid longitude range is [0, 360]"
+    assert 0 <= lon_west_bound <= 360, "Valid longitude range is [0, 360]"
 
     ds = ds.assign_coords({"lon": (ds["lon"] + 360) % 360})
+    ds = ds.sortby(ds["lon"])
 
-    mask_lat = (ds["lat"] > lat_south_bound) & (ds["lat"] < lat_north_bound)
+    selection_lat = (ds["lat"] >= lat_south_bound) & (ds["lat"] <= lat_north_bound)
     if lon_east_bound < lon_west_bound:
-        mask_lon = (ds["lon"] > lon_east_bound) & (ds["lon"] < lon_west_bound)
+        selection_lon = (ds["lon"] >= lon_east_bound) & (ds["lon"] <= lon_west_bound)
     else:
-        mask_lon = (ds["lon"] > lon_east_bound) | (ds["lon"] < lon_west_bound)
+        selection_lon = (ds["lon"] >= lon_east_bound) | (ds["lon"] <= lon_west_bound)
 
-    ds = ds.where(mask_lat & mask_lon, drop=True)
+    ds = ds.where(selection_lat & selection_lon, drop=True)
 
     return ds
 
@@ -145,6 +146,7 @@ def select_point_region(ds, point):
     """
 
     ds = ds.assign_coords({"lon": (ds["lon"] + 360) % 360})
+    ds = ds.sortby(ds["lon"])
 
     lat, lon = point
     lon = (lon + 360) % 360

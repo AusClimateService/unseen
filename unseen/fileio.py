@@ -105,6 +105,12 @@ def open_dataset(
     if variables:
         ds = ds[variables]
 
+    # General selection/subsetting
+    if isel:
+        ds = ds.isel(isel)
+    if sel:
+        ds = ds.sel(sel)
+
     # Spatial subsetting and aggregation
     if spatial_coords or shapefile or spatial_agg:
         ds = spatial_selection.select_region(
@@ -140,12 +146,6 @@ def open_dataset(
     # Units
     for var, target_units in units.items():
         ds[var] = general_utils.convert_units(ds[var], target_units)
-
-    # General selection/subsetting
-    if isel:
-        ds = ds.isel(isel)
-    if sel:
-        ds = ds.sel(sel)
 
     assert type(ds) == xr.core.dataset.Dataset
 

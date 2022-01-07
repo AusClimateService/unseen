@@ -41,11 +41,11 @@ def str_to_cftime(datestring, calendar="standard"):
     return cfdt
 
 
-def cftime_to_str(time_dim):
+def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
     """Convert cftime array to YYY-MM-DD strings."""
 
     check_cftime(time_dim)
-    str_times = [time.strftime("%Y-%m-%d") for time in time_dim.values]
+    str_times = [time.strftime(str_format) for time in time_dim.values]
 
     return str_times
 
@@ -97,7 +97,7 @@ def crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
         ("Q", "D"): 89,
     }
     min_sample = count_dict[(output_freq[0], input_freq)]
-    ds = ds.where(counts >= min_sample)
+    ds = ds.where(counts.values >= min_sample)
 
     return ds
 
@@ -245,7 +245,6 @@ def select_time_period(ds, period, time_name="time"):
 
     _vinbounds = np.vectorize(_inbounds)
     _vinbounds.excluded.add(1)
-
     check_date_format(period)
     start, stop = period
 
@@ -260,7 +259,9 @@ def select_time_period(ds, period, time_name="time"):
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
         time_values = ds[time_name].values
-        mask = _vinbounds(time_values, time_bounds)
+        mask_values = _vinbounds(time_values, time_bounds)
+        mask = ds["time"].copy()
+        mask.values = mask_values
         selection = ds.where(mask)
     else:
         raise ValueError("No time axis for masking")

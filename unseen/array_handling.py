@@ -107,6 +107,7 @@ def stack_by_init_date(
     ds = ds.rename({time_dim: init_dim})
     ds = ds.assign_coords({lead_dim: ds[lead_dim].values})
     ds = ds.assign_coords({time_dim: ([init_dim, lead_dim], time2d)})
+    ds = ds.assign_coords({init_dim: init_dates})
 
     return ds
 

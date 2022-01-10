@@ -2,6 +2,7 @@
 
 import argparse
 
+import numpy as np
 import xarray as xr
 
 from . import dask_setup
@@ -20,13 +21,13 @@ def univariate_ks_test(fcst_stacked, obs_stacked, var):
     ks_distances = []
     pvals = []
     for lead_time in fcst_stacked["lead_time"].values:
-        ks_distance, pval = xks.ks1d2s(
-            obs_stacked, fcst_stacked.sel({"lead_time": lead_time}), "sample"
-        )
-        ks_distance = ks_distance.rename({var: "ks"})
-        pval = pval.rename({var: "pval"})
-        ks_distances.append(ks_distance["ks"])
-        pvals.append(pval["pval"])
+        fcst_data = fcst_stacked.sel({"lead_time": lead_time})
+        if not np.isnan(fcst_data[var].values).all():
+            ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_data, "sample")
+            ks_distance = ks_distance.rename({var: "ks"})
+            pval = pval.rename({var: "pval"})
+            ks_distances.append(ks_distance["ks"])
+            pvals.append(pval["pval"])
 
     ks_distances = xr.concat(ks_distances, "lead_time")
     pvals = xr.concat(pvals, "lead_time")

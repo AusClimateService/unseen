@@ -7,6 +7,25 @@ import cftime
 from . import time_utils
 
 
+def _get_match_index(time_axis, init_date, time_rounding):
+    """Find the index of init_date in time_axis."""
+
+    if time_rounding == "A":
+        str_format = "%Y"
+    elif time_rounding == "M":
+        str_format = "%Y-%m"
+    elif time_rounding == "D":
+        str_format = "%Y-%m-%d"
+    else:
+        raise ValueError("Time rounding must be A (annual), M (monthly) or D (daily)")
+
+    time_values = time_utils.cftime_to_str(time_axis, str_format=str_format)
+    init_value = init_date.item().strftime(str_format)
+    match_index = time_values.index(init_value)
+
+    return match_index
+
+
 def stack_by_init_date(
     ds,
     init_dates,
@@ -14,6 +33,7 @@ def stack_by_init_date(
     time_dim="time",
     init_dim="init_date",
     lead_dim="lead_time",
+    time_rounding="D",
 ):
     """Stack timeseries array in inital date / lead time format.
 
@@ -32,6 +52,9 @@ def stack_by_init_date(
         Name of the initial date dimension to create in the output
     lead_name: str
         Name of the lead time dimension to create in the output
+    time_rounding : str
+        Match time axis and init dates by floor rounding to nearest
+        day ('D'), month ('M') or year ('Y')
 
     Returns
     -------
@@ -60,7 +83,7 @@ def stack_by_init_date(
     )  # Year 3000 where data do not exist
     init_date_indexes = []
     for ndate, init_date in enumerate(init_dates):
-        start_index = np.where(times == init_date)[0][0]
+        start_index = _get_match_index(times, init_date, time_rounding)
         end_index = start_index + n_lead_steps
         time_slice = ds[time_dim][start_index:end_index]
         time2d[ndate, : len(time_slice)] = time_slice
@@ -84,6 +107,7 @@ def stack_by_init_date(
     ds = ds.rename({time_dim: init_dim})
     ds = ds.assign_coords({lead_dim: ds[lead_dim].values})
     ds = ds.assign_coords({time_dim: ([init_dim, lead_dim], time2d)})
+    ds = ds.assign_coords({init_dim: init_dates.values})
 
     return ds
 

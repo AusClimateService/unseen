@@ -11,7 +11,7 @@ from . import fileio
 from . import general_utils
 
 
-def get_bias(fcst, obs, method, time_period=None):
+def get_bias(fcst, obs, method, time_period=None, time_rounding="D"):
     """Calculate forecast bias.
 
     Args:
@@ -19,6 +19,7 @@ def get_bias(fcst, obs, method, time_period=None):
       obs (xarray DataArray) : Observational data
       method (str) : Bias removal method
       time_period (list) : Start and end dates (in YYYY-MM-DD format)
+      time_rounding (str) : Rounding (floor) frequency for time matching
     """
 
     fcst_clim = time_utils.get_clim(
@@ -29,7 +30,10 @@ def get_bias(fcst, obs, method, time_period=None):
     )
 
     obs_stacked = array_handling.stack_by_init_date(
-        obs, init_dates=fcst["init_date"], n_lead_steps=fcst.sizes["lead_time"]
+        obs,
+        init_dates=fcst["init_date"],
+        n_lead_steps=fcst.sizes["lead_time"],
+        time_rounding=time_rounding,
     )
     obs_clim = time_utils.get_clim(
         obs_stacked, "init_date", time_period=time_period, groupby_init_month=True
@@ -110,6 +114,13 @@ def _parse_command_line():
         default={},
         help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)",
     )
+    parser.add_argument(
+        "--rounding_freq",
+        type=str,
+        choices=("M", "D", "A"),
+        default="D",
+        help="Floor rounding to nearest day, month or year for time matching",
+    )
 
     args = parser.parse_args()
 
@@ -127,7 +138,13 @@ def _main():
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
 
-    bias = get_bias(da_fcst, da_obs, args.method, time_period=args.base_period)
+    bias = get_bias(
+        da_fcst,
+        da_obs,
+        args.method,
+        time_period=args.base_period,
+        time_rounding=args.rounding_freq,
+    )
     da_fcst_bc = remove_bias(da_fcst, bias, args.method)
 
     ds_fcst_bc = da_fcst_bc.to_dataset()

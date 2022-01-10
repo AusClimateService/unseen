@@ -156,12 +156,7 @@ def _parse_command_line():
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
     )
-    parser.add_argument(
-        "--lead_time_increment",
-        type=int,
-        default=None,
-        help="Increment the lead time (e.g. to account for exclusion of non-complete years)",
-    )
+
     parser.add_argument(
         "--spatial_selection",
         type=str,
@@ -189,10 +184,7 @@ def _main():
         args.fcst_file, variables=[args.var], sel=args.spatial_selection
     )
     da_fcst = ds_fcst[args.var]
-    if args.lead_time_increment:
-        da_fcst = da_fcst.assign_coords(
-            {"lead_time": da_fcst["lead_time"] + args.lead_time_increment}
-        )
+
     months = np.unique(da_fcst["init_date"].dt.month.values)
     mean_correlations = {}
     null_correlation_bounds = {}

@@ -15,15 +15,27 @@ from . import fileio
 from . import general_utils
 
 
-def remove_ensemble_mean_trend(da, dim="init_date"):
-    """Remove ensemble mean trend along given dimension
+def remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
+    """Remove ensemble mean trend along given dimension.
 
-    Args:
-      da (xarray DataArray)
-      dim (str) : Dimension over which to calculate and remove trend
+    Parameters
+    ----------
+    da : xarray DataArray
+        Input data array
+    dim : str, default init_date
+        Dimension over which to calculate and remove trend
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension to create in the output
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in da
+
+    Returns
+    -------
+    da_detrended : xarray DataArray
+        Detrended data array
     """
 
-    ensmean_trend = da.mean("ensemble").polyfit(dim=dim, deg=1)
+    ensmean_trend = da.mean(ensemble_dim).polyfit(dim=dim, deg=1)
     ensmean_trend_line = xr.polyval(da[dim], ensmean_trend["polyfit_coefficients"])
     ensmean_trend_line_anomaly = ensmean_trend_line - ensmean_trend_line.isel({dim: 0})
     da_detrended = da - ensmean_trend_line_anomaly
@@ -31,18 +43,28 @@ def remove_ensemble_mean_trend(da, dim="init_date"):
     return da_detrended
 
 
-def mean_ensemble_correlation(da, dim="init_date"):
+def mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
     """Mean correlation between all ensemble members.
 
-    Args:
-      da (xarray DataArray)
-      dim (str) : Dimension over which to calculate correlation
+    Parameters
+    ----------
+    da : xarray DataArray
+        Input data array
+    dim : str, default init_date
+        Dimension over which to calculate correlation
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in da
+
+    Returns
+    -------
+    mean_corr : xarray DataArray
+        Mean correlations
     """
 
-    n_ensemble_members = len(da["ensemble"])
+    n_ensemble_members = len(da[ensemble_dim])
     combinations = np.array(list(itertools.combinations(range(n_ensemble_members), 2)))
 
-    new_ensemble_coord = {"ensemble": range(combinations.shape[0])}
+    new_ensemble_coord = {ensemble_dim: range(combinations.shape[0])}
     e1 = da.isel(ensemble=combinations[:, 0]).assign_coords(new_ensemble_coord)
     e2 = da.isel(ensemble=combinations[:, 1]).assign_coords(new_ensemble_coord)
 
@@ -50,7 +72,7 @@ def mean_ensemble_correlation(da, dim="init_date"):
     e2 = e2.chunk({dim: -1})
 
     corr_combinations = xs.spearman_r(e1, e2, dim=dim, skipna=True)
-    mean_corr = corr_combinations.mean("ensemble")
+    mean_corr = corr_combinations.mean(ensemble_dim)
 
     return mean_corr
 
@@ -58,10 +80,19 @@ def mean_ensemble_correlation(da, dim="init_date"):
 def random_sample(ds, sample_dim, sample_size):
     """Take random sample along a given dimension.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      sample_dim (str) : Dimension along which to sample
-      sample_size (int) : Number of points to sample along sample_dim
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input data
+    sample_dim : str
+        Dimension along which to sample
+    sample_size : int
+        Number of points to sample along sample_dim
+
+    Returns
+    -------
+    ds_random_sample : xarray DataArray or Dataset
+        Random sample of the input data
     """
 
     n_population = len(ds[sample_dim])
@@ -72,23 +103,65 @@ def random_sample(ds, sample_dim, sample_size):
     return ds_random_sample
 
 
-def random_mean_ensemble_correlation(ds, n_init_dates, n_ensembles):
-    """Mean correlation between a random selection of samples"""
+def random_mean_ensemble_correlation(
+    ds, n_init_dates, n_ensembles, init_dim="init_date", ensemble_dim="ensemble"
+):
+    """Mean correlation between a random selection of samples.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input data
+    n_init_dates : int
+        Number of initial dates
+    n_ensembles : int
+        Number of ensemble members
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension to create in the output
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in ds
+
+    Returns
+    -------
+    mean_corr : xarray DataArray or Dataset
+        Mean correlations
+    """
 
     sample_size = n_init_dates * n_ensembles
     ds_random_sample = random_sample(ds, "sample", sample_size)
     index = pd.MultiIndex.from_product(
-        [range(n_init_dates), range(n_ensembles)], names=["init_date", "ensemble"]
+        [range(n_init_dates), range(n_ensembles)], names=[init_dim, ensemble_dim]
     )
     ds_random_sample = ds_random_sample.assign_coords({"sample": index}).unstack()
-    mean_corr = mean_ensemble_correlation(ds_random_sample, dim="init_date")
+    mean_corr = mean_ensemble_correlation(ds_random_sample, dim=init_dim)
 
     return mean_corr
 
 
-def get_null_correlation_bounds(da):
+def get_null_correlation_bounds(
+    da, init_dim="init_time", lead_dim="lead_dim", ensemble_dim="ensemble"
+):
     """Get the uncertainty bounds on zero correlation.
 
+    Parameters
+    ----------
+    da : xarray DataArray
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension in da
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in da
+    ensemble_dim: str, default 'ensemble'
+        Name of the ensemble member dimension in da
+
+    Returns
+    -------
+    lower_bound : float
+        Lower uncertainly bound
+    upper_bound : float
+        Upper uncertainly bound
+
+    Notes
+    -----
     Performs bootstrapping via a simple loop.
     """
 
@@ -113,7 +186,19 @@ def get_null_correlation_bounds(da):
 
 
 def create_plot(mean_correlations, null_correlation_bounds, max_lead_times, outfile):
-    """Create plot."""
+    """Create independence plot.
+
+    Parameters
+    ----------
+    mean_correlations : xarray Dataset
+        Mean correlation (for each lead time) data
+    null_correlation_bounds : list
+        Bounds on zero correlation [lower_bound, upper_bound]
+    max_lead_times : int
+        Maximum lead time
+    outfile : str
+        Path for output image file
+    """
 
     fig, ax = plt.subplots()
 

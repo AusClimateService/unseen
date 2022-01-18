@@ -66,11 +66,11 @@ def stack_by_init_date(
         the time dimension of ds
     n_lead_steps: int
         Maximum number of lead time steps
-    time_name: str, default 'time'
+    time_dim: str, default 'time'
         Name of the time dimension in ds
-    init_name: str, default 'init_date'
+    init_dim: str, default 'init_date'
         Name of the initial date dimension to create in the output
-    lead_name: str, default 'lead_time'
+    lead_dim: str, default 'lead_time'
         Name of the lead time dimension to create in the output
     time_rounding :  {'A', 'M', 'D'}, default 'D'
         Match time axis and init dates by floor rounding to nearest day, month, or year

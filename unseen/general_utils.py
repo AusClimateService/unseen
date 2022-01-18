@@ -7,7 +7,7 @@ import xclim
 
 
 class store_dict(argparse.Action):
-    """Store a command line argument as a dictionary.
+    """An argparse action for parsing a command line argument as a dictionary.
 
     Examples
     --------

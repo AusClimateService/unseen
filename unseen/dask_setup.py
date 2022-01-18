@@ -7,7 +7,23 @@ from dask_jobqueue import PBSCluster, SLURMCluster
 
 
 def launch_client(config_file):
-    """Launch a dask client."""
+    """Launch a dask client.
+
+    Parameters
+    ----------
+    config_file : str
+        Configuration file path (YAML file)
+
+    Returns
+    -------
+    client : Dask client
+
+    Raises
+    ------
+    ValueError
+        If no recognised cluster listed in config_file
+
+    """
 
     with open(config_file, "r") as reader:
         config_dict = yaml.load(reader, Loader=yaml.FullLoader)

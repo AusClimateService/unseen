@@ -36,10 +36,10 @@ def get_bias(
     time_rounding : str, default 'D'
         Rounding (floor) frequency for time matching
     ensemble_name: str, default 'ensemble'
-        Name of the ensemble dimension in fcst
-    init_name: str, default 'init_date'
+        Name of the ensemble member dimension in fcst
+    init_dim: str, default 'init_date'
         Name of the initial date dimension in fcst
-    lead_name: str, default 'lead_time'
+    lead_dim: str, default 'lead_time'
         Name of the lead time dimension in fcst
 
     Returns
@@ -95,7 +95,7 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
         Bias array
     method : {'additive', 'multiplicative'}
         Bias removal method
-    init_name: str, default 'init_date'
+    init_dim: str, default 'init_date'
         Name of the initial date dimension in fcst
 
     Returns

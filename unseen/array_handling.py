@@ -7,8 +7,28 @@ import cftime
 from . import time_utils
 
 
-def _get_match_index(time_axis, init_date, time_rounding):
-    """Find the index of init_date in time_axis."""
+def _get_match_index(time_axis, target_date, time_rounding):
+    """Find the index of a target date in a time axis.
+
+    Parameters
+    ----------
+    time_axis : xarray DataArray (of cftime objects)
+        Time dimension
+    target_date : cftime object
+        Target date
+    time_rounding : {'A', 'M', 'D'}
+        Time resolution (annual, monthly, or daily)
+
+    Returns
+    -------
+    match_index : int
+       Index of match
+
+    Raises
+    ------
+    ValueError
+       For invalid time_rounding value
+    """
 
     if time_rounding == "A":
         str_format = "%Y"
@@ -20,7 +40,7 @@ def _get_match_index(time_axis, init_date, time_rounding):
         raise ValueError("Time rounding must be A (annual), M (monthly) or D (daily)")
 
     time_values = time_utils.cftime_to_str(time_axis, str_format=str_format)
-    init_value = init_date.item().strftime(str_format)
+    init_value = target_date.strftime(str_format)
     match_index = time_values.index(init_value)
 
     return match_index
@@ -46,15 +66,14 @@ def stack_by_init_date(
         the time dimension of ds
     n_lead_steps: int
         Maximum number of lead time steps
-    time_name: str
+    time_name: str, default 'time'
         Name of the time dimension in ds
-    init_name: str
+    init_name: str, default 'init_date'
         Name of the initial date dimension to create in the output
-    lead_name: str
+    lead_name: str, default 'lead_time'
         Name of the lead time dimension to create in the output
-    time_rounding : str
-        Match time axis and init dates by floor rounding to nearest
-        day ('D'), month ('M') or year ('Y')
+    time_rounding :  {'A', 'M', 'D'}, default 'D'
+        Match time axis and init dates by floor rounding to nearest day, month, or year
 
     Returns
     -------
@@ -83,7 +102,7 @@ def stack_by_init_date(
     )  # Year 3000 where data do not exist
     init_date_indexes = []
     for ndate, init_date in enumerate(init_dates):
-        start_index = _get_match_index(times, init_date, time_rounding)
+        start_index = _get_match_index(times, init_date.item(), time_rounding)
         end_index = start_index + n_lead_steps
         time_slice = ds[time_dim][start_index:end_index]
         time2d[ndate, : len(time_slice)] = time_slice
@@ -113,7 +132,26 @@ def stack_by_init_date(
 
 
 def reindex_forecast(ds, dropna=False):
-    """Switch out lead_time axis for time axis (or vice versa) in a forecast dataset."""
+    """Swap lead time dimension for time dimension (or vice versa) in a forecast dataset.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Forecast array containing an initial date and time or lead time dimension
+    dropna : bool, default False
+        Remove N/A values from array
+
+    Returns
+    -------
+    swapped : xarray DataArray or Dataset
+        Output array with time and lead time swapped
+
+    Raises
+    ------
+    ValueError
+        If a time or lead time dimension can't be found
+
+    """
 
     if "lead_time" in ds.dims:
         index_dim = "lead_time"
@@ -130,15 +168,28 @@ def reindex_forecast(ds, dropna=False):
         fcst = fcst.where(fcst[reindex_dim].notnull(), drop=True)
         fcst = fcst.assign_coords({"lead_time": fcst["lead_time"].astype(int)})
         to_concat.append(fcst.swap_dims(swap))
-    concat = xr.concat(to_concat, dim="init_date")
+    swapped = xr.concat(to_concat, dim="init_date")
     if dropna:
-        concat = concat.where(concat.notnull(), drop=True)
+        swapped = swapped.where(swapped.notnull(), drop=True)
 
-    return concat
+    return swapped
 
 
 def time_to_lead(ds, freq):
-    """Convert from time to (a newly created) lead_time dimension."""
+    """Convert from time to (a newly created) lead time dimension.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Forecast array with initial date and time dimensions
+    freq : str
+        Time step frequency for lead time attributes
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
+        Output array with initial date and lead time dimensions
+    """
 
     time_values = []
     datasets = []
@@ -162,7 +213,20 @@ def time_to_lead(ds, freq):
 
 
 def to_init_lead(ds, init_date=None):
-    """Switch out time axis for init_date and lead_time."""
+    """Swap time dimension for initial date and lead time dimensions.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input array with time dimension
+    init_date : cftime object, optional
+        Initial date
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
+        Output array with initial date and lead time dimensions
+    """
 
     lead_time = range(len(ds["time"]))
     if not init_date:

@@ -99,6 +99,7 @@ def open_dataset(
     variables : list, optional
         Subset of variables of interest
     spatial_coords : list, optional
+        Coordinates for spatial point or box selection.
         List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
     shapefile : str, optional
         Shapefile for spatial subseting
@@ -153,15 +154,31 @@ def open_dataset(
         ds = ds.sel(sel)
 
     # Spatial subsetting and aggregation
-    if spatial_coords or shapefile or spatial_agg:
-        ds = spatial_selection.select_region(
+    if spatial_coords is None:
+        pass
+    elif len(spatial_coords) == 4:
+        ds = spatial_selection.select_box_region(ds, spatial_coords)
+    elif len(spatial_coords) == 2:
+        ds = spatial_selection.select_point_region(ds, spatial_coords)
+    else:
+        msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
+        raise ValueError(msg)
+    if shapefile:
+        ds = spatial_selection.select_shapefile_regions(
             ds,
-            coords=spatial_coords,
-            shapefile=shapefile,
+            shapefile,
+            agg=spatial_agg,
             header=shape_label_header,
             combine_shapes=combine_shapes,
-            agg=spatial_agg,
         )
+    if (spatial_agg == "sum") and not shapefile:
+        ds = ds.sum(dim=("lat", "lon"))
+    elif (spatial_agg == "mean") and not shapefile:
+        ds = ds.mean(dim=("lat", "lon"))
+    elif (spatial_agg is None) or shapefile:
+        pass
+    else:
+        raise ValueError("""spatial_agg must be None, 'sum' or 'mean'""")
 
     # Temporal aggregation
     if no_leap_days:

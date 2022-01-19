@@ -7,17 +7,39 @@ import regionmask
 
 
 def select_region(
-    ds, coords=None, shapefile=None, header=None, combine_shapes=False, agg=None
+    ds,
+    coords=None,
+    shapefile=None,
+    header=None,
+    combine_shapes=False,
+    agg=None,
+    lat_dim="lat",
+    lon_dim="lon",
 ):
-    """Select region.
+    """Select point, box or shapefile region.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      coords (list) : List of length 2 [lat, lon] or 4 [south bound, north bound, east bound, west bound]
-      shapefile (str) : Shapefile for spatial subseting
-      header (str) : Name of the shapefile column containing the region names
-      combine_shapes (bool) : Add region that combines all shapes in shapefile
-      agg (str) : Aggregation method (spatial 'mean' or 'sum')
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+    coords : list, optional
+        Coordinates for point or box selection.
+        List of length 2 [lat, lon] or 4 [south bound, north bound, east bound, west bound]
+    shapefile : str, optional
+        Shapefile for spatial subseting
+    header : str, optional
+        Name of the shapefile column containing the region names
+    combine_shapes : bool, default False
+        Add region that combines all shapes in shapefile
+    agg : {'mean', 'sum'}, optional
+        Spatial aggregation method
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in ds
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in ds
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
     """
 
     if coords is None:
@@ -61,20 +83,48 @@ def add_combined_shape(mask):
 
 
 def select_shapefile_regions(
-    ds, shapefile, agg=None, header=None, combine_shapes=False
+    ds,
+    shapefile,
+    agg=None,
+    header=None,
+    combine_shapes=False,
+    lat_dim="lat",
+    lon_dim="lon",
 ):
     """Select region using a shapefile.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      shapefile (str) : Shapefile
-      agg(str) : Aggregation method (spatial 'mean' or 'sum')
-      header (str) : Name of the shapefile column containing the region names
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+    shapefile : str
+        File path for shapefile
+    agg : {'mean', 'sum'}, optional
+        Spatial aggregation method
+    header : str, optional
+        Name of the shapefile column containing the region names
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in ds
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in ds
 
-    regionmask requires the names of the horizontal spatial dimensions to be 'lat' and 'lon'
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
+
+    Notes
+    -----
+    regionmask requires the names of the horizontal spatial dimensions
+    to be 'lat' and 'lon'
 
     """
 
+    new_dim_names = {}
+    if not lat_dim == "lat":
+        new_dim_names[lat_dim] = "lat"
+    if not lon_dim == "lon":
+        new_dim_names[lon_dim] = "lon"
+    if new_dim_names:
+        ds = ds.rename_dims(new_dim_names)
     assert "lat" in ds.coords, "Latitude coordinate must be called lat"
     assert "lon" in ds.coords, "Longitude coordinate must be called lon"
 
@@ -86,6 +136,9 @@ def select_shapefile_regions(
         mask = regionmask.mask_geopandas(shapes, lons, lats)
         mask = xr.where(mask.notnull(), True, False)
         ds = ds.where(mask)
+        if new_dim_names:
+            old_dim_names = {y: x for x, y in new_dim_names.items()}
+            ds = ds.rename_dims(old_dim_names)
     elif agg == "sum":
         mask = regionmask.mask_geopandas(shapes, lons, lats)
         ds = ds.groupby(mask).sum(keep_attrs=True)
@@ -105,12 +158,22 @@ def select_shapefile_regions(
     return ds
 
 
-def select_box_region(ds, box):
+def select_box_region(ds, box, lat_dim="lat", lon_dim="lon"):
     """Select grid points that fall within a lat/lon box.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      box (list) : [south bound, north bound, east bound, west bound]
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+    box : list
+        Box coordinates: [south bound, north bound, east bound, west bound]
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in ds
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in ds
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
     """
 
     lat_south_bound, lat_north_bound, lon_east_bound, lon_west_bound = box
@@ -123,33 +186,47 @@ def select_box_region(ds, box):
     assert 0 <= lon_east_bound <= 360, "Valid longitude range is [0, 360]"
     assert 0 <= lon_west_bound <= 360, "Valid longitude range is [0, 360]"
 
-    ds = ds.assign_coords({"lon": (ds["lon"] + 360) % 360})
-    ds = ds.sortby(ds["lon"])
+    ds = ds.assign_coords({lon_dim: (ds[lon_dim] + 360) % 360})
+    ds = ds.sortby(ds[lon_dim])
 
-    selection_lat = (ds["lat"] >= lat_south_bound) & (ds["lat"] <= lat_north_bound)
+    selection_lat = (ds[lat_dim] >= lat_south_bound) & (ds[lat_dim] <= lat_north_bound)
     if lon_east_bound < lon_west_bound:
-        selection_lon = (ds["lon"] >= lon_east_bound) & (ds["lon"] <= lon_west_bound)
+        selection_lon = (ds[lon_dim] >= lon_east_bound) & (
+            ds[lon_dim] <= lon_west_bound
+        )
     else:
-        selection_lon = (ds["lon"] >= lon_east_bound) | (ds["lon"] <= lon_west_bound)
+        selection_lon = (ds[lon_dim] >= lon_east_bound) | (
+            ds[lon_dim] <= lon_west_bound
+        )
 
     ds = ds.where(selection_lat & selection_lon, drop=True)
 
     return ds
 
 
-def select_point_region(ds, point):
+def select_point_region(ds, point, lat_dim="lat", lon_dim="lon"):
     """Select a single grid point.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      point (list) : [lat, lon]
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+    point : list
+        Point coordinates: [lat, lon]
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in ds
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in ds
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
     """
 
-    ds = ds.assign_coords({"lon": (ds["lon"] + 360) % 360})
-    ds = ds.sortby(ds["lon"])
+    ds = ds.assign_coords({lon_dim: (ds[lon_dim] + 360) % 360})
+    ds = ds.sortby(ds[lon_dim])
 
     lat, lon = point
     lon = (lon + 360) % 360
-    ds = ds.sel({"lat": lat, "lon": lon}, method="nearest", drop=True)
+    ds = ds.sel({lat_dim: lat, lon_dim: lon}, method="nearest", drop=True)
 
     return ds

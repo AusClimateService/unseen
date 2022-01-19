@@ -9,20 +9,27 @@ def calc_drought_factor(pr, time_dim="time", scale_dims=["time"]):
     """Calculate the Drought Factor index.
 
     20-day accumulated rainfall scaled to lie between 0 and 10,
-      with larger values indicating less precipitation
+    with larger values indicating less precipitation.
 
-    Args:
-      pr (xarray DataArray) : Daily precipitation data
-      time_dim (str) : Dimension along which to accumulate precipitation
-      scale_dims (list) : Dimension(s) over which to compute the max and min
-        precipitation to scale the accumulated precipitation
+    Parameters
+    ----------
+    pr : xarray DataArray
+        Daily precipitation data
+    time_dim : str, default 'time'
+        Dimension along which to accumulate precipitation
+    scale_dims : list, default ['time']
+        Dimension(s) over which to compute the max and min precipitation
+        to scale the accumulated precipitation
 
-    Returns:
-      df (xarray DataArray) : Drought Factor
+    Returns
+    -------
+    df : xarray DataArray
+        Drought Factor
 
+    Notes
+    -----
     Calculation:
       df = -10 * (pr20 - min(pr20)) / (max(pr20) - min(pr20)) + 10
-
         pr20 is the 20 day running sum
         min/max are along a temporal axis
     """
@@ -39,15 +46,28 @@ def calc_drought_factor(pr, time_dim="time", scale_dims=["time"]):
 def calc_FFDI(ds, time_dim="time", scale_dims=["time"]):
     """Calculate the McArthur Forest Fire Danger Index.
 
-    Args:
-      ds (xarray Dataset): Containing the following variables:
-        pr (daily precipitation in mm)
-        tasmax (daily maximum surface temperature in degrees C)
-        hur (daily surface relative humidity)
-        uas (daily eastward wind speed in km/h)
-        vas (daily northward wind speed in km/h)
-      dim (str): Temporal dimension over which to calculate FFDI
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Dataset containing the following variables:
+          pr (daily precipitation in mm)
+          tasmax (daily maximum surface temperature in degrees C)
+          hur (daily surface relative humidity)
+          uas (daily eastward wind speed in km/h)
+          vas (daily northward wind speed in km/h)
+    time_dim : str, default 'time'
+        Temporal dimension over which to calculate FFDI
+    scale_dims : list, default ['time']
+        Dimension(s) over which to compute the max and min precipitation
+        to scale the accumulated precipitation
 
+    Returns
+    -------
+    ffdi : xarray DataArray
+        Forest Fire Danger Index
+
+    Notes
+    -----
     Calculation:
       FFDI = DF**0.987 * e^(0.0338*tmax - 0.0345*rhmax + 0.0234*wmax + 0.243147)
 
@@ -80,13 +100,17 @@ def calc_FFDI(ds, time_dim="time", scale_dims=["time"]):
 def calc_wind_speed(ds):
     """Calculate wind speed.
 
-    Args:
-      ds (xarray Dataset): Containing the following variables:
-        uas (daily eastward wind speed)
-        vas (daily northward wind speed)
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Dataset containing the following variables:
+          uas (daily eastward wind speed)
+          vas (daily northward wind speed)
 
-    Return:
-      wsp (xarray DataArray): Wind speed
+    Returns
+    -------
+    wsp : xarray DataArray
+        Wind speed
     """
 
     wsp = xr.ufuncs.sqrt(ds["uas"] ** 2 + ds["vas"] ** 2)
@@ -97,11 +121,22 @@ def calc_wind_speed(ds):
 def fit_gev(data, user_estimates=[], generate_estimates=False):
     """Fit a GEV by providing fit and scale estimates.
 
-    Args:
-      data (numpy ndarray)
-      user_estimates (bool) : Estimate of the location and scale parameters
-      generate_estimates (bool) : Fit GEV to data subset first to estimate parameters.
-                                  Useful for large datasets.
+    Parameters
+    ----------
+    data : numpy ndarray
+    user_estimates : list, optional
+        Estimate of the location and scale parameters
+    generate_estimates : bool, default False
+        Fit GEV to data subset first to estimate parameters (useful for large datasets)
+
+    Returns
+    -------
+    shape : float
+        Shape parameter
+    loc : float
+        Location parameter
+    scale : float
+        Scale parameter
     """
 
     if user_estimates:

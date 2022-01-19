@@ -21,8 +21,10 @@ def check_date_format(date_list):
 def check_cftime(time_dim):
     """Check that time dimension is cftime.
 
-    Args:
-      time_dim (xarray DataArray) : Time dimension
+    Parameters
+    ----------
+    time_dim : xarray DataArray
+        Time dimension
     """
 
     t0 = time_dim.values.flatten()[0]
@@ -61,7 +63,14 @@ def datetime_to_cftime(datetime_array):
 
 
 def update_rate(da, input_freq, target_freq):
-    """Update a flow rate due to temporal aggregation"""
+    """Update a flow rate due to temporal aggregation.
+
+    Parameters
+    ----------
+    da : xarray DataArray
+
+
+    """
 
     current_units = da.units
     rates_dict = {"D": "d-1", "M": "month-1", "Q": "season-1", "A": "yr-1"}

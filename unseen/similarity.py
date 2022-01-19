@@ -11,26 +11,51 @@ from . import general_utils
 import xks
 
 
-def univariate_ks_test(fcst_stacked, obs_stacked, var):
+def univariate_ks_test(
+    fcst_stacked, obs, var, lead_dim="lead_time", sample_dim="sample"
+):
     """Univariate KS test.
 
+    Parameters
+    ----------
+    fcst_stacked : xarray Dataset
+        Forecast dataset with lead time and sample dimensions.
+        Typically the sample dimension is created by stacking/flattening the
+        initial date and ensemble member dimensions.
+    obs : xarray DataArray
+        Observational/comparison dataset with a sample dimension.
+        Typically the sample dimension is created by simply renaming the time dimension.
+    var : str
+        Variable from the datasets to process.
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in fcst_stacked
+    sample_dim: str, default 'sample'
+        Name of the sample dimension in fcst_stacked and obs
+
+    Returns
+    -------
+    ds : xarray Dataset
+        Dataset with KS statistic and p-value variables
+
+    Notes
+    -----
     If p < 0.05 you can reject the null hypothesis
     that the two samples are from different populations.
     """
 
     ks_distances = []
     pvals = []
-    for lead_time in fcst_stacked["lead_time"].values:
-        fcst_data = fcst_stacked.sel({"lead_time": lead_time})
+    for lead_time in fcst_stacked[lead_dim].values:
+        fcst_data = fcst_stacked.sel({lead_dim: lead_time})
         if not np.isnan(fcst_data[var].values).all():
-            ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_data, "sample")
+            ks_distance, pval = xks.ks1d2s(obs, fcst_data, sample_dim)
             ks_distance = ks_distance.rename({var: "ks"})
             pval = pval.rename({var: "pval"})
             ks_distances.append(ks_distance["ks"])
             pvals.append(pval["pval"])
 
-    ks_distances = xr.concat(ks_distances, "lead_time")
-    pvals = xr.concat(pvals, "lead_time")
+    ks_distances = xr.concat(ks_distances, lead_dim)
+    pvals = xr.concat(pvals, lead_dim)
     ds = xr.merge([ks_distances, pvals])
 
     ds["ks"].attrs = {"long_name": "kolmogorov_smirnov_statistic"}

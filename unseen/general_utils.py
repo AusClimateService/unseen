@@ -3,12 +3,18 @@
 import argparse
 import re
 
-import yaml
-import matplotlib as mpl
 import xclim
 
 
 class store_dict(argparse.Action):
+    """An argparse action for parsing a command line argument as a dictionary.
+
+    Examples
+    --------
+    precip=mm/day becomes {'precip': 'mm/day'}
+    ensemble=1:5 becomes {'ensemble': slice(1, 5)}
+    """
+
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, dict())
         for value in values:
@@ -32,9 +38,17 @@ class store_dict(argparse.Action):
 def convert_units(da, target_units):
     """Convert units.
 
-    Args:
-      da (xarray DataArray)
-      target_units (str)
+    Parameters
+    ----------
+    da : xarray DataArray
+        Input array containing a units attribute
+    target_units : str
+        Units to convert to
+
+    Returns
+    -------
+    da : xarray DataArray
+       Array with converted units
     """
 
     xclim_unit_check = {"deg_k": "degK"}
@@ -48,7 +62,18 @@ def convert_units(da, target_units):
 
 
 def date_pair_to_time_slice(date_list):
-    """Convert two dates to a time slice object."""
+    """Convert two dates to a time slice object.
+
+    Parameters
+    ----------
+    date_list : list or tuple
+        Start and end date in YYYY-MM-DD format
+
+    Returns
+    -------
+    time_slice : slice
+        Slice from start to end date
+    """
 
     assert len(date_list) == 2
     start_date, end_date = date_list
@@ -60,15 +85,3 @@ def date_pair_to_time_slice(date_list):
     time_slice = slice(start_date, end_date)
 
     return time_slice
-
-
-def set_plot_params(param_file):
-    """Set the matplotlib parameters."""
-
-    if param_file:
-        with open(param_file, "r") as reader:
-            param_dict = yaml.load(reader, Loader=yaml.BaseLoader)
-    else:
-        param_dict = {}
-    for param, value in param_dict.items():
-        mpl.rcParams[param] = value

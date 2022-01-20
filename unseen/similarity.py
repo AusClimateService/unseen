@@ -11,26 +11,51 @@ from . import general_utils
 import xks
 
 
-def univariate_ks_test(fcst_stacked, obs_stacked, var):
+def univariate_ks_test(
+    fcst_stacked, obs, var, lead_dim="lead_time", sample_dim="sample"
+):
     """Univariate KS test.
 
+    Parameters
+    ----------
+    fcst_stacked : xarray Dataset
+        Forecast dataset with lead time and sample dimensions.
+        Typically the sample dimension is created by stacking/flattening the
+        initial date and ensemble member dimensions.
+    obs : xarray DataArray
+        Observational/comparison dataset with a sample dimension.
+        Typically the sample dimension is created by simply renaming the time dimension.
+    var : str
+        Variable from the datasets to process.
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in fcst_stacked
+    sample_dim: str, default 'sample'
+        Name of the sample dimension in fcst_stacked and obs
+
+    Returns
+    -------
+    ds : xarray Dataset
+        Dataset with KS statistic and p-value variables
+
+    Notes
+    -----
     If p < 0.05 you can reject the null hypothesis
     that the two samples are from different populations.
     """
 
     ks_distances = []
     pvals = []
-    for lead_time in fcst_stacked["lead_time"].values:
-        fcst_data = fcst_stacked.sel({"lead_time": lead_time})
+    for lead_time in fcst_stacked[lead_dim].values:
+        fcst_data = fcst_stacked.sel({lead_dim: lead_time})
         if not np.isnan(fcst_data[var].values).all():
-            ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_data, "sample")
+            ks_distance, pval = xks.ks1d2s(obs, fcst_data, sample_dim)
             ks_distance = ks_distance.rename({var: "ks"})
             pval = pval.rename({var: "pval"})
             ks_distances.append(ks_distance["ks"])
             pvals.append(pval["pval"])
 
-    ks_distances = xr.concat(ks_distances, "lead_time")
-    pvals = xr.concat(pvals, "lead_time")
+    ks_distances = xr.concat(ks_distances, lead_dim)
+    pvals = xr.concat(pvals, lead_dim)
     ds = xr.merge([ks_distances, pvals])
 
     ds["ks"].attrs = {"long_name": "kolmogorov_smirnov_statistic"}
@@ -73,6 +98,30 @@ def _parse_command_line():
         default={},
         help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)",
     )
+    parser.add_argument(
+        "--time_dim",
+        type=str,
+        default="time",
+        help="Name of time dimension",
+    )
+    parser.add_argument(
+        "--ensemble_dim",
+        type=str,
+        default="ensemble",
+        help="Name of ensemble member dimension",
+    )
+    parser.add_argument(
+        "--init_dim",
+        type=str,
+        default="init_date",
+        help="Name of initial date dimension",
+    )
+    parser.add_argument(
+        "--lead_dim",
+        type=str,
+        default="lead_time",
+        help="Name of lead time dimension",
+    )
 
     args = parser.parse_args()
 
@@ -93,15 +142,17 @@ def _main():
     ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
         time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
-        ds_obs = ds_obs.sel({"time": time_slice})
+        ds_obs = ds_obs.sel({args.time_dim: time_slice})
 
-    fcst_stacked = ds_fcst.stack({"sample": ["ensemble", "init_date"]})
-    fcst_stacked = fcst_stacked.chunk({"sample": -1, "region": 1})
+    fcst_stacked = ds_fcst.stack({"sample": [args.ensemble_dim, args.init_dim]})
+    fcst_stacked = fcst_stacked.chunk({"sample": -1})
 
     obs_stacked = ds_obs.rename(time="sample")
-    obs_stacked = obs_stacked.chunk({"sample": -1, "region": 1})
+    obs_stacked = obs_stacked.chunk({"sample": -1})
 
-    ds_similarity = univariate_ks_test(fcst_stacked, obs_stacked, args.var)
+    ds_similarity = univariate_ks_test(
+        fcst_stacked, obs_stacked, args.var, lead_dim=args.lead_dim
+    )
 
     infile_logs = {
         args.fcst_file: ds_fcst.attrs["history"],

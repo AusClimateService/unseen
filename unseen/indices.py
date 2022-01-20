@@ -9,20 +9,27 @@ def calc_drought_factor(pr, time_dim="time", scale_dims=["time"]):
     """Calculate the Drought Factor index.
 
     20-day accumulated rainfall scaled to lie between 0 and 10,
-      with larger values indicating less precipitation
+    with larger values indicating less precipitation.
 
-    Args:
-      pr (xarray DataArray) : Daily precipitation data
-      time_dim (str) : Dimension along which to accumulate precipitation
-      scale_dims (list) : Dimension(s) over which to compute the max and min
-        precipitation to scale the accumulated precipitation
+    Parameters
+    ----------
+    pr : xarray DataArray
+        Daily precipitation data
+    time_dim : str, default 'time'
+        Dimension along which to accumulate precipitation
+    scale_dims : list, default ['time']
+        Dimension(s) over which to compute the max and min precipitation
+        to scale the accumulated precipitation
 
-    Returns:
-      df (xarray DataArray) : Drought Factor
+    Returns
+    -------
+    df : xarray DataArray
+        Drought Factor
 
+    Notes
+    -----
     Calculation:
       df = -10 * (pr20 - min(pr20)) / (max(pr20) - min(pr20)) + 10
-
         pr20 is the 20 day running sum
         min/max are along a temporal axis
     """
@@ -36,18 +43,40 @@ def calc_drought_factor(pr, time_dim="time", scale_dims=["time"]):
     return df
 
 
-def calc_FFDI(ds, time_dim="time", scale_dims=["time"]):
+def calc_FFDI(
+    ds,
+    time_dim="time",
+    scale_dims=["time"],
+    pr_name="pr",
+    tmax_name="tasmax",
+    rh_name="hur",
+    u_name="uas",
+    v_name="vas",
+):
     """Calculate the McArthur Forest Fire Danger Index.
 
-    Args:
-      ds (xarray Dataset): Containing the following variables:
-        pr (daily precipitation in mm)
-        tasmax (daily maximum surface temperature in degrees C)
-        hur (daily surface relative humidity)
-        uas (daily eastward wind speed in km/h)
-        vas (daily northward wind speed in km/h)
-      dim (str): Temporal dimension over which to calculate FFDI
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Dataset containing the following variables:
+          Daily precipitation (in mm)
+          Daily maximum surface temperature (degrees C)
+          Daily surface relative humidity
+          Daily eastward wind speed (km/h)
+          Daily northward wind speed (km/h)
+    time_dim : str, default 'time'
+        Temporal dimension over which to calculate FFDI
+    scale_dims : list, default ['time']
+        Dimension(s) over which to compute the max and min precipitation
+        to scale the accumulated precipitation
 
+    Returns
+    -------
+    ffdi : xarray DataArray
+        Forest Fire Danger Index
+
+    Notes
+    -----
     Calculation:
       FFDI = DF**0.987 * e^(0.0338*tmax - 0.0345*rhmax + 0.0234*wmax + 0.243147)
 
@@ -67,29 +96,37 @@ def calc_FFDI(ds, time_dim="time", scale_dims=["time"]):
     """
 
     xr.set_options(keep_attrs=False)
-    ds["df"] = calc_drought_factor(ds["pr"], time_dim=time_dim, scale_dims=scale_dims)
-    ds["wsp"] = calc_wind_speed(ds)
-
-    ffdi = (ds["df"] ** 0.987) * np.exp(
-        (0.0338 * ds["tasmax"]) - (0.0345 * ds["hur"]) + (0.0234 * ds["wsp"]) + 0.243147
+    ds["df"] = calc_drought_factor(
+        ds[pr_name], time_dim=time_dim, scale_dims=scale_dims
     )
+    ds["wsp"] = calc_wind_speed(ds, u_name=u_name, v_name=v_name)
+    exp = np.exp(
+        (0.0338 * ds[tmax_name]) - (0.0345 * ds[rh_name]) + (0.0234 * ds["wsp"])
+    )
+    ffdi = (ds["df"] ** 0.987) * exp + 0.243147
 
     return ffdi
 
 
-def calc_wind_speed(ds):
+def calc_wind_speed(ds, u_name="uas", v_name="vas"):
     """Calculate wind speed.
 
-    Args:
-      ds (xarray Dataset): Containing the following variables:
-        uas (daily eastward wind speed)
-        vas (daily northward wind speed)
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Dataset containing eastward (u) and northward (v) wind
+    u_name : str, default 'uas'
+        Name of eastward wind variable
+    v_name : str, default 'vas'
+        Name of northward wind variable
 
-    Return:
-      wsp (xarray DataArray): Wind speed
+    Returns
+    -------
+    wsp : xarray DataArray
+        Wind speed
     """
 
-    wsp = xr.ufuncs.sqrt(ds["uas"] ** 2 + ds["vas"] ** 2)
+    wsp = xr.ufuncs.sqrt(ds[u_name] ** 2 + ds[v_name] ** 2)
 
     return wsp
 
@@ -97,11 +134,22 @@ def calc_wind_speed(ds):
 def fit_gev(data, user_estimates=[], generate_estimates=False):
     """Fit a GEV by providing fit and scale estimates.
 
-    Args:
-      data (numpy ndarray)
-      user_estimates (bool) : Estimate of the location and scale parameters
-      generate_estimates (bool) : Fit GEV to data subset first to estimate parameters.
-                                  Useful for large datasets.
+    Parameters
+    ----------
+    data : numpy ndarray
+    user_estimates : list, optional
+        Estimate of the location and scale parameters
+    generate_estimates : bool, default False
+        Fit GEV to data subset first to estimate parameters (useful for large datasets)
+
+    Returns
+    -------
+    shape : float
+        Shape parameter
+    loc : float
+        Location parameter
+    scale : float
+        Scale parameter
     """
 
     if user_estimates:

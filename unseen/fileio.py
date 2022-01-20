@@ -8,7 +8,6 @@ import argparse
 import git
 import yaml
 import numpy as np
-import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -18,32 +17,6 @@ from . import time_utils
 from . import array_handling
 from . import dask_setup
 from . import indices
-
-
-image_metadata_keys = {
-    "png": "History",
-    "pdf": "Title",
-    "eps": "Creator",
-    "ps": "Creator",
-}
-
-
-def guess_file_format(filenames):
-    """Guess file format from file name."""
-
-    if type(filenames) == list:
-        filename = filenames[0]
-    else:
-        filename = filenames
-
-    if ".nc" in filename:
-        file_format = "netcdf4"
-    elif ".zarr" in filename:
-        file_format = "zarr"
-    else:
-        ValueError("File must contain .nc or .zarr")
-
-    return file_format
 
 
 def open_dataset(
@@ -57,41 +30,76 @@ def open_dataset(
     shape_label_header=None,
     combine_shapes=False,
     spatial_agg=None,
+    lat_dim="lat",
+    lon_dim="lon",
     no_leap_days=False,
     time_freq=None,
     time_agg=None,
     reset_times=False,
     complete_time_agg_periods=False,
     input_freq=None,
+    time_dim="time",
     isel={},
     sel={},
     units={},
 ):
     """Create an xarray Dataset from one or more data files.
 
-    Args:
-      infiles (str or list) : Input file path/s
-      file_format (str) : File format of input files (e.g. netcdf4, zarr)
-      chunks (dict) : Chunks for xarray.open_zarr
-      metadata_file (str) : YAML file specifying required file metadata changes
-      variables (list) : Variables of interest
-      spatial_coords (list) : List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound].
-      shapefile (str) : Shapefile for spatial subseting
-      shape_label_header (str) : Name of the shapefile column containing the region names
-      combine_shapes (bool) : Add a region that combines all shapes
-      spatial_agg (str) : Spatial aggregation method ('mean' or 'sum')
-      no_leap_days (bool) : Remove leap days from data
-      time_freq (str) : Target temporal frequency for resampling
-      time_agg (str) : Temporal aggregation method ('mean', 'sum', 'min' or 'max')
-      reset_times (bool) : Shift time values after resampling so months match initial date
-      complete_time_agg_periods (bool) : Limit temporal aggregation output to complete years/months
-      input_freq (str) : Input time frequency for resampling (estimated if not provided)
-      isel (dict) : Selection using xarray.Dataset.isel
-      sel (dict) : Selection using xarray.Dataset.sel
-      units (dict) : Variable/s (keys) and desired units (values)
+    Parameters
+    ----------
+    infiles : str or list
+        Input file path/s
+    file_format : str, optional
+        Formats/engines accepted by xarray.open_dataset (e.g. netcdf4, zarr, cfgrid).
+        Estimated if not provided.
+    chunks : dict, optional
+        Chunks for xarray.open_zarr
+    metadata_file : str
+        YAML file path specifying required file metadata changes
+    variables : list, optional
+        Subset of variables of interest
+    spatial_coords : list, optional
+        Coordinates for spatial point or box selection.
+        List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
+    shapefile : str, optional
+        Shapefile for spatial subseting
+    shape_label_header : str
+        Name of the shapefile column containing the region names
+    combine_shapes : bool, default False
+        Add a region that combines all shapes
+    spatial_agg : {'mean', 'sum'}, optional
+        Spatial aggregation method
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in infiles
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in infiles
+    no_leap_days : bool, default False
+        Remove leap days from data
+    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV'}, optional
+        Target temporal frequency for resampling
+    time_agg : {'mean', 'sum', 'min', 'max'}, optional
+        Temporal aggregation method
+    reset_times : bool, default False
+        Shift time values after resampling so months match initial date
+    complete_time_agg_periods : bool default False
+        Limit temporal aggregation output to complete years/months
+    input_freq : {'A', 'Q', 'M', 'D'}, optional
+        Input time frequency for resampling (estimated if not provided)
+    time_dim: str, default 'time'
+        Name of the time dimension in infiles
+    isel : dict, optional
+        Selection using xarray.Dataset.isel
+    sel : dict, optional
+        Selection using xarray.Dataset.sel
+    units : dict, optional
+        Variable/s (keys) and desired units (values)
+
+    Returns
+    -------
+    ds : xarray Dataset
     """
 
-    engine = file_format if file_format else guess_file_format(infiles)
+    engine = file_format if file_format else _guess_file_format(infiles)
     ds = xr.open_mfdataset(infiles, engine=engine, use_cftime=True)
 
     if not chunks == "auto":
@@ -99,7 +107,7 @@ def open_dataset(
 
     # Metadata
     if metadata_file:
-        ds = fix_metadata(ds, metadata_file, variables)
+        ds = _fix_metadata(ds, metadata_file)
 
     # Variable selection
     if variables:
@@ -112,24 +120,40 @@ def open_dataset(
         ds = ds.sel(sel)
 
     # Spatial subsetting and aggregation
-    if spatial_coords or shapefile or spatial_agg:
-        ds = spatial_selection.select_region(
+    if spatial_coords is None:
+        pass
+    elif len(spatial_coords) == 4:
+        ds = spatial_selection.select_box_region(ds, spatial_coords)
+    elif len(spatial_coords) == 2:
+        ds = spatial_selection.select_point_region(ds, spatial_coords)
+    else:
+        msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
+        raise ValueError(msg)
+    if shapefile:
+        ds = spatial_selection.select_shapefile_regions(
             ds,
-            coords=spatial_coords,
-            shapefile=shapefile,
+            shapefile,
+            agg=spatial_agg,
             header=shape_label_header,
             combine_shapes=combine_shapes,
-            agg=spatial_agg,
         )
+    if (spatial_agg == "sum") and not shapefile:
+        ds = ds.sum(dim=(lat_dim, lon_dim))
+    elif (spatial_agg == "mean") and not shapefile:
+        ds = ds.mean(dim=(lat_dim, lon_dim))
+    elif (spatial_agg is None) or shapefile:
+        pass
+    else:
+        raise ValueError("""spatial_agg must be None, 'sum' or 'mean'""")
 
     # Temporal aggregation
     if no_leap_days:
-        ds = ds.sel(time=~((ds["time"].dt.month == 2) & (ds["time"].dt.day == 29)))
+        ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
     if time_freq:
         assert time_agg, "Provide a time_agg"
         assert variables, "Variables argument is required for temporal aggregation"
         if not input_freq:
-            input_freq = xr.infer_freq(ds.indexes["time"][0:3])[0]
+            input_freq = xr.infer_freq(ds.indexes[time_dim][0:3])[0]
         ds = time_utils.temporal_aggregation(
             ds,
             time_freq,
@@ -141,7 +165,7 @@ def open_dataset(
         )
     output_freq = time_freq[0] if time_freq else input_freq
     if output_freq:
-        ds["time"].attrs["frequency"] = output_freq
+        ds[time_dim].attrs["frequency"] = output_freq
 
     # Units
     for var, target_units in units.items():
@@ -152,58 +176,134 @@ def open_dataset(
     return ds
 
 
-def times_from_init_lead(ds, time_freq):
-    """Get time values from init dates and lead times"""
+def open_mfforecast(
+    infiles, time_dim="time", init_dim="init_date", lead_dim="lead_time", **kwargs
+):
+    """Open multi-file forecast.
 
-    step_units = {"D": "days", "M": "months", "Q": "months", "A": "years", "Y": "years"}
+    Parameters
+    ----------
+    infiles : list
+        Input file paths
+    time_dim: str, default 'time'
+        Name of the time dimension in the input files
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension for output ds
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension for output ds
+    **kwargs : dict, optional
+        Extra arguments to `open_dataset`
 
-    step_unit = step_units[time_freq]
-    scale_factor = 3 if time_freq == "Q" else 1
-
-    init_dates_cftime = ds["init_date"]
-    init_dates_str = time_utils.cftime_to_str(init_dates_cftime)
-    init_dates_datetime = pd.to_datetime(init_dates_str)
-
-    times_datetime = [
-        init_dates_datetime + pd.offsets.DateOffset(**{step_unit: lead * scale_factor})
-        for lead in ds["lead_time"].values
-    ]
-    times_cftime = time_utils.datetime_to_cftime(times_datetime)
-
-    return times_cftime
-
-
-def open_mfforecast(infiles, **kwargs):
-    """Open multi-file forecast."""
+    Returns
+    -------
+    ds : xarray Dataset
+    """
 
     datasets = []
     time_values = []
     for infile in infiles:
         ds = open_dataset(infile, **kwargs)
-        time_attrs = ds["time"].attrs
-        time_values.append(ds["time"].values)
+        time_attrs = ds[time_dim].attrs
+        time_values.append(ds[time_dim].values)
         ds = array_handling.to_init_lead(ds)
         datasets.append(ds)
-    ds = xr.concat(datasets, dim="init_date")
+    ds = xr.concat(datasets, dim=init_dim)
     time_values = np.stack(time_values, axis=-1)
     time_dimension = xr.DataArray(
         time_values,
         attrs=time_attrs,
-        dims={"lead_time": ds["lead_time"], "init_date": ds["init_date"]},
+        dims={lead_dim: ds[lead_dim], init_dim: ds[init_dim]},
     )
-    ds = ds.assign_coords({"time": time_dimension})
-    ds["lead_time"].attrs["units"] = time_attrs["frequency"]
+    ds = ds.assign_coords({time_dim: time_dimension})
+    ds[lead_dim].attrs["units"] = time_attrs["frequency"]
 
     return ds
 
 
-def fix_metadata(ds, metadata_file, variables):
+def get_new_log(infile_logs=None, repo_dir=None):
+    """Generate command log for output file.
+
+    Parameters
+    ----------
+    infile_logs : dict, optional
+        keys are file names, values are the command log
+    repo_dir : str, optional
+        Path for git repository
+
+    Returns
+    -------
+    new_log : str
+        New command log
+    """
+
+    try:
+        repo = git.Repo(repo_dir)
+        repo_url = repo.remotes[0].url.split(".git")[0]
+    except (git.exc.InvalidGitRepositoryError, NameError):
+        repo_url = None
+    new_log = cmdprov.new_log(code_url=repo_url, infile_logs=infile_logs)
+
+    return new_log
+
+
+def to_zarr(ds, file_name):
+    """Write to zarr file.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input dataset
+    file_name : str
+        Output file path
+    """
+
+    for var in ds.variables:
+        ds[var].encoding = {}
+
+    if file_name[-4:] == ".zip":
+        zarr_filename = file_name[:-4]
+    else:
+        zarr_filename = file_name
+
+    ds.to_zarr(zarr_filename, mode="w", consolidated=True)
+    if file_name[-4:] == ".zip":
+        zip_zarr(zarr_filename, file_name)
+        shutil.rmtree(zarr_filename)
+
+
+def zip_zarr(zarr_filename, zip_filename):
+    """Zip a zarr collection.
+
+    Parameters
+    ----------
+    zarr_filename : str
+        Path to (unzipped) zarr collection
+    zip_filename : str
+        Path to output zipped zarr collection
+    """
+
+    with zipfile.ZipFile(
+        zip_filename, "w", compression=zipfile.ZIP_STORED, allowZip64=True
+    ) as fh:
+        for root, _, filenames in os.walk(zarr_filename):
+            for each_filename in filenames:
+                each_filename = os.path.join(root, each_filename)
+                fh.write(each_filename, os.path.relpath(each_filename, zarr_filename))
+
+
+def _fix_metadata(ds, metadata_file):
     """Edit the attributes of an xarray Dataset.
 
-    Args:
-      ds (xarray Dataset or DataArray)
-      metadata_file (str) : YAML file specifying required file metadata changes
-      variables (list): Variables to rename (provide target name)
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Input dataset
+    metadata_file : str
+        YAML file specifying required file metadata changes
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
     """
 
     with open(metadata_file, "r") as reader:
@@ -237,56 +337,57 @@ def fix_metadata(ds, metadata_file, variables):
     return ds
 
 
-def get_new_log(infile_logs=None, repo_dir=None):
-    """Generate command log for output file.
+def _guess_file_format(file_names):
+    """Guess file format from file name.
 
-    Args:
-      infile_logs (dict) : keys are file names,
-        values are the command log
-      repo_dir (str) : Path for git repository
+    Parameters
+    ----------
+    file_names : str or list
+        File name/s
+
+    Returns
+    -------
+    file_format : {'netcdf4', 'zarr'}
+
+    Raises
+    ------
+    ValueError
+        If file name doesn't contain .nc or zarr
+
     """
 
-    try:
-        repo = git.Repo(repo_dir)
-        repo_url = repo.remotes[0].url.split(".git")[0]
-    except (git.exc.InvalidGitRepositoryError, NameError):
-        repo_url = None
-    new_log = cmdprov.new_log(code_url=repo_url, infile_logs=infile_logs)
-
-    return new_log
-
-
-def zip_zarr(zarr_filename, zip_filename):
-    """Zip a zarr collection"""
-
-    with zipfile.ZipFile(
-        zip_filename, "w", compression=zipfile.ZIP_STORED, allowZip64=True
-    ) as fh:
-        for root, _, filenames in os.walk(zarr_filename):
-            for each_filename in filenames:
-                each_filename = os.path.join(root, each_filename)
-                fh.write(each_filename, os.path.relpath(each_filename, zarr_filename))
-
-
-def to_zarr(ds, filename):
-    """Write to zarr file"""
-
-    for var in ds.variables:
-        ds[var].encoding = {}
-
-    if filename[-4:] == ".zip":
-        zarr_filename = filename[:-4]
+    if type(file_names) == list:
+        file_name = file_names[0]
     else:
-        zarr_filename = filename
+        file_name = file_names
 
-    ds.to_zarr(zarr_filename, mode="w", consolidated=True)
-    if filename[-4:] == ".zip":
-        zip_zarr(zarr_filename, filename)
-        shutil.rmtree(zarr_filename)
+    if ".nc" in file_name:
+        file_format = "netcdf4"
+    elif ".zarr" in file_name:
+        file_format = "zarr"
+    else:
+        ValueError("File must contain .nc or .zarr")
+
+    return file_format
 
 
 def _indices_setup(kwargs, variables):
-    """Set variables and units for index calculation."""
+    """Set variables and units for index calculation.
+
+    Parameters
+    ----------
+    kwargs : dict
+        Keyword arguments (for passing to `open_dataset`)
+    variables : list
+        Variables list (for passing to `open_dataset`)
+
+    Returns
+    -------
+    kwargs : dict
+        Keyword arguments (for passing to `open_dataset`)
+    index : str
+        Name of the index to be calculated
+    """
 
     index = ""
     if "ffdi" in variables:
@@ -385,6 +486,12 @@ def _parse_command_line():
         default=None,
         help="Time frequency of input data",
     )
+    parser.add_argument(
+        "--time_dim",
+        type=str,
+        default="time",
+        help="Name of time dimension",
+    )
 
     parser.add_argument(
         "--spatial_coords",
@@ -414,6 +521,18 @@ def _parse_command_line():
         choices=("mean", "sum"),
         default=None,
         help="Spatial aggregation method",
+    )
+    parser.add_argument(
+        "--lat_dim",
+        type=str,
+        default="lat",
+        help="Name of latitude dimension",
+    )
+    parser.add_argument(
+        "--lon_dim",
+        type=str,
+        default="lon",
+        help="Name of longitude dimension",
     )
 
     parser.add_argument(
@@ -468,12 +587,15 @@ def _main():
         "shape_label_header": args.shp_header,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
+        "lat_dim": args.lat_dim,
+        "lon_dim": args.lon_dim,
         "no_leap_days": args.no_leap_days,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
         "reset_times": args.reset_times,
         "complete_time_agg_periods": args.complete_time_agg_periods,
         "input_freq": args.input_freq,
+        "time_dim": args.time_dim,
         "isel": args.isel,
         "sel": args.sel,
         "units": args.units,
@@ -486,7 +608,7 @@ def _main():
         temporal_dim = "lead_time"
     else:
         ds = open_dataset(args.infiles, **kwargs)
-        temporal_dim = "time"
+        temporal_dim = args.time_dim
 
     if index == "ffdi":
         ds["ffdi"] = indices.calc_FFDI(

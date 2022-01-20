@@ -11,32 +11,62 @@ from . import fileio
 from . import general_utils
 
 
-def get_bias(fcst, obs, method, time_period=None, time_rounding="D"):
+def get_bias(
+    fcst,
+    obs,
+    method,
+    time_period=None,
+    time_rounding="D",
+    ensemble_dim="ensemble",
+    init_dim="init_date",
+    lead_dim="lead_time",
+):
     """Calculate forecast bias.
 
-    Args:
-      fcst (xarray DataArray) : Forecast data
-      obs (xarray DataArray) : Observational data
-      method (str) : Bias removal method
-      time_period (list) : Start and end dates (in YYYY-MM-DD format)
-      time_rounding (str) : Rounding (floor) frequency for time matching
+    Parameters
+    ----------
+    fcst : xarray DataArray
+        Forecast array with ensemble, initial date and lead time dimensions
+    obs : xarray DataArray
+        Observational array with time dimension
+    method : {'additive', 'multiplicative'}
+        Bias removal method
+    time_period : array_like, optional
+        Start and end dates (in YYYY-MM-DD format)
+    time_rounding : str, default 'D'
+        Rounding (floor) frequency for time matching
+    ensemble_name: str, default 'ensemble'
+        Name of the ensemble member dimension in fcst
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension in fcst
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in fcst
+
+    Returns
+    -------
+    bias : xarray DataArray
+
+    Raises
+    ------
+    ValueError
+        For invalid method
     """
 
     fcst_clim = time_utils.get_clim(
         fcst,
-        ["ensemble", "init_date"],
+        [ensemble_dim, init_dim],
         time_period=time_period,
         groupby_init_month=True,
     )
 
     obs_stacked = array_handling.stack_by_init_date(
         obs,
-        init_dates=fcst["init_date"],
-        n_lead_steps=fcst.sizes["lead_time"],
+        init_dates=fcst[init_dim],
+        n_lead_steps=fcst.sizes[lead_dim],
         time_rounding=time_rounding,
     )
     obs_clim = time_utils.get_clim(
-        obs_stacked, "init_date", time_period=time_period, groupby_init_month=True
+        obs_stacked, init_dim, time_period=time_period, groupby_init_month=True
     )
 
     with xr.set_options(keep_attrs=True):
@@ -54,13 +84,29 @@ def get_bias(fcst, obs, method, time_period=None, time_rounding="D"):
     return bias
 
 
-def remove_bias(fcst, bias, method):
+def remove_bias(fcst, bias, method, init_dim="init_date"):
     """Remove model bias.
 
-    Args:
-      fcst (xarray DataArray) : Forecast data
-      bias (xarray DataArray) : Bias
-      method (str) : Bias removal method
+    Parameters
+    ----------
+    fcst : xarray DataArray
+        Forecast array with initial date and lead time dimensions
+    bias : xarray DataArray
+        Bias array
+    method : {'additive', 'multiplicative'}
+        Bias removal method
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension in fcst
+
+    Returns
+    -------
+    fcst_bc : xarray DataArray
+        Bias corrected forecast array
+
+    Raises
+    ------
+    ValueError
+        For invalid method
     """
 
     if method == "additive":
@@ -71,7 +117,7 @@ def remove_bias(fcst, bias, method):
         raise ValueError(f"Unrecognised bias removal method {method}")
 
     with xr.set_options(keep_attrs=True):
-        fcst_bc = op(fcst.groupby("init_date.month"), bias).drop("month")
+        fcst_bc = op(fcst.groupby(f"{init_dim}.month"), bias).drop("month")
 
     fcst_bc.attrs["bias_correction_method"] = bias.attrs["bias_correction_method"]
     try:

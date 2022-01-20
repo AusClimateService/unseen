@@ -218,6 +218,16 @@ def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
     return str_times
 
 
+def str_to_cftime(datestring):
+    """Convert a date string to cftime object"""
+
+    dt = datetime.strptime(datestring, "%Y-%m-%d")
+    # cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
+    cfdt = cftime.DatetimeJulian(dt.year, dt.month, dt.day)
+
+    return cfdt
+
+
 def datetime_to_cftime(datetime_array):
     """Convert a numpy datetime array to a cftime array.
 
@@ -233,7 +243,7 @@ def datetime_to_cftime(datetime_array):
     """
 
     str_array = np.datetime_as_string(datetime_array, unit="D")
-    str_to_cftime_func = np.vectorize(_str_to_cftime)
+    str_to_cftime_func = np.vectorize(str_to_cftime)
     cftime_array = str_to_cftime_func(str_array)
 
     return cftime_array
@@ -314,16 +324,6 @@ def _crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
     ds = ds.where(counts.values >= min_sample)
 
     return ds
-
-
-def _str_to_cftime(datestring):
-    """Convert a date string to cftime object"""
-
-    dt = datetime.strptime(datestring, "%Y-%m-%d")
-    # cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
-    cfdt = cftime.DatetimeJulian(dt.year, dt.month, dt.day)
-
-    return cfdt
 
 
 def _update_rate(da, input_freq, target_freq):

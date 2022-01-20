@@ -145,10 +145,10 @@ def _main():
         ds_obs = ds_obs.sel({args.time_dim: time_slice})
 
     fcst_stacked = ds_fcst.stack({"sample": [args.ensemble_dim, args.init_dim]})
-    fcst_stacked = fcst_stacked.chunk({"sample": -1, "region": 1})
+    fcst_stacked = fcst_stacked.chunk({"sample": -1})
 
     obs_stacked = ds_obs.rename(time="sample")
-    obs_stacked = obs_stacked.chunk({"sample": -1, "region": 1})
+    obs_stacked = obs_stacked.chunk({"sample": -1})
 
     ds_similarity = univariate_ks_test(
         fcst_stacked, obs_stacked, args.var, lead_dim=args.lead_dim

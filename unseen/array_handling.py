@@ -7,45 +7,6 @@ import cftime
 from . import time_utils
 
 
-def _get_match_index(time_axis, target_date, time_rounding):
-    """Find the index of a target date in a time axis.
-
-    Parameters
-    ----------
-    time_axis : xarray DataArray (of cftime objects)
-        Time dimension
-    target_date : cftime object
-        Target date
-    time_rounding : {'A', 'M', 'D'}
-        Time resolution (annual, monthly, or daily)
-
-    Returns
-    -------
-    match_index : int
-       Index of match
-
-    Raises
-    ------
-    ValueError
-       For invalid time_rounding value
-    """
-
-    if time_rounding == "A":
-        str_format = "%Y"
-    elif time_rounding == "M":
-        str_format = "%Y-%m"
-    elif time_rounding == "D":
-        str_format = "%Y-%m-%d"
-    else:
-        raise ValueError("Time rounding must be A (annual), M (monthly) or D (daily)")
-
-    time_values = time_utils.cftime_to_str(time_axis, str_format=str_format)
-    init_value = target_date.strftime(str_format)
-    match_index = time_values.index(init_value)
-
-    return match_index
-
-
 def stack_by_init_date(
     ds,
     init_dates,
@@ -236,3 +197,42 @@ def to_init_lead(ds, init_date=None):
     ds = ds.assign_coords(new_coords)
 
     return ds
+
+
+def _get_match_index(time_axis, target_date, time_rounding):
+    """Find the index of a target date in a time axis.
+
+    Parameters
+    ----------
+    time_axis : xarray DataArray (of cftime objects)
+        Time dimension
+    target_date : cftime object
+        Target date
+    time_rounding : {'A', 'M', 'D'}
+        Time resolution (annual, monthly, or daily)
+
+    Returns
+    -------
+    match_index : int
+       Index of match
+
+    Raises
+    ------
+    ValueError
+       For invalid time_rounding value
+    """
+
+    if time_rounding == "A":
+        str_format = "%Y"
+    elif time_rounding == "M":
+        str_format = "%Y-%m"
+    elif time_rounding == "D":
+        str_format = "%Y-%m-%d"
+    else:
+        raise ValueError("Time rounding must be A (annual), M (monthly) or D (daily)")
+
+    time_values = time_utils.cftime_to_str(time_axis, str_format=str_format)
+    init_value = target_date.strftime(str_format)
+    match_index = time_values.index(init_value)
+
+    return match_index

@@ -250,6 +250,24 @@ def _parse_command_line():
         action=general_utils.store_dict,
         help="Spatial variable / selection pair (e.g. region=all)",
     )
+    parser.add_argument(
+        "--ensemble_dim",
+        type=str,
+        default="ensemble",
+        help="Name of ensemble member dimension",
+    )
+    parser.add_argument(
+        "--init_dim",
+        type=str,
+        default="init_date",
+        help="Name of initial date dimension",
+    )
+    parser.add_argument(
+        "--lead_dim",
+        type=str,
+        default="lead_time",
+        help="Name of lead time dimension",
+    )
 
     args = parser.parse_args()
 
@@ -270,22 +288,27 @@ def _main():
     )
     da_fcst = ds_fcst[args.var]
 
-    months = np.unique(da_fcst["init_date"].dt.month.values)
+    months = np.unique(da_fcst[args.init_dim].dt.month.values)
     mean_correlations = {}
     null_correlation_bounds = {}
     max_lead_times = {}
     for month in months:
-        da_fcst_month = da_fcst.where(da_fcst["init_date"].dt.month == month, drop=True)
+        da_fcst_month = da_fcst.where(
+            da_fcst[args.init_dim].dt.month == month, drop=True
+        )
         da_fcst_month_detrended = remove_ensemble_mean_trend(
-            da_fcst_month, dim="init_date"
+            da_fcst_month, dim=args.init_dim, ensemble_dim=args.ensemble_dim
         )
         mean_correlations[month] = mean_ensemble_correlation(
-            da_fcst_month_detrended, dim="init_date"
+            da_fcst_month_detrended, dim=args.init_dim, ensemble_dim=args.ensemble_dim
         )
         null_correlation_bounds[month] = get_null_correlation_bounds(
-            da_fcst_month_detrended
+            da_fcst_month_detrended,
+            init_dim=args.init_dim,
+            lead_dim=args.lead_dim,
+            ensemble_dim=args.ensemble_dim,
         )
-        max_lead_times[month] = da_fcst_month["lead_time"].max()
+        max_lead_times[month] = da_fcst_month[args.lead_dim].max()
 
     create_plot(
         mean_correlations, null_correlation_bounds, max_lead_times, args.outfile

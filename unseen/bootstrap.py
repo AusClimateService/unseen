@@ -11,32 +11,32 @@ import dask.bag as db
 def random_resample(
     *args, samples, function=None, function_kwargs=None, bundle_args=True, replace=True
 ):
-    """Randomly resample from provided xarray args and return the results of the subsampled dataset passed through \
-        a provided function
+    """Randomly resample xarray args and return results passed through function.
 
-        Parameters
-        ----------
-        *args : xarray DataArray or Dataset
-            Objects containing data to be resampled. The coordinates of the first object are used for resampling \
-            and the same resampling is applied to all objects
-        samples : dictionary
-            Dictionary containing the dimensions to subsample, the number of samples and the continuous block size \
-            within the sample. Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}. The \
-            first object in args must contain all dimensions listed in samples, but subsequent objects need not.
-        function : function object, optional
-            Function to reduced the subsampled data
-        function_kwargs : dictionary, optional
-            Keyword arguments to provide to function
-        bundle_args : boolean, optional
-            If True, pass all resampled objects to function together, otherwise pass each object through function \
-            separately
-        replace : boolean, optional
-            Whether the sample is with or without replacement
+    Parameters
+    ----------
+    *args : xarray DataArray or Dataset
+        Objects containing data to be resampled.
+        The coordinates of the first object are used for resampling.
+        The same resampling is applied to all objects.
+    samples : dict
+        Dictionary containing dimensions to subsample, number of samples and continuous block size within the sample.
+        Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}.
+        The first object in args must contain all dimensions listed in samples, but subsequent objects need not.
+    function : function object, optional
+        Function to reduce the subsampled data.
+    function_kwargs : dict, optional
+        Keyword arguments to provide to function.
+    bundle_args : bool, default True
+        If True, pass all resampled objects to function together.
+        Otherwise pass each object through function separately.
+    replace : bool, default True
+        Whether the sample is with or without replacement.
 
-        Returns
-        -------
-        sample : xarray DataArray or Dataset
-            Array containing the results of passing the subsampled data through function
+    Returns
+    -------
+    sample : xarray DataArray or Dataset
+        Array containing the results of passing the subsampled data through function
     """
     samples_spec = samples.copy()  # copy because use pop below
     args_sub = [obj.copy() for obj in args]
@@ -110,35 +110,36 @@ def n_random_resamples(
     with_dask=True
 ):
     """
-        Repeatedly randomly resample from provided xarray objects and return the results of the subsampled dataset \
-        passed through a provided function
+    Repeatedly randomly resample xarray args and return results passed through function.
 
-        Parameters
-        ----------
-        args : xarray DataArray or Dataset
-            Objects containing data to be resampled. The coordinates of the first object are used for resampling \
-            and the same resampling is applied to all objects
-        samples : dictionary
-            Dictionary containing the dimensions to subsample, the number of samples and the continuous block size \
-            within the sample. Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}
-        n_repeats : int
+    Parameters
+    ----------
+    *args : xarray DataArray or Dataset
+        Objects containing data to be resampled.
+        The coordinates of the first object are used for resampling.
+        The same resampling is applied to all objects.
+    samples : dict
+        Dictionary containing dimensions to subsample, number of samples and continuous block size within the sample.
+        Of the form {'dim1': (n_samples, block_size), 'dim2': (n_samples, block_size)}.
+        The first object in args must contain all dimensions listed in samples, but subsequent objects need not.
+    n_repeats : int
             Number of times to repeat the resampling process
-        function : function object, optional
-            Function to reduced the subsampled data
-        function_kwargs : dictionary, optional
-            Keyword arguments to provide to function
-        replace : boolean, optional
-            Whether the sample is with or without replacement
-        bundle_args : boolean, optional
-            If True, pass all resampled objects to function together, otherwise pass each object through function \
-            separately
-        with_dask : boolean, optional
-            If True, use dask to parallelize across n_repeats using dask.delayed
+    function : function object, optional
+        Function to reduce the subsampled data.
+    function_kwargs : dict, optional
+        Keyword arguments to provide to function.
+    bundle_args : bool, default True
+        If True, pass all resampled objects to function together.
+        Otherwise pass each object through function separately.
+    replace : bool, default True
+        Whether the sample is with or without replacement.
+    with_dask : bool, default True
+        If True, use dask to parallelize across n_repeats using dask.delayed
 
-        Returns
-        -------
-        sample : xarray DataArray or Dataset
-            Array containing the results of passing the subsampled data through function
+    Returns
+    -------
+    sample : xarray DataArray or Dataset
+        Array containing the results of passing the subsampled data through function
     """
 
     if with_dask & (n_repeats > 500):

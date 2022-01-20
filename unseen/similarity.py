@@ -98,6 +98,30 @@ def _parse_command_line():
         default={},
         help="Chunks for writing data to file (e.g. init_date=-1 lead_time=-1)",
     )
+    parser.add_argument(
+        "--time_dim",
+        type=str,
+        default="time",
+        help="Name of time dimension",
+    )
+    parser.add_argument(
+        "--ensemble_dim",
+        type=str,
+        default="ensemble",
+        help="Name of ensemble member dimension",
+    )
+    parser.add_argument(
+        "--init_dim",
+        type=str,
+        default="init_date",
+        help="Name of initial date dimension",
+    )
+    parser.add_argument(
+        "--lead_dim",
+        type=str,
+        default="lead_time",
+        help="Name of lead time dimension",
+    )
 
     args = parser.parse_args()
 
@@ -118,15 +142,17 @@ def _main():
     ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
         time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
-        ds_obs = ds_obs.sel({"time": time_slice})
+        ds_obs = ds_obs.sel({args.time_dim: time_slice})
 
-    fcst_stacked = ds_fcst.stack({"sample": ["ensemble", "init_date"]})
+    fcst_stacked = ds_fcst.stack({"sample": [args.ensemble_dim, args.init_dim]})
     fcst_stacked = fcst_stacked.chunk({"sample": -1, "region": 1})
 
     obs_stacked = ds_obs.rename(time="sample")
     obs_stacked = obs_stacked.chunk({"sample": -1, "region": 1})
 
-    ds_similarity = univariate_ks_test(fcst_stacked, obs_stacked, args.var)
+    ds_similarity = univariate_ks_test(
+        fcst_stacked, obs_stacked, args.var, lead_dim=args.lead_dim
+    )
 
     infile_logs = {
         args.fcst_file: ds_fcst.attrs["history"],

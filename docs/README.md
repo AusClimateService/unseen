@@ -21,7 +21,12 @@ contain the original information used to build the html pages.
 
 ## Required software
 
-The following packages need to be installed in order to generate the html documentation:
+In order to build the html pages,
+the UNSEEN package and all its dependencies need to be installed in the environment
+you're working from
+(see [installation instructions](https://github.com/AusClimateService/unseen/blob/master/docs/getting_started/index.rst)).
+
+The following additional packages are also required specifically for the html build:
 
 ```bash
 $ conda install sphinx numpydoc pydata-sphinx-theme

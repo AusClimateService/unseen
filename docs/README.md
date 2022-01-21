@@ -26,3 +26,9 @@ The following packages need to be installed in order to generate the html docume
 ```bash
 $ conda install sphinx numpydoc pydata-sphinx-theme
 ```
+
+## Development notes
+
+In order to create an API reference where you can click through to function definitions,
+we needed to create a couple of custom template files (see `_templates/`) following 
+[this Stack Overflow comment](https://stackoverflow.com/questions/2701998/sphinx-autodoc-is-not-automatic-enough/62613202#62613202).

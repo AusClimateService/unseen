@@ -10,6 +10,7 @@ by running ``bias_correction`` at the command line
 
 .. autosummary::
    :toctree: ../_autosummary
+   :template: custom-module-template.rst
    :recursive:
 
    unseen.array_handling

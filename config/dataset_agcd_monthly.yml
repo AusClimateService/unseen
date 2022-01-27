@@ -2,4 +2,4 @@ rename:
   precip: pr
 
 units:
-  pr: mm/month   
+  pr: mm month-1   

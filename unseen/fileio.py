@@ -42,6 +42,7 @@ def open_dataset(
     isel={},
     sel={},
     units={},
+    units_timing="end",
 ):
     """Create an xarray Dataset from one or more data files.
 
@@ -93,6 +94,9 @@ def open_dataset(
         Selection using xarray.Dataset.sel
     units : dict, optional
         Variable/s (keys) and desired units (values)
+    units_timing : str, {'start', 'middle', 'end'}, default 'end'
+        When to perform the unit conversions in units
+        Middle is after the spatial aggregation but before the temporal aggregation
 
     Returns
     -------
@@ -118,6 +122,11 @@ def open_dataset(
         ds = ds.isel(isel)
     if sel:
         ds = ds.sel(sel)
+
+    # Unit conversion (at start)
+    if units and (units_timing == "start"):
+        for var, target_units in units.items():
+            ds[var] = general_utils.convert_units(ds[var], target_units)
 
     # Spatial subsetting and aggregation
     if spatial_coords is None:
@@ -146,6 +155,11 @@ def open_dataset(
     else:
         raise ValueError("""spatial_agg must be None, 'sum' or 'mean'""")
 
+    # Unit conversion (at middle)
+    if units and (units_timing == "middle"):
+        for var, target_units in units.items():
+            ds[var] = general_utils.convert_units(ds[var], target_units)
+
     # Temporal aggregation
     if no_leap_days:
         ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
@@ -167,9 +181,10 @@ def open_dataset(
     if output_freq:
         ds[time_dim].attrs["frequency"] = output_freq
 
-    # Units
-    for var, target_units in units.items():
-        ds[var] = general_utils.convert_units(ds[var], target_units)
+    # Unit conversion (at end)
+    if units and (units_timing == "end"):
+        for var, target_units in units.items():
+            ds[var] = general_utils.convert_units(ds[var], target_units)
 
     assert type(ds) == xr.core.dataset.Dataset
 
@@ -544,6 +559,13 @@ def _parse_command_line():
         help="Variable / new unit pairs (e.g. precip=mm/day)",
     )
     parser.add_argument(
+        "--units_timing",
+        type=str,
+        choices=("start", "middle", "end"),
+        default="end",
+        help="When to perform the unit conversions in units",
+    )
+    parser.add_argument(
         "--variables",
         type=str,
         nargs="*",
@@ -599,6 +621,7 @@ def _main():
         "isel": args.isel,
         "sel": args.sel,
         "units": args.units,
+        "units_timing": args.units_timing,
     }
 
     kwargs, index = _indices_setup(kwargs, args.variables)

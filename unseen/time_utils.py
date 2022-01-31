@@ -330,7 +330,19 @@ def _update_rate(da, input_freq, target_freq):
     """Update a flow rate due to temporal aggregation."""
 
     current_units = da.units
-    rates_dict = {"D": "d-1", "M": "month-1", "Q": "season-1", "A": "yr-1"}
+    like_units = {
+        "/d": " day-1",
+        "/day": " day-1",
+        "/month": " month-1",
+        "/season": " season-1",
+        "/yr": " yr-1",
+        "/year": "yr-1",
+        " -1": "-1",
+    }
+    for wrong_unit, correct_unit in like_units.items():
+        current_units = current_units.replace(wrong_unit, correct_unit)
+
+    rates_dict = {"D": "day-1", "M": "month-1", "Q": "season-1", "A": "yr-1"}
     input_rate = rates_dict[input_freq]
     if input_rate in current_units:
         target_rate = rates_dict[target_freq[0]]

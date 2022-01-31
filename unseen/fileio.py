@@ -105,7 +105,6 @@ def open_dataset(
 
     engine = file_format if file_format else _guess_file_format(infiles)
     ds = xr.open_mfdataset(infiles, engine=engine, use_cftime=True)
-
     if not chunks == "auto":
         ds = ds.chunk(chunks)
 

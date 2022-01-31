@@ -99,7 +99,7 @@ def select_shapefile_regions(
     shapefile : str
         File path for shapefile
     agg : {'mean', 'sum'}, optional
-        Spatial aggregation method
+        Spatial aggregation method (mean is an area weighted mean)
     header : str, optional
         Name of the shapefile column containing the region names
     lat_dim: str, default 'lat'

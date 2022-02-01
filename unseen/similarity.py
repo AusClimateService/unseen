@@ -46,8 +46,8 @@ def univariate_ks_test(
 
     Notes
     -----
-    If p < 0.05 you can reject the null hypothesis
-    that the two samples are from different populations.
+    If p > 0.05 you can't reject the null hypothesis
+    that the two samples are from the same population.
     """
 
     if isinstance(fcst, xr.DataArray):

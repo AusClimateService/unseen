@@ -58,7 +58,7 @@ so if you require a different order you can use the relevant functions
 from the ``spatial_selection`` and ``time_utils`` modules on their own
 to acheive the order you need.
 
-We can then simple sqeeze the redundant ``region`` dimension
+We can then squeeze the redundant ``region`` dimension
 (there's only one region in the shapefile)
 and drop the years that are NaN because they didn't have data for all months:
 
@@ -69,7 +69,7 @@ and drop the years that are NaN because they didn't have data for all months:
    print(agcd_ds)
 
 
-..code:: text
+::
 
    <xarray.Dataset>
    Dimensions:  (time: 120)
@@ -106,7 +106,7 @@ Model data
 
 The CAFE dataset consists of multiple forecast files - one for each initialisation date:
 
-..code:: python
+.. code:: python
 
    import glob
 
@@ -117,7 +117,7 @@ The CAFE dataset consists of multiple forecast files - one for each initialisati
    cafe_files
 
 
-..code:: text
+::
 
    ['/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19950501/atmos_isobaric_daily.zarr.zip',
     '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19951101/atmos_isobaric_daily.zarr.zip',
@@ -133,7 +133,7 @@ The CAFE dataset consists of multiple forecast files - one for each initialisati
 In order to open and combine a multi-file forecast data,
 we can use the ``fileio.open_mfforecast`` function:
 
-..code:: python
+.. code:: python
 
    cafe_ds = fileio.open_mfforecast(cafe_files,
        variables=['pr'],
@@ -150,6 +150,7 @@ we can use the ``fileio.open_mfforecast`` function:
        units_timing='middle'
    )
 
+
 We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
 with a couple of additions:
@@ -160,14 +161,14 @@ with a couple of additions:
 
 The only other thing we need to do is once again remove the redundant dimension:
 
-..code:: python
+.. code:: python
 
    cafe_ds = cafe_ds.squeeze(drop=True)
    cafe_ds = cafe_ds.compute()
    cafe_ds
    
 
-..code:: text
+::
 
    <xarray.Dataset>
    Dimensions:    (ensemble: 96, init_date: 52, lead_time: 11)
@@ -192,7 +193,7 @@ Bias correction
 In order to bias correct the model data,
 we can use the ``bias_correction`` module:
 
-..code:: python
+.. code:: python
 
    from unseen import bias_correction
 
@@ -206,7 +207,7 @@ we can use the ``bias_correction`` module:
    bias
 
 
-..code:: text
+::
 
    TODO: Add dump of what the bias variable looks like to show it's a different bias for each lead time.
 
@@ -217,14 +218,14 @@ The first initialisation date is 1995 and each forecast is run for 10 years,
 so each year over the 2004-2019 period is sampled the same number of times.
 A separate bias is calculated for each lead time/year.
 
-..code:: python
+.. code:: python
 
    cafe_da_bc = bias_correction.remove_bias(cafe_ds['pr'], bias, 'additive')
    cafe_da_bc = cafe_da_bc.compute()
    cafe_da_bc
 
 
-..code:: text
+::
 
    TODO: Add dump of what this variable looks like
    
@@ -235,7 +236,7 @@ Independence testing
 We want to ensure that each sample in our model data is independent.
 To do this, we can use the ``independence`` module:
 
-..code:: python
+.. code:: python
 
    mean_correlations, null_correlation_bounds = independence.run_tests(cafe_da_bc)
 
@@ -244,12 +245,12 @@ For each initialisation time/month,
 ``run_tests`` calculates the mean correlation between all the ensemble members (for each lead time)
 as well as the bounds on zero correlation based on random sampling.
 
-..code:: python
+.. code:: python
     
    print(mean_correlations)   
 
 
-..code:: text
+::
 
    {5: <xarray.DataArray (lead_time: 11)>
  dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
@@ -263,7 +264,7 @@ as well as the bounds on zero correlation based on random sampling.
 
 The mean correlations and null correlation bounds can then be plotted:
 
-..code:: python
+.. code:: python
 
    independence.create_plot(
        mean_correlations,
@@ -273,7 +274,7 @@ The mean correlations and null correlation bounds can then be plotted:
 
 
 .. image:: wheatbelt_independence.png
-   :width: 400
+   :width: 500
 
 
 (Lead time 0 and 10 aren't present because they didn't contain data for the full year.)

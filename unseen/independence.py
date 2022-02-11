@@ -15,7 +15,94 @@ from . import fileio
 from . import general_utils
 
 
-def remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
+def run_tests(
+    fcst, init_dim="init_date", lead_dim="lead_time", ensemble_dim="ensemble"
+):
+    """Perform independence tests for each lead time and initial month.
+
+    Parameters
+    ----------
+    fcst : xarray DataArray
+        Forecast data
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension in fcst
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in fcst
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in fcst
+
+    Returns
+    -------
+    mean_correlations : dict of
+        Mean correlation between all ensemble members for each lead time and initial month
+    null_correlation_bounds : dict of
+        Bounds on zero correlation for each lead time and initial month
+
+    """
+
+    months = np.unique(fcst[init_dim].dt.month.values)
+    mean_correlations = {}
+    null_correlation_bounds = {}
+    for month in months:
+        fcst_month = fcst.where(fcst[init_dim].dt.month == month, drop=True)
+        fcst_month_detrended = _remove_ensemble_mean_trend(
+            fcst_month, dim=init_dim, ensemble_dim=ensemble_dim
+        )
+        mean_correlations[month] = _mean_ensemble_correlation(
+            fcst_month_detrended, dim=init_dim, ensemble_dim=ensemble_dim
+        )
+        null_correlation_bounds[month] = _get_null_correlation_bounds(
+            fcst_month_detrended,
+            init_dim=init_dim,
+            lead_dim=lead_dim,
+            ensemble_dim=ensemble_dim,
+        )
+
+    return mean_correlations, null_correlation_bounds
+
+
+def create_plot(
+    mean_correlations, null_correlation_bounds, outfile, lead_dim="lead_time"
+):
+    """Create independence plot.
+
+    Parameters
+    ----------
+    mean_correlations : xarray Dataset
+        Mean correlation (for each lead time) data
+    null_correlation_bounds : list
+        Bounds on zero correlation [lower_bound, upper_bound]
+    outfile : str
+        Path for output image file
+    lead_dim: str, default 'lead_time'
+        Name of the lead time dimension in mean_correlations
+    """
+
+    fig, ax = plt.subplots()
+
+    months = list(mean_correlations.keys())
+    months.sort()
+    for month in months:
+        color = next(ax._get_lines.prop_cycler)["color"]
+        mean_corr = mean_correlations[month].dropna(lead_dim)
+        month_abbr = calendar.month_abbr[month]
+        mean_corr.plot(
+            color=color, marker="o", linestyle="None", label=f"{month_abbr} starts"
+        )
+        lower_bound, upper_bound = null_correlation_bounds[month]
+        lead_time_bounds = [mean_corr[lead_dim].min(), mean_corr[lead_dim].max()]
+        plt.plot(
+            lead_time_bounds, [lower_bound, lower_bound], color=color, linestyle="--"
+        )
+        plt.plot(
+            lead_time_bounds, [upper_bound, upper_bound], color=color, linestyle="--"
+        )
+    plt.ylabel("correlation")
+    plt.legend()
+    plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
+
+
+def _remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
     """Remove ensemble mean trend along given dimension.
 
     Parameters
@@ -43,7 +130,7 @@ def remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
     return da_detrended
 
 
-def mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
+def _mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
     """Mean correlation between all ensemble members.
 
     Parameters
@@ -77,7 +164,7 @@ def mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
     return mean_corr
 
 
-def random_sample(ds, sample_dim, sample_size):
+def _random_sample(ds, sample_dim, sample_size):
     """Take random sample along a given dimension.
 
     Parameters
@@ -103,7 +190,7 @@ def random_sample(ds, sample_dim, sample_size):
     return ds_random_sample
 
 
-def random_mean_ensemble_correlation(
+def _random_mean_ensemble_correlation(
     ds, n_init_dates, n_ensembles, init_dim="init_date", ensemble_dim="ensemble"
 ):
     """Mean correlation between a random selection of samples.
@@ -128,17 +215,17 @@ def random_mean_ensemble_correlation(
     """
 
     sample_size = n_init_dates * n_ensembles
-    ds_random_sample = random_sample(ds, "sample", sample_size)
+    ds_random_sample = _random_sample(ds, "sample", sample_size)
     index = pd.MultiIndex.from_product(
         [range(n_init_dates), range(n_ensembles)], names=[init_dim, ensemble_dim]
     )
     ds_random_sample = ds_random_sample.assign_coords({"sample": index}).unstack()
-    mean_corr = mean_ensemble_correlation(ds_random_sample, dim=init_dim)
+    mean_corr = _mean_ensemble_correlation(ds_random_sample, dim=init_dim)
 
     return mean_corr
 
 
-def get_null_correlation_bounds(
+def _get_null_correlation_bounds(
     da, init_dim="init_time", lead_dim="lead_dim", ensemble_dim="ensemble"
 ):
     """Get the uncertainty bounds on zero correlation.
@@ -172,7 +259,7 @@ def get_null_correlation_bounds(
     null_correlations = []
     n_repeats = 100
     for repeat in range(n_repeats):
-        mean_corr = random_mean_ensemble_correlation(
+        mean_corr = _random_mean_ensemble_correlation(
             da_stacked, n_init_dates, n_ensembles
         )
         null_correlations.append(mean_corr)
@@ -183,48 +270,6 @@ def get_null_correlation_bounds(
     upper_bound = float(null_correlations.quantile(0.975).values)
 
     return lower_bound, upper_bound
-
-
-def create_plot(mean_correlations, null_correlation_bounds, max_lead_times, outfile):
-    """Create independence plot.
-
-    Parameters
-    ----------
-    mean_correlations : xarray Dataset
-        Mean correlation (for each lead time) data
-    null_correlation_bounds : list
-        Bounds on zero correlation [lower_bound, upper_bound]
-    max_lead_times : int
-        Maximum lead time
-    outfile : str
-        Path for output image file
-    """
-
-    fig, ax = plt.subplots()
-
-    months = list(mean_correlations.keys())
-    months.sort()
-    for month in months:
-        color = next(ax._get_lines.prop_cycler)["color"]
-
-        month_abbr = calendar.month_abbr[month]
-        mean_correlations[month].plot(
-            color=color, marker="o", linestyle="None", label=f"{month_abbr} starts"
-        )
-
-        lower_bound, upper_bound = null_correlation_bounds[month]
-        lead_time_bounds = [1, max_lead_times[month]]
-
-        plt.plot(
-            lead_time_bounds, [lower_bound, lower_bound], color=color, linestyle="--"
-        )
-        plt.plot(
-            lead_time_bounds, [upper_bound, upper_bound], color=color, linestyle="--"
-        )
-
-    plt.ylabel("correlation")
-    plt.legend()
-    plt.savefig(outfile)
 
 
 def _parse_command_line():
@@ -288,31 +333,14 @@ def _main():
     )
     da_fcst = ds_fcst[args.var]
 
-    months = np.unique(da_fcst[args.init_dim].dt.month.values)
-    mean_correlations = {}
-    null_correlation_bounds = {}
-    max_lead_times = {}
-    for month in months:
-        da_fcst_month = da_fcst.where(
-            da_fcst[args.init_dim].dt.month == month, drop=True
-        )
-        da_fcst_month_detrended = remove_ensemble_mean_trend(
-            da_fcst_month, dim=args.init_dim, ensemble_dim=args.ensemble_dim
-        )
-        mean_correlations[month] = mean_ensemble_correlation(
-            da_fcst_month_detrended, dim=args.init_dim, ensemble_dim=args.ensemble_dim
-        )
-        null_correlation_bounds[month] = get_null_correlation_bounds(
-            da_fcst_month_detrended,
-            init_dim=args.init_dim,
-            lead_dim=args.lead_dim,
-            ensemble_dim=args.ensemble_dim,
-        )
-        max_lead_times[month] = da_fcst_month[args.lead_dim].max()
-
-    create_plot(
-        mean_correlations, null_correlation_bounds, max_lead_times, args.outfile
+    mean_correlations, null_correlation_bounds = run_tests(
+        da_fcst,
+        init_dim=args.init_dim,
+        lead_dim=args.lead_dim,
+        ensemble_dim=args.ensemble_dim,
     )
+
+    create_plot(mean_correlations, null_correlation_bounds, args.outfile)
 
 
 if __name__ == "__main__":

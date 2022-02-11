@@ -3,6 +3,7 @@
 import argparse
 import re
 
+import numpy as np
 import xclim
 
 
@@ -85,3 +86,64 @@ def date_pair_to_time_slice(date_list):
     time_slice = slice(start_date, end_date)
 
     return time_slice
+
+
+def exceedance_curve(data, deceedance=False):
+    """Calculate exceedance curve.
+
+    Parameters
+    ----------
+    data : numpy ndarray
+        Data array
+    deceedance : bool
+        Return deceedance curve instead
+
+    Returns
+    -------
+    sorted_data : numpy ndarray
+        Sorted data for plot x-axis values
+    pct : numpy ndarray
+        exceedance (or deceedance) data
+    """
+
+    sorted_data = np.sort(data, axis=None)
+    exceedance = 1.0 - np.arange(1.0, len(data) + 1.0) / len(data)
+
+    pct = exceedance * 100
+    if deceedance:
+        pct = 100 - pct
+
+    return sorted_data, pct
+
+
+def event_in_context(data, threshold, direction):
+    """Put an event in context.
+
+    Parameters
+    ----------
+    data : numpy ndarray
+        Population data
+    threshold : float
+        Event threshold
+    direction : {'above', 'below'}
+        Provide statistics for above or below threshold
+
+    Returns
+    -------
+    percentile : float
+        Event percentile relative to population (%)
+    return_period : float
+        Return period for event
+    """
+
+    n_population = len(data)
+    if direction == "below":
+        n_events = np.sum(data < threshold)
+    elif direction == "above":
+        n_events = np.sum(data > threshold)
+    else:
+        raise ValueError("""direction must be 'below' or 'above'""")
+    percentile = (n_events / n_population) * 100
+    return_period = 1 / (percentile / 100)
+
+    return percentile, return_period

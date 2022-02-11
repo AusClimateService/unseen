@@ -12,25 +12,32 @@ import xks
 
 
 def univariate_ks_test(
-    fcst_stacked, obs, var, lead_dim="lead_time", sample_dim="sample"
+    fcst,
+    obs,
+    var,
+    lead_dim="lead_time",
+    init_dim="init_date",
+    ensemble_dim="ensemble",
+    time_dim="time",
 ):
     """Univariate KS test.
 
     Parameters
     ----------
-    fcst_stacked : xarray Dataset
-        Forecast dataset with lead time and sample dimensions.
-        Typically the sample dimension is created by stacking/flattening the
-        initial date and ensemble member dimensions.
-    obs : xarray DataArray
-        Observational/comparison dataset with a sample dimension.
-        Typically the sample dimension is created by simply renaming the time dimension.
+    fcst : xarray Dataset or DataArray
+        Forecast dataset with initial date, lead time and ensemble member dimensions.
+    obs : xarray DataArray or DataArray
+        Observational/comparison dataset with a time dimension.
     var : str
         Variable from the datasets to process.
+    init_dim: str, default 'init_date'
+        Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
-        Name of the lead time dimension in fcst_stacked
-    sample_dim: str, default 'sample'
-        Name of the sample dimension in fcst_stacked and obs
+        Name of the lead time dimension in fcst
+    ensemble_dim: str, default 'ensemble'
+        Name of the ensemble member dimension in fcst
+    time_dim: str, default 'time'
+        Name of the time dimension in obs
 
     Returns
     -------
@@ -39,16 +46,27 @@ def univariate_ks_test(
 
     Notes
     -----
-    If p < 0.05 you can reject the null hypothesis
-    that the two samples are from different populations.
+    If p > 0.05 you can't reject the null hypothesis
+    that the two samples are from the same population.
     """
+
+    if isinstance(fcst, xr.DataArray):
+        fcst = fcst.to_dataset()
+    if isinstance(obs, xr.DataArray):
+        obs = obs.to_dataset()
+
+    fcst_stacked = fcst.stack({"sample": [ensemble_dim, init_dim]})
+    fcst_stacked = fcst_stacked.chunk({"sample": -1})
+
+    obs_stacked = obs.rename({time_dim: "sample"})
+    obs_stacked = obs_stacked.chunk({"sample": -1})
 
     ks_distances = []
     pvals = []
     for lead_time in fcst_stacked[lead_dim].values:
         fcst_data = fcst_stacked.sel({lead_dim: lead_time})
         if not np.isnan(fcst_data[var].values).all():
-            ks_distance, pval = xks.ks1d2s(obs, fcst_data, sample_dim)
+            ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_data, "sample")
             ks_distance = ks_distance.rename({var: "ks"})
             pval = pval.rename({var: "pval"})
             ks_distances.append(ks_distance["ks"])
@@ -138,20 +156,19 @@ def _main():
         print(client)
 
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
-
     ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
         time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
         ds_obs = ds_obs.sel({args.time_dim: time_slice})
 
-    fcst_stacked = ds_fcst.stack({"sample": [args.ensemble_dim, args.init_dim]})
-    fcst_stacked = fcst_stacked.chunk({"sample": -1})
-
-    obs_stacked = ds_obs.rename(time="sample")
-    obs_stacked = obs_stacked.chunk({"sample": -1})
-
     ds_similarity = univariate_ks_test(
-        fcst_stacked, obs_stacked, args.var, lead_dim=args.lead_dim
+        ds_fcst,
+        ds_obs,
+        args.var,
+        init_dim=args.init_dim,
+        lead_dim=args.lead_dim,
+        ensemble_dim=args.ensemble_dim,
+        time_dim=args.time_dim,
     )
 
     infile_logs = {

@@ -99,7 +99,7 @@ def create_plot(
         )
     plt.ylabel("correlation")
     plt.legend()
-    plt.savefig(outfile)
+    plt.savefig(outfile, bbox_inches='tight', facecolor='white', dpi=200)
 
 
 def _remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):

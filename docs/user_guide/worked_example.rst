@@ -18,14 +18,14 @@ Observational data
 We can use the AGCD rainfall data regridded to the CAFE model grid for our analysis.
 (See `this repo <https://github.com/AusClimateService/agcd>`__ for details.)
 
-.. code:: python
+.. code-block:: python
 
    agcd_file = '/g/data/ia39/agcd/post-processed/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip'
 
 
 The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset:
 
-.. code:: python
+.. code-block:: python
 
     from unseen import fileio
 
@@ -62,14 +62,14 @@ We can then squeeze the redundant ``region`` dimension
 (there's only one region in the shapefile)
 and drop the years that are NaN because they didn't have data for all months:
 
-.. code:: python
+.. code-block:: python
 
    agcd_ds = agcd_ds.squeeze(drop=True)
    agcd_ds = agcd_ds.dropna('time')
    print(agcd_ds)
 
 
-::
+.. code-block:: none
 
    <xarray.Dataset>
    Dimensions:  (time: 120)
@@ -93,10 +93,10 @@ and drop the years that are NaN because they didn't have data for all months:
        uuid:                      43596dc1-c56e-42a2-ba87-4e3b726a6e60
 
 
-If working in a notebook it can be a good idea to compute the Dataset before going to far,
+It can be a good idea to compute the Dataset before going too much further with the analysis,
 otherwise the dask task graph can get out of control.
 
-.. code:: python
+.. code-block:: python
 
    agcd_ds = agcd_ds.compute()
 
@@ -106,7 +106,7 @@ Model data
 
 The CAFE dataset consists of multiple forecast files - one for each initialisation date:
 
-.. code:: python
+.. code-block:: python
 
    import glob
 
@@ -114,10 +114,10 @@ The CAFE dataset consists of multiple forecast files - one for each initialisati
    cafe_files2000s = glob.glob('/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-2*/atmos_isobaric_daily.zarr.zip')
    cafe_files = cafe_files1990s + cafe_files2000s
    cafe_files.sort()
-   cafe_files
+   print(cafe_files)
 
 
-::
+.. code-block:: none
 
    ['/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19950501/atmos_isobaric_daily.zarr.zip',
     '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19951101/atmos_isobaric_daily.zarr.zip',
@@ -133,7 +133,7 @@ The CAFE dataset consists of multiple forecast files - one for each initialisati
 In order to open and combine a multi-file forecast data,
 we can use the ``fileio.open_mfforecast`` function:
 
-.. code:: python
+.. code-block:: python
 
    cafe_ds = fileio.open_mfforecast(cafe_files,
        variables=['pr'],
@@ -161,14 +161,14 @@ with a couple of additions:
 
 The only other thing we need to do is once again remove the redundant dimension:
 
-.. code:: python
+.. code-block:: python
 
    cafe_ds = cafe_ds.squeeze(drop=True)
    cafe_ds = cafe_ds.compute()
-   cafe_ds
+   print(cafe_ds)
    
 
-::
+.. code-block:: none
 
    <xarray.Dataset>
    Dimensions:    (ensemble: 96, init_date: 52, lead_time: 11)
@@ -187,56 +187,14 @@ The only other thing we need to do is once again remove the redundant dimension:
        title:      AccessOcean-AM2
 
 
-Bias correction
-^^^^^^^^^^^^^^^
-
-In order to bias correct the model data,
-we can use the ``bias_correction`` module:
-
-.. code:: python
-
-   from unseen import bias_correction
-
-   bias = bias_correction.get_bias(
-       cafe_ds['pr'],
-       agcd_ds['pr'],
-       'additive',
-       time_rounding='A',
-       time_period=['2004-01-01', '2019-12-31']
-   )
-   bias
-
-
-::
-
-   TODO: Add dump of what the bias variable looks like to show it's a different bias for each lead time.
-
-
-In this case we're using the additive (as opposed to multiplicative) bias correction method.
-The bias represents the difference between model (CAFE) and observed (AGCD) climatology over the period 2004-2019. 
-The first initialisation date is 1995 and each forecast is run for 10 years,
-so each year over the 2004-2019 period is sampled the same number of times.
-A separate bias is calculated for each lead time/year.
-
-.. code:: python
-
-   cafe_da_bc = bias_correction.remove_bias(cafe_ds['pr'], bias, 'additive')
-   cafe_da_bc = cafe_da_bc.compute()
-   cafe_da_bc
-
-
-::
-
-   TODO: Add dump of what this variable looks like
-   
-   
 Independence testing
 ^^^^^^^^^^^^^^^^^^^^
 
-We want to ensure that each sample in our model data is independent.
+Now that we have our annual rainfall data for the wheatbelt region,
+we want to ensure that each sample in our model dataset is independent.
 To do this, we can use the ``independence`` module:
 
-.. code:: python
+.. code-block:: python
 
    mean_correlations, null_correlation_bounds = independence.run_tests(cafe_da_bc)
 
@@ -245,12 +203,12 @@ For each initialisation time/month,
 ``run_tests`` calculates the mean correlation between all the ensemble members (for each lead time)
 as well as the bounds on zero correlation based on random sampling.
 
-.. code:: python
+.. code-block:: python
     
    print(mean_correlations)   
 
 
-::
+.. code-block:: none
 
    {5: <xarray.DataArray (lead_time: 11)>
  dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
@@ -264,7 +222,7 @@ as well as the bounds on zero correlation based on random sampling.
 
 The mean correlations and null correlation bounds can then be plotted:
 
-.. code:: python
+.. code-block:: python
 
    independence.create_plot(
        mean_correlations,
@@ -274,9 +232,149 @@ The mean correlations and null correlation bounds can then be plotted:
 
 
 .. image:: wheatbelt_independence.png
-   :width: 500
+   :width: 450
 
 
-(Lead time 0 and 10 aren't present because they didn't contain data for the full year.)
+(Lead time 0 and 10 aren't present in the plot because they didn't contain data for the full year.)
+
+In this case we only want to retain lead time 3 onwards.
+
+.. code-block:: python
+
+   cafe_da_indep = cafe_ds['pr'].dropna('lead_time').sel({'lead_time': slice(3, None)})
+
+
+Bias correction
+^^^^^^^^^^^^^^^
+
+In order to bias correct the (independent) model data,
+we can use the ``bias_correction`` module:
+
+.. code-block:: python
+
+   from unseen import bias_correction
+
+   bias = bias_correction.get_bias(
+       cafe_da_indep,
+       agcd_ds['pr'],
+       'additive',
+       time_rounding='A',
+       time_period=['2004-01-01', '2019-12-31']
+   )
+   
+   print(bias)
+
+
+.. code-block:: none
+
+   <xarray.DataArray 'pr' (month: 2, lead_time: 4)>
+   array([[-79.73348325, -66.94647375, -51.25970312, -54.93298978],
+          [-65.09246704, -73.51923507, -52.91778398, -45.92252261]])
+   Coordinates:
+     * lead_time  (lead_time) int64 3 4 5 6
+     * month      (month) int64 5 11
+   Attributes:
+       cell_methods:            time: mean
+       interp_method:           conserve_order1
+       long_name:               Total precipitation rate
+       time_avg_info:           average_T1,average_T2,average_DT
+       units:                   mm d-1
+       climatological_period:   ['2004-01-01', '2019-12-31']
+       bias_correction_method:  additive
+       bias_correction_period:  2004-01-01-2019-12-31
+
+
+In this case we're using the additive (as opposed to multiplicative) bias correction method.
+The bias represents the difference between model (CAFE) and observed (AGCD) climatology over the period 2004-2019. 
+The first initialisation date is 1995, the last initialisation date is 2020, and each forecast is run for 10 years.
+Those 10 year windows actually span 11 calendar years but the first and last year are incomplete,
+so we end up with 9 annual rainfall values per forecast, the last 7 of which are independent samples.
+This means each year over the 2004-2023 period is sampled the same number of times (7 times).
+The AGCD data spans 1900-2019, so the common period is 2004-2019.
+
+A separate bias is calculated for each lead time/year.
+
+.. code-block:: python
+
+   cafe_da_bc = bias_correction.remove_bias(cafe_da_indep, bias, 'additive')
+   cafe_da_bc = cafe_da_bc.compute()
+   print(cafe_da_bc)
+
+
+.. code-block:: none
+
+   <xarray.DataArray 'pr' (init_date: 52, lead_time: 4, ensemble: 96)>
+   array([[[524.34334892, 423.72240775, 345.6981328 , ..., 497.035067  ,
+            720.96984647, 487.41822556],
+   ...
+           [385.72187119, 723.75014851, 440.03893141, ..., 316.36601749,
+            533.30090701, 423.55287866]]])
+   Coordinates:
+     * lead_time  (lead_time) int64 3 4 5 6
+     * ensemble   (ensemble) int64 1 2 3 4 5 6 7 8 9 ... 88 89 90 91 92 93 94 95 96
+     * init_date  (init_date) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
+       time       (lead_time, init_date) object 1998-05-01 12:00:00 ... 2026-11-...
+   Attributes:
+       cell_methods:            time: mean
+       interp_method:           conserve_order1
+       long_name:               Total precipitation rate
+       time_avg_info:           average_T1,average_T2,average_DT
+       units:                   mm d-1
+       bias_correction_method:  additive
+       bias_correction_period:  2004-01-01-2019-12-31
+
+
+Similarity testing
+^^^^^^^^^^^^^^^^^^
+
+Before conducting the UNSEEN analysis,
+the last thing we need to do is determine whether the observed
+and (bias corrected, indepdenent) model data have a similar statistical distribution.
+
+We can check visually,
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+
+   fig = plt.figure(figsize=[10, 6])
+
+   cafe_da_indep.plot.hist(bins=50, density=True, label='CAFE', alpha=0.7)
+   cafe_da_bc.plot.hist(bins=50, density=True, label='CAFE BIAS CORRECTED', facecolor='darkblue', alpha=0.7)
+   agcd_ds['pr'].plot.hist(bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7)
+
+   plt.xlabel('annual precipitation (mm)')
+   plt.ylabel('probability')
+   plt.title(f'Average precipitation across the Australian wheatbelt')
+   plt.legend()
+   plt.show()
+
+
+.. image:: wheatbelt_precip_histogram.png
+   :width: 450
+
+
+and/or conduct an appropriate statistical test using the ``similarity`` module.
+
+.. code-block:: python
+
+   from unseen import similarity
+
+   similarity_ds = similarity.univariate_ks_test(cafe_da_bc, agcd_ds, 'pr')
+   print(similarity_ds['pval'].values)
+
+
+.. code-block:: none
+
+   array([5.83171227e-04, 4.15279940e-04, 2.40880779e-05, 1.75516763e-05,
+       1.87056123e-05, 1.78525592e-05, 1.44839927e-05])
+
+
+The univariate Kolmogorov-Smirnov (KS) test is used to compare the distributions of two datasets.
+The null hypothesis is that the two dataset values are from the same continuous distribution.
+The alternative hypothesis is that these two datasets are from different continuous distributions.
+In this case p-values less than 0.05 (a commonly used significance threshold) point to null hypothesis being rejected.
+In other words,
+the test suggests that the AGCD and bias corrected independent AGCD data are from different distributions.
 
 

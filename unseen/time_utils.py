@@ -374,4 +374,3 @@ def select_month(ds, month, time_dim="time"):
     ds_selection = ds.isel({time_dim: month_idxs[month]})
 
     return ds_selection
-

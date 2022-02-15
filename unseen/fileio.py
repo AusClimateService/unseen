@@ -35,6 +35,7 @@ def open_dataset(
     no_leap_days=False,
     time_freq=None,
     time_agg=None,
+    month=None,
     reset_times=False,
     complete_time_agg_periods=False,
     input_freq=None,
@@ -80,6 +81,8 @@ def open_dataset(
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
+    month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
+        Select a single month from the dataset
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
     complete_time_agg_periods : bool default False
@@ -121,6 +124,8 @@ def open_dataset(
         ds = ds.isel(isel)
     if sel:
         ds = ds.sel(sel)
+    if month:
+        ds = time_utils.select_month(ds, month, time_dim=time_dim)
 
     # Unit conversion (at start)
     if units and (units_timing == "start"):
@@ -186,6 +191,7 @@ def open_dataset(
             ds[var] = general_utils.convert_units(ds[var], target_units)
 
     assert type(ds) == xr.core.dataset.Dataset
+    ds = ds.squeeze(drop=True)
 
     return ds
 
@@ -229,7 +235,10 @@ def open_mfforecast(
         dims={lead_dim: ds[lead_dim], init_dim: ds[init_dim]},
     )
     ds = ds.assign_coords({time_dim: time_dimension})
-    ds[lead_dim].attrs["units"] = time_attrs["frequency"]
+    try:
+        ds[lead_dim].attrs["units"] = time_attrs["frequency"]
+    except KeyError:
+        pass
 
     return ds
 
@@ -482,6 +491,13 @@ def _parse_command_line():
         help="Temporal aggregation method",
     )
     parser.add_argument(
+        "--month",
+        type=int,
+        choices=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+        default=None,
+        help="Select a single month from the dataset",
+    )
+    parser.add_argument(
         "--reset_times",
         action="store_true",
         default=False,
@@ -613,6 +629,7 @@ def _main():
         "no_leap_days": args.no_leap_days,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
+        "month": args.month,
         "reset_times": args.reset_times,
         "complete_time_agg_periods": args.complete_time_agg_periods,
         "input_freq": args.input_freq,

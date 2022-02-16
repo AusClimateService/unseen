@@ -125,7 +125,9 @@ def open_dataset(
     if sel:
         ds = ds.sel(sel)
     if month:
-        ds = time_utils.select_month(ds, month, time_dim=time_dim)
+        ds = time_utils.select_month(
+            ds, month, init_month=reset_times, time_dim=time_dim
+        )
 
     # Unit conversion (at start)
     if units and (units_timing == "start"):

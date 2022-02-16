@@ -59,7 +59,6 @@ def convert_units(da, target_units):
 
     if da.attrs["units"] == "kg m-2 s-1 month-1" and target_units == "mm month-1":
         # special case for CAFE monthly rainfall data
-        print("YES")
         da.data = da.data * 86400
         da.attrs["units"] = "mm month-1"
     else:

@@ -167,6 +167,12 @@ def _parse_command_line():
         default="D",
         help="Floor rounding to nearest day, month or year for time matching",
     )
+    parser.add_argument(
+        "--min_lead",
+        type=int,
+        default=None,
+        help="Minimum lead time to include in analysis",
+    )
 
     args = parser.parse_args()
 
@@ -183,6 +189,8 @@ def _main():
 
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var]
+    if args.min_lead:
+        da_fcst = da_fcst.where(da_fcst["lead_time"] >= args.min_lead)
 
     bias = get_bias(
         da_fcst,

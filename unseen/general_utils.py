@@ -148,7 +148,7 @@ def event_in_context(data, threshold, direction):
         n_events = np.sum(data > threshold)
     else:
         raise ValueError("""direction must be 'below' or 'above'""")
-    percentile = (n_events / n_population) * 100
-    return_period = 1 / (percentile / 100)
+    percentile = (np.sum(data < threshold) / n_population) * 100
+    return_period = n_population / n_events
 
     return percentile, return_period

@@ -351,3 +351,32 @@ def _update_rate(da, input_freq, target_freq):
         new_units = current_units
 
     return new_units
+
+
+def select_month(ds, month, init_month=False, time_dim="time"):
+    """Select month from dataset.
+
+    Parameters
+    ----------
+    ds : xarray Dataset or DataArray
+    month : int
+        Month to select (1-12)
+    init_month : bool, default False
+        Set the month on the time axis to the initial month
+    time_dim: str, default 'time'
+        Name of the time dimension in ds
+
+    Returns
+    -------
+    ds_selection : xarray Dataset or DataArray
+        Input dataset with month extracted
+    """
+
+    month_idxs = ds.groupby("time.month").groups
+    ds_selection = ds.isel({time_dim: month_idxs[month]})
+    if init_month:
+        initial_date = ds[time_dim].data[0]
+        diff = ds_selection[time_dim].values[0] - initial_date
+        ds_selection[time_dim] = ds_selection[time_dim] - diff
+
+    return ds_selection

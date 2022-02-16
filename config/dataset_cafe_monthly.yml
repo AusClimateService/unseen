@@ -2,6 +2,10 @@
 
 rename:
   precip: pr
+  t_ref_max: tasmax
+  u_ref: uas
+  v_ref: vas
+  rh: hur
 
 drop_coords:
   - average_DT
@@ -9,4 +13,10 @@ drop_coords:
   - average_T2
   - zsurf
   - area
+
+round_coords:
+  - lat
+
+units:
+  pr: "kg m-2 s-1 month-1" 
 

@@ -57,7 +57,12 @@ def convert_units(da, target_units):
     if da.attrs["units"] in xclim_unit_check:
         da.attrs["units"] = xclim_unit_check[da.units]
 
-    da = xclim.units.convert_units_to(da, target_units)
+    if da.attrs["units"] == "kg m-2 s-1 month-1" and target_units == "mm month-1":
+        # special case for CAFE monthly rainfall data
+        da.data = da.data * 86400
+        da.attrs["units"] = "mm month-1"
+    else:
+        da = xclim.units.convert_units_to(da, target_units)
 
     return da
 
@@ -143,7 +148,7 @@ def event_in_context(data, threshold, direction):
         n_events = np.sum(data > threshold)
     else:
         raise ValueError("""direction must be 'below' or 'above'""")
-    percentile = (n_events / n_population) * 100
-    return_period = 1 / (percentile / 100)
+    percentile = (np.sum(data < threshold) / n_population) * 100
+    return_period = n_population / n_events
 
     return percentile, return_period

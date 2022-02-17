@@ -17,6 +17,3 @@ drop_coords:
 round_coords:
   - lat
 
-units:
-  pr: "kg m-2 s-1 month-1" 
-

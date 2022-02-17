@@ -8,6 +8,7 @@ import argparse
 import git
 import yaml
 import numpy as np
+import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -199,16 +200,20 @@ def open_dataset(
 
 
 def open_mfforecast(
-    infiles, time_dim="time", init_dim="init_date", lead_dim="lead_time", **kwargs
+    init_file_groups, time_dim="time", ensemble_dim="ensemble", init_dim="init_date", lead_dim="lead_time", **kwargs
 ):
     """Open multi-file forecast.
 
     Parameters
     ----------
-    infiles : list
-        Input file paths
+    init_file_groups : list
+        List of lists, where each list contains input file
+        paths for a common initialisation date
     time_dim: str, default 'time'
         Name of the time dimension in the input files
+    ensemble_dim: str, default 'ensemble'
+        Name of the ensemble dimension
+        (May or may not be in the infiles already.)
     init_dim: str, default 'init_date'
         Name of the initial date dimension for output ds
     lead_dim: str, default 'lead_time'
@@ -221,20 +226,29 @@ def open_mfforecast(
     ds : xarray Dataset
     """
 
-    datasets = []
+    init_datasets = []
     time_values = []
-    for infile in infiles:
-        ds = open_dataset(infile, **kwargs)
-        time_attrs = ds[time_dim].attrs
-        time_values.append(ds[time_dim].values)
-        ds = array_handling.to_init_lead(ds)
-        datasets.append(ds)
-    ds = xr.concat(datasets, dim=init_dim)
+    for init_file_group in init_file_groups:
+        init_ds_group = [] 
+        for init_file in init_file_group:
+            init_ds = open_dataset(init_file, **kwargs)
+            init_ds_group.append(init_ds)
+        if len(init_ds_group) == 1:
+            init_ds = init_ds_group[0]
+            assert ensemble_dim in init_ds.dims
+        else:
+            n_ensemble_members = len(init_ds_group)
+            init_ds = xr.concat(init_ds_group, pd.Index(np.arange(n_ensemble_members), name=ensemble_dim))
+        time_attrs = init_ds[time_dim].attrs
+        time_values.append(init_ds[time_dim].values)
+        init_ds = array_handling.to_init_lead(init_ds)
+        init_datasets.append(init_ds)
+    ds = xr.concat(init_datasets, dim=init_dim)
     time_values = np.stack(time_values, axis=-1)
     time_dimension = xr.DataArray(
         time_values,
         attrs=time_attrs,
-        dims={lead_dim: ds[lead_dim], init_dim: ds[init_dim]},
+        dims={lead_dim: init_ds[lead_dim], init_dim: init_ds[init_dim]},
     )
     ds = ds.assign_coords({time_dim: time_dimension})
     try:

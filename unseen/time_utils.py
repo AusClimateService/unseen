@@ -137,14 +137,14 @@ def select_time_period(ds, period, time_name="time"):
     if time_name in ds.dims:
         selection = ds.sel({time_name: slice(start, stop)})
     elif time_name in ds.coords:
+        time_values = ds[time_name].values
         try:
-            calendar = ds[time_name].calendar_type.lower()
+            calendar = time_values.flatten()[0].calendar
         except AttributeError:
             calendar = "standard"
         time_bounds = xr.cftime_range(
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
-        time_values = ds[time_name].values
         mask_values = _vinbounds(time_values, time_bounds)
         mask = ds[time_name].copy()
         mask.values = mask_values

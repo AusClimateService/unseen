@@ -496,7 +496,12 @@ def _parse_command_line():
         default=False,
         help="Input files are a forecast dataset [default=False]",
     )
-
+    parser.add_argument(
+        "--n_ensemble_files",
+        type=int,
+        default=1,
+        help="Number of consecutive infiles that form a complete ensemble [default=1]",
+    )
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
     )
@@ -704,7 +709,9 @@ def _main():
     kwargs, index = _indices_setup(kwargs, args.variables)
 
     if args.forecast:
-        ds = open_mfforecast(args.infiles, **kwargs)
+        ds = open_mfforecast(
+            args.infiles, n_ensemble_files=args.n_ensemble_files, **kwargs
+        )
         temporal_dim = "lead_time"
     else:
         ds = open_dataset(args.infiles, **kwargs)

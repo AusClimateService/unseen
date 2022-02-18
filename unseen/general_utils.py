@@ -57,12 +57,7 @@ def convert_units(da, target_units):
     if da.attrs["units"] in xclim_unit_check:
         da.attrs["units"] = xclim_unit_check[da.units]
 
-    if da.attrs["units"] == "kg m-2 s-1 month-1" and target_units == "mm month-1":
-        # special case for CAFE monthly rainfall data
-        da.data = da.data * 86400
-        da.attrs["units"] = "mm month-1"
-    else:
-        da = xclim.units.convert_units_to(da, target_units)
+    da = xclim.units.convert_units_to(da, target_units)
 
     return da
 

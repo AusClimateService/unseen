@@ -8,6 +8,7 @@ import argparse
 import git
 import yaml
 import numpy as np
+import pandas as pd
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -42,6 +43,7 @@ def open_dataset(
     time_dim="time",
     isel={},
     sel={},
+    scale_factors={},
     units={},
     units_timing="end",
 ):
@@ -95,6 +97,10 @@ def open_dataset(
         Selection using xarray.Dataset.isel
     sel : dict, optional
         Selection using xarray.Dataset.sel
+    scale_factors : dict, optional
+        Divide input data by this value.
+        Variable/s (keys) and scale factor (values).
+        Scale factors can be a float or "days_in_month"
     units : dict, optional
         Variable/s (keys) and desired units (values)
     units_timing : str, {'start', 'middle', 'end'}, default 'end'
@@ -128,6 +134,15 @@ def open_dataset(
         ds = time_utils.select_month(
             ds, month, init_month=reset_times, time_dim=time_dim
         )
+
+    # Scale factors
+    if scale_factors:
+        with xr.set_options(keep_attrs=True):
+            for var, scale_factor in scale_factors.items():
+                if scale_factor == "days_in_month":
+                    ds[var] = ds[var] / ds[time_dim].dt.days_in_month
+                else:
+                    ds[var] = ds[var] / scale_factor
 
     # Unit conversion (at start)
     if units and (units_timing == "start"):
@@ -199,16 +214,31 @@ def open_dataset(
 
 
 def open_mfforecast(
-    infiles, time_dim="time", init_dim="init_date", lead_dim="lead_time", **kwargs
+    file_list,
+    n_ensemble_files=1,
+    time_dim="time",
+    ensemble_dim="ensemble",
+    init_dim="init_date",
+    lead_dim="lead_time",
+    **kwargs,
 ):
     """Open multi-file forecast.
 
     Parameters
     ----------
-    infiles : list
-        Input file paths
+    file_list: str or list
+        List (or name of text file) containing input file paths (one file per line if text file)
+    n_ensemble_files: int, default 1
+        Number of consecutive files that form a complete ensemble.
+        Use n_ensemble_files > 1 if each input file represents an individual ensemble member.
+        (As opposed to all ensemble members in the one file.)
+        The file_list will then be processed in n_ensemble_files chunks,
+        where each chunk has all the ensemble members for a given initialisation date.
     time_dim: str, default 'time'
         Name of the time dimension in the input files
+    ensemble_dim: str, default 'ensemble'
+        Name of the ensemble dimension
+        (May or may not be in the infiles already.)
     init_dim: str, default 'init_date'
         Name of the initial date dimension for output ds
     lead_dim: str, default 'lead_time'
@@ -221,20 +251,41 @@ def open_mfforecast(
     ds : xarray Dataset
     """
 
-    datasets = []
+    if isinstance(file_list, str) or (len(file_list) == 1):
+        if len(file_list) == 1:
+            file_list = file_list[0]
+        with open(file_list) as f:
+            input_files = f.read().splitlines()
+    else:
+        input_files = file_list
+
+    init_datasets = []
     time_values = []
-    for infile in infiles:
-        ds = open_dataset(infile, **kwargs)
-        time_attrs = ds[time_dim].attrs
-        time_values.append(ds[time_dim].values)
-        ds = array_handling.to_init_lead(ds)
-        datasets.append(ds)
-    ds = xr.concat(datasets, dim=init_dim)
+    for i in range(0, len(input_files), n_ensemble_files):
+        init_file_group = input_files[i : i + n_ensemble_files]
+        init_ds_group = []
+        for init_file in init_file_group:
+            init_ds = open_dataset(init_file, **kwargs)
+            init_ds_group.append(init_ds)
+        if len(init_ds_group) == 1:
+            init_ds = init_ds_group[0]
+            assert ensemble_dim in init_ds.dims
+        else:
+            n_ensemble_members = len(init_ds_group)
+            init_ds = xr.concat(
+                init_ds_group,
+                pd.Index(np.arange(n_ensemble_members), name=ensemble_dim),
+            )
+        time_attrs = init_ds[time_dim].attrs
+        time_values.append(init_ds[time_dim].values)
+        init_ds = array_handling.to_init_lead(init_ds)
+        init_datasets.append(init_ds)
+    ds = xr.concat(init_datasets, dim=init_dim)
     time_values = np.stack(time_values, axis=-1)
     time_dimension = xr.DataArray(
         time_values,
         attrs=time_attrs,
-        dims={lead_dim: ds[lead_dim], init_dim: ds[init_dim]},
+        dims={lead_dim: init_ds[lead_dim], init_dim: init_ds[init_dim]},
     )
     ds = ds.assign_coords({time_dim: time_dimension})
     try:
@@ -445,7 +496,12 @@ def _parse_command_line():
         default=False,
         help="Input files are a forecast dataset [default=False]",
     )
-
+    parser.add_argument(
+        "--n_ensemble_files",
+        type=int,
+        default=1,
+        help="Number of consecutive infiles that form a complete ensemble [default=1]",
+    )
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
     )
@@ -602,6 +658,13 @@ def _parse_command_line():
         action=general_utils.store_dict,
         help="Selection along dimensions (e.g. ensemble=1:5)",
     )
+    parser.add_argument(
+        "--scale_factors",
+        type=str,
+        nargs="*",
+        action=general_utils.store_dict,
+        help="Divide input data by this value. Can be a float or days_in_month (e.g. pr=days_in_month)",
+    )
 
     args = parser.parse_args()
 
@@ -639,13 +702,16 @@ def _main():
         "isel": args.isel,
         "sel": args.sel,
         "units": args.units,
+        "scale_factors": args.scale_factors,
         "units_timing": args.units_timing,
     }
 
     kwargs, index = _indices_setup(kwargs, args.variables)
 
     if args.forecast:
-        ds = open_mfforecast(args.infiles, **kwargs)
+        ds = open_mfforecast(
+            args.infiles, n_ensemble_files=args.n_ensemble_files, **kwargs
+        )
         temporal_dim = "lead_time"
     else:
         ds = open_dataset(args.infiles, **kwargs)

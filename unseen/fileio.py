@@ -213,8 +213,32 @@ def open_dataset(
     return ds
 
 
+def _chunks(lst, n):
+    """Split a list into n sub-lists"""
+
+    new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
+
+    return new_lst
+
+
+def _process_mfilelist(file_list, n_time_files, n_ensemble_files):
+    """Read and chunk an input file list"""
+
+    if isinstance(file_list, str) or (len(file_list) == 1):
+        if len(file_list) == 1:
+            file_list = file_list[0]
+        with open(file_list) as f:
+            input_files = f.read().splitlines()
+    else:
+        input_files = file_list
+    input_files_chunked = _chunks(_chunks(input_files, n_time_files), n_ensemble_files)
+
+    return input_files_chunked
+
+
 def open_mfforecast(
     file_list,
+    n_time_files=1,
     n_ensemble_files=1,
     time_dim="time",
     ensemble_dim="ensemble",
@@ -227,13 +251,13 @@ def open_mfforecast(
     Parameters
     ----------
     file_list: str or list
-        List (or name of text file) containing input file paths (one file per line if text file)
+        List (or name of text file) containing input file paths (one file per line if text file).
+        The list should be ordered by initialisation date (i), ensemble member (e) then time chunk (t).
+          e.g. 'i1e1t1', 'i1e1t2', 'i1e1t3', 'i1e2t1', 'i1e2t2', 'i1e2t3', 'i2e1f1', ...
+    n_time_files: int, default 1
+        Number of consecutive files that span the time period (for a given initialisation date).
     n_ensemble_files: int, default 1
-        Number of consecutive files that form a complete ensemble.
-        Use n_ensemble_files > 1 if each input file represents an individual ensemble member.
-        (As opposed to all ensemble members in the one file.)
-        The file_list will then be processed in n_ensemble_files chunks,
-        where each chunk has all the ensemble members for a given initialisation date.
+        Number of consecutive files (or n_time_file groupings) that form a complete ensemble.
     time_dim: str, default 'time'
         Name of the time dimension in the input files
     ensemble_dim: str, default 'ensemble'
@@ -251,22 +275,15 @@ def open_mfforecast(
     ds : xarray Dataset
     """
 
-    if isinstance(file_list, str) or (len(file_list) == 1):
-        if len(file_list) == 1:
-            file_list = file_list[0]
-        with open(file_list) as f:
-            input_files = f.read().splitlines()
-    else:
-        input_files = file_list
-
+    infiles = _process_mfilelist(file_list, n_time_files, n_ensemble_files)
     init_datasets = []
     time_values = []
-    for i in range(0, len(input_files), n_ensemble_files):
-        init_file_group = input_files[i : i + n_ensemble_files]
+    for init_file_group in infiles:
         init_ds_group = []
-        for init_file in init_file_group:
-            init_ds = open_dataset(init_file, **kwargs)
-            init_ds_group.append(init_ds)
+        for init_ensemble_file_group in init_file_group:
+            print(init_ensemble_file_group)
+            init_ensemble_ds = open_dataset(init_ensemble_file_group, **kwargs)
+            init_ds_group.append(init_ensemble_ds)
         if len(init_ds_group) == 1:
             init_ds = init_ds_group[0]
             assert ensemble_dim in init_ds.dims
@@ -500,7 +517,13 @@ def _parse_command_line():
         "--n_ensemble_files",
         type=int,
         default=1,
-        help="Number of consecutive infiles that form a complete ensemble [default=1]",
+        help="Number of consecutive files (or n_time_file groupings) that form a complete ensemble [default=1]",
+    )
+    parser.add_argument(
+        "--n_time_files",
+        type=int,
+        default=1,
+        help="Number of consecutive files that span the time period (for a given initialisation date) [default=1]",
     )
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
@@ -710,7 +733,10 @@ def _main():
 
     if args.forecast:
         ds = open_mfforecast(
-            args.infiles, n_ensemble_files=args.n_ensemble_files, **kwargs
+            args.infiles,
+            n_time_files=args.n_time_files,
+            n_ensemble_files=args.n_ensemble_files,
+            **kwargs,
         )
         temporal_dim = "lead_time"
     else:

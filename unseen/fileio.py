@@ -215,9 +215,9 @@ def open_dataset(
 
 def _chunks(lst, n):
     """Split a list into n sub-lists"""
-    
+
     new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
-    
+
     return new_lst
 
 
@@ -733,7 +733,10 @@ def _main():
 
     if args.forecast:
         ds = open_mfforecast(
-            args.infiles, n_time_files=args.n_time_files, n_ensemble_files=args.n_ensemble_files, **kwargs
+            args.infiles,
+            n_time_files=args.n_time_files,
+            n_ensemble_files=args.n_ensemble_files,
+            **kwargs,
         )
         temporal_dim = "lead_time"
     else:

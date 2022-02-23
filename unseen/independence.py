@@ -16,7 +16,11 @@ from . import general_utils
 
 
 def run_tests(
-    fcst, init_dim="init_date", lead_dim="lead_time", ensemble_dim="ensemble"
+    fcst,
+    comparison_fcst=None,
+    init_dim="init_date",
+    lead_dim="lead_time",
+    ensemble_dim="ensemble",
 ):
     """Perform independence tests for each lead time and initial month.
 
@@ -24,6 +28,9 @@ def run_tests(
     ----------
     fcst : xarray DataArray
         Forecast data
+    comparison_fcst : xarray DataArray, optional
+        Forecast data to compare against
+        If None, the ensemble members of fcst are compared against each other
     init_dim: str, default 'init_date'
         Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
@@ -48,9 +55,24 @@ def run_tests(
         fcst_month_detrended = _remove_ensemble_mean_trend(
             fcst_month, dim=init_dim, ensemble_dim=ensemble_dim
         )
-        mean_correlations[month] = _mean_ensemble_correlation(
-            fcst_month_detrended, dim=init_dim, ensemble_dim=ensemble_dim
-        )
+        if not isinstance(comparison_fcst, type(None)):
+            comparison_fcst_month = comparison_fcst.where(
+                comparison_fcst[init_dim].dt.month == month, drop=True
+            )
+            comparison_fcst_month_detrended = _remove_ensemble_mean_trend(
+                comparison_fcst_month, dim=init_dim, ensemble_dim=ensemble_dim
+            )
+            mean_correlations[month] = _mean_ensemble_correlation(
+                fcst_month_detrended,
+                comparison_da=comparison_fcst_month_detrended,
+                dim=init_dim,
+                ensemble_dim=ensemble_dim,
+            )
+        else:
+            mean_correlations[month] = _mean_ensemble_correlation(
+                fcst_month_detrended, dim=init_dim, ensemble_dim=ensemble_dim
+            )
+
         null_correlation_bounds[month] = _get_null_correlation_bounds(
             fcst_month_detrended,
             init_dim=init_dim,
@@ -130,13 +152,18 @@ def _remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
     return da_detrended
 
 
-def _mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
+def _mean_ensemble_correlation(
+    da, comparison_da=None, dim="init_date", ensemble_dim="ensemble"
+):
     """Mean correlation between all ensemble members.
 
     Parameters
     ----------
     da : xarray DataArray
         Input data array
+    comparison_da : xarray DataArray
+        Input data array to compare da against
+        If None, the ensemble members of da are compared against each other
     dim : str, default init_date
         Dimension over which to calculate correlation
     ensemble_dim : str, default 'ensemble'
@@ -149,11 +176,23 @@ def _mean_ensemble_correlation(da, dim="init_date", ensemble_dim="ensemble"):
     """
 
     n_ensemble_members = len(da[ensemble_dim])
-    combinations = np.array(list(itertools.combinations(range(n_ensemble_members), 2)))
+    if isinstance(comparison_da, type(None)):
+        combinations = np.array(
+            list(itertools.combinations(range(n_ensemble_members), 2))
+        )
+    else:
+        combinations = np.array(
+            list(itertools.combinations_with_replacement(range(n_ensemble_members), 2))
+        )
 
     new_ensemble_coord = {ensemble_dim: range(combinations.shape[0])}
     e1 = da.isel(ensemble=combinations[:, 0]).assign_coords(new_ensemble_coord)
-    e2 = da.isel(ensemble=combinations[:, 1]).assign_coords(new_ensemble_coord)
+    if isinstance(comparison_da, type(None)):
+        e2 = da.isel(ensemble=combinations[:, 1]).assign_coords(new_ensemble_coord)
+    else:
+        e2 = comparison_da.isel(ensemble=combinations[:, 1]).assign_coords(
+            new_ensemble_coord
+        )
 
     e1 = e1.chunk({dim: -1})
     e2 = e2.chunk({dim: -1})

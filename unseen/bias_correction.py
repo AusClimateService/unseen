@@ -112,7 +112,7 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
     if method == "additive":
         op = operator.sub
     elif method == "multiplicative":
-        op = operator.div
+        op = operator.truediv
     else:
         raise ValueError(f"Unrecognised bias removal method {method}")
 

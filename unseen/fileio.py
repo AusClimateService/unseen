@@ -34,6 +34,7 @@ def open_dataset(
     spatial_agg=None,
     lat_dim="lat",
     lon_dim="lon",
+    standard_calendar=False,
     no_leap_days=False,
     time_freq=None,
     time_agg=None,
@@ -84,6 +85,8 @@ def open_dataset(
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
+    standard_calendar : bool, default False
+        Force a common calendar on all input files
     month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
         Select a single month from the dataset
     reset_times : bool, default False
@@ -113,8 +116,11 @@ def open_dataset(
     ds : xarray Dataset
     """
 
+    preprocess = time_utils.switch_calendar if standard_calendar else None
     engine = file_format if file_format else _guess_file_format(infiles)
-    ds = xr.open_mfdataset(infiles, engine=engine, use_cftime=True)
+    ds = xr.open_mfdataset(
+        infiles, engine=engine, preprocess=preprocess, use_cftime=True
+    )
     if not chunks == "auto":
         ds = ds.chunk(chunks)
 
@@ -705,6 +711,12 @@ def _parse_command_line():
         default=False,
         help="Have open_mfforecast print file names as they are processed",
     )
+    parser.add_argument(
+        "--standard_calendar",
+        action="store_true",
+        default=False,
+        help="Force a standard calendar when opening each file",
+    )
 
     args = parser.parse_args()
 
@@ -731,6 +743,7 @@ def _main():
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,
         "lon_dim": args.lon_dim,
+        "standard_calendar": args.standard_calendar,
         "no_leap_days": args.no_leap_days,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,

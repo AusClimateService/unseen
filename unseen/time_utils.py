@@ -228,6 +228,30 @@ def str_to_cftime(datestring):
     return cfdt
 
 
+def switch_calendar(ds):
+    """Change time axis calendar.
+
+    Parameters
+    ----------
+    ds : xarray DataArray or Dataset
+        Dataset with cftime time axis
+
+    Returns
+    -------
+    ds : xarray DataArray or Dataset
+    """
+
+    str_times = cftime_to_str(ds["time"])
+    str_to_cftime_func = np.vectorize(str_to_cftime)
+    new_times = str_to_cftime_func(str_times)
+    time_attrs = ds["time"].attrs
+
+    ds = ds.assign_coords({"time": new_times})
+    ds["time"].attrs = time_attrs
+
+    return ds
+
+
 def datetime_to_cftime(datetime_array):
     """Convert a numpy datetime array to a cftime array.
 

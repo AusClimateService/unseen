@@ -4,6 +4,7 @@ import os
 import zipfile
 import shutil
 import argparse
+import logging
 
 import git
 import yaml
@@ -33,6 +34,7 @@ def open_dataset(
     spatial_agg=None,
     lat_dim="lat",
     lon_dim="lon",
+    standard_calendar=False,
     no_leap_days=False,
     time_freq=None,
     time_agg=None,
@@ -83,6 +85,8 @@ def open_dataset(
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
+    standard_calendar : bool, default False
+        Force a common calendar on all input files
     month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
         Select a single month from the dataset
     reset_times : bool, default False
@@ -112,8 +116,11 @@ def open_dataset(
     ds : xarray Dataset
     """
 
+    preprocess = time_utils.switch_calendar if standard_calendar else None
     engine = file_format if file_format else _guess_file_format(infiles)
-    ds = xr.open_mfdataset(infiles, engine=engine, use_cftime=True)
+    ds = xr.open_mfdataset(
+        infiles, engine=engine, preprocess=preprocess, use_cftime=True
+    )
     if not chunks == "auto":
         ds = ds.chunk(chunks)
 
@@ -240,6 +247,7 @@ def open_mfforecast(
     file_list,
     n_time_files=1,
     n_ensemble_files=1,
+    verbose=False,
     time_dim="time",
     ensemble_dim="ensemble",
     init_dim="init_date",
@@ -258,6 +266,8 @@ def open_mfforecast(
         Number of consecutive files that span the time period (for a given initialisation date).
     n_ensemble_files: int, default 1
         Number of consecutive files (or n_time_file groupings) that form a complete ensemble.
+    verbose: bool, default False
+        Print file names as they are being processed
     time_dim: str, default 'time'
         Name of the time dimension in the input files
     ensemble_dim: str, default 'ensemble'
@@ -274,6 +284,8 @@ def open_mfforecast(
     -------
     ds : xarray Dataset
     """
+    log_lev = logging.INFO if verbose else logging.WARNING
+    logging.basicConfig(level=log_lev)
 
     infiles = _process_mfilelist(file_list, n_time_files, n_ensemble_files)
     init_datasets = []
@@ -281,8 +293,10 @@ def open_mfforecast(
     for init_file_group in infiles:
         init_ds_group = []
         for init_ensemble_file_group in init_file_group:
-            print(init_ensemble_file_group)
+            logging.info(f"Processing file group: {init_ensemble_file_group}...")
             init_ensemble_ds = open_dataset(init_ensemble_file_group, **kwargs)
+            shape = init_ensemble_ds[kwargs["variables"][0]].shape
+            logging.info(f"Ensemble member shape: {shape}")
             init_ds_group.append(init_ensemble_ds)
         if len(init_ds_group) == 1:
             init_ds = init_ds_group[0]
@@ -293,6 +307,8 @@ def open_mfforecast(
                 init_ds_group,
                 pd.Index(np.arange(n_ensemble_members), name=ensemble_dim),
             )
+        shape = init_ds[kwargs["variables"][0]].shape
+        logging.info(f"Ensemble shape: {shape}")
         time_attrs = init_ds[time_dim].attrs
         time_values.append(init_ds[time_dim].values)
         init_ds = array_handling.to_init_lead(init_ds)
@@ -688,6 +704,19 @@ def _parse_command_line():
         action=general_utils.store_dict,
         help="Divide input data by this value. Can be a float or days_in_month (e.g. pr=days_in_month)",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Have open_mfforecast print file names as they are processed",
+    )
+    parser.add_argument(
+        "--standard_calendar",
+        action="store_true",
+        default=False,
+        help="Force a standard calendar when opening each file",
+    )
 
     args = parser.parse_args()
 
@@ -714,6 +743,7 @@ def _main():
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,
         "lon_dim": args.lon_dim,
+        "standard_calendar": args.standard_calendar,
         "no_leap_days": args.no_leap_days,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
@@ -736,6 +766,7 @@ def _main():
             args.infiles,
             n_time_files=args.n_time_files,
             n_ensemble_files=args.n_ensemble_files,
+            verbose=args.verbose,
             **kwargs,
         )
         temporal_dim = "lead_time"

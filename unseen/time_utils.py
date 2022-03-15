@@ -51,9 +51,10 @@ def temporal_aggregation(
     M = monthly, with date label being last day of month
     Q-NOV = DJF, MAM, JJA, SON, with date label being last day of season
     A-NOV = annual Dec-Nov, date label being last day of the year
+    A-AUG = annual Sep-Aug, date label being last day of the year
     """
 
-    assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV"]
+    assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"]
     assert input_freq in ["D", "M", "Q", "A"]
 
     if time_dim not in ds.dims:

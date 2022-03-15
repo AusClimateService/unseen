@@ -36,6 +36,7 @@ def open_dataset(
     lon_dim="lon",
     standard_calendar=False,
     no_leap_days=False,
+    rolling_sum_window=None,
     time_freq=None,
     time_agg=None,
     month=None,
@@ -81,6 +82,8 @@ def open_dataset(
         Name of the longitude dimension in infiles
     no_leap_days : bool, default False
         Remove leap days from data
+    rolling_sum_window : int, default None
+        Apply a rolling sum with this window width
     time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV'}, optional
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
@@ -191,6 +194,8 @@ def open_dataset(
     # Temporal aggregation
     if no_leap_days:
         ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
+    if rolling_sum_window:
+        ds = ds.rolling({time_dim: rolling_sum_window}).sum()
     if time_freq:
         assert time_agg, "Provide a time_agg"
         assert variables, "Variables argument is required for temporal aggregation"
@@ -574,9 +579,15 @@ def _parse_command_line():
         help="Remove leap days from time series [default=False]",
     )
     parser.add_argument(
+        "--rolling_sum_window",
+        type=int,
+        default=None,
+        help="Apply a rolling sum with this window width",
+    )
+    parser.add_argument(
         "--time_freq",
         type=str,
-        choices=("A-DEC", "M", "Q-NOV", "A-NOV"),
+        choices=("A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"),
         default=None,
         help="Target frequency for temporal aggregation",
     )
@@ -745,6 +756,7 @@ def _main():
         "lon_dim": args.lon_dim,
         "standard_calendar": args.standard_calendar,
         "no_leap_days": args.no_leap_days,
+        "rolling_sum_window": args.rolling_sum_window,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
         "month": args.month,

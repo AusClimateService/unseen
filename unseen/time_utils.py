@@ -336,7 +336,7 @@ def _crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
 
     assert input_freq in ["D", "M"]
     assert output_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"]
-    
+
     # to X from X
     count_dict = {
         ("A", "D"): 365,

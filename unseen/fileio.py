@@ -169,9 +169,17 @@ def open_dataset(
     if spatial_coords is None:
         pass
     elif len(spatial_coords) == 4:
-        ds = spatial_selection.select_box_region(ds, spatial_coords, agg=spatial_agg, lat_dim=lat_dim, lon_dim=lon_dim)
+        ds = spatial_selection.select_box_region(
+            ds,
+            spatial_coords,
+            agg=spatial_agg,
+            lat_dim=lat_dim,
+            lon_dim=lon_dim
+        )
     elif len(spatial_coords) == 2:
-        ds = spatial_selection.select_point_region(ds, spatial_coords, lat_dim=lat_dim, lon_dim=lon_dim)
+        ds = spatial_selection.select_point_region(
+            ds, spatial_coords, lat_dim=lat_dim, lon_dim=lon_dim
+        )
     else:
         msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
         raise ValueError(msg)

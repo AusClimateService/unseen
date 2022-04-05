@@ -34,7 +34,7 @@ def select_point_region(ds, point, lat_dim="lat", lon_dim="lon"):
     return ds
 
 
-def select_box_region(ds, box, agg='none', lat_dim="lat", lon_dim="lon"):
+def select_box_region(ds, box, agg="none", lat_dim="lat", lon_dim="lon"):
     """Select grid points that fall within a lat/lon box.
 
     Parameters
@@ -85,7 +85,7 @@ def select_box_region(ds, box, agg='none', lat_dim="lat", lon_dim="lon"):
     elif agg == "weighted_mean":
         weights = np.cos(np.deg2rad(ds[lat_dim]))
         ds = ds.weighted(weights).mean(dim=(lat_dim, lon_dim), keep_attrs=True)
-    elif agg == 'none':
+    elif agg == "none":
         pass
     else:
         raise ValueError("""Invalid spatial aggregation method""")
@@ -154,7 +154,7 @@ def select_shapefile_regions(
     shapes = gp.read_file(shapefile)
 
     if method == "centre":
-        outdim = '3D' if ("weighted" in agg) else '2D'
+        outdim = "3D" if ("weighted" in agg) else "2D"
         mask = centre_mask(shapes, lons, lats, output=outdim)
     elif method == "fraction":
         mask = fraction_overlap_mask(shapes, lons, lats, min_overlap)
@@ -167,7 +167,7 @@ def select_shapefile_regions(
         return ValueError("Invalid selection method")
 
     if (mask.ndim == 3) and not ("weighted" in agg):
-        mask = mask.max('region')
+        mask = mask.max("region")
 
     if agg == "none" :
         if mask.ndim == 2:
@@ -193,7 +193,7 @@ def select_shapefile_regions(
     return ds
 
 
-def centre_mask(shapes_gp, lons, lats, output='2D'):
+def centre_mask(shapes_gp, lons, lats, output="2D"):
     """Create an array indicating grid cells whose centre falls within each shape.
 
     Parameters
@@ -214,9 +214,9 @@ def centre_mask(shapes_gp, lons, lats, output='2D'):
         For 3D (i.e. region/lat/lon) output values are bool
     """
 
-    if output == '2D':
+    if output == "2D":
         mask = regionmask.mask_geopandas(shapes_gp, lons, lats)
-    elif output == '3D':
+    elif output == "3D":
         mask = regionmask.mask_3D_geopandas(shapes_gp, lons, lats)
     else:
         raise ValueError("""Output argument must be '2D' and '3D'""")
@@ -359,7 +359,7 @@ def _check_regular_grid(dim_values):
     spaces = np.diff(dim_values)
     min_spacing = np.max(spaces)
     max_spacing = np.min(spaces)
-    assert min_spacing == max_spacing, 'Grid spacing must be uniform'
+    assert min_spacing == max_spacing, "Grid spacing must be uniform"
 
 
 def _add_combined_shape(mask):

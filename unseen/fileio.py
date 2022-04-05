@@ -24,7 +24,7 @@ from . import indices
 def open_dataset(
     infiles,
     file_format=None,
-    chunks="auto",
+    chunks=None,
     metadata_file=None,
     variables=[],
     spatial_coords=None,
@@ -60,7 +60,7 @@ def open_dataset(
         Formats/engines accepted by xarray.open_dataset (e.g. netcdf4, zarr, cfgrid).
         Estimated if not provided.
     chunks : dict, optional
-        Chunks for xarray.open_zarr
+        Chunks for xarray.open_mfdataset
     metadata_file : str
         YAML file path specifying required file metadata changes
     variables : list, optional
@@ -84,7 +84,7 @@ def open_dataset(
         Remove leap days from data
     rolling_sum_window : int, default None
         Apply a rolling sum with this window width
-    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV'}, optional
+    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV', 'A-AUG'}, optional
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
@@ -122,10 +122,12 @@ def open_dataset(
     preprocess = time_utils.switch_calendar if standard_calendar else None
     engine = file_format if file_format else _guess_file_format(infiles)
     ds = xr.open_mfdataset(
-        infiles, engine=engine, preprocess=preprocess, use_cftime=True
+        infiles,
+        engine=engine,
+        preprocess=preprocess,
+        use_cftime=True,
+        chunks=chunks
     )
-    if not chunks == "auto":
-        ds = ds.chunk(chunks)
 
     # Metadata
     if metadata_file:
@@ -554,7 +556,7 @@ def _parse_command_line():
         type=str,
         nargs="*",
         action=general_utils.store_dict,
-        default="auto",
+        default=None,
         help="Chunks for reading data (e.g. time=-1)",
     )
     parser.add_argument(

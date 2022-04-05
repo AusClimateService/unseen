@@ -29,9 +29,11 @@ def open_dataset(
     variables=[],
     spatial_coords=None,
     shapefile=None,
-    shape_label_header=None,
+    shapefile_method='centre',
+    shapefile_overlap=0.5,
+    shapefile_label_header=None,
     combine_shapes=False,
-    spatial_agg=None,
+    spatial_agg="none",
     lat_dim="lat",
     lon_dim="lon",
     standard_calendar=False,
@@ -70,11 +72,15 @@ def open_dataset(
         List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
     shapefile : str, optional
         Shapefile for spatial subseting
-    shape_label_header : str
+    shapefile_method : {'centre', 'touch', 'fraction'}, default 'centre'
+        Grid cell selection method
+    shapefile_overlap : float, default 0.5
+        Minimum fractional overlap used for shapefile 'fraction' method
+    shapefile_label_header : str
         Name of the shapefile column containing the region names
     combine_shapes : bool, default False
         Add a region that combines all shapes
-    spatial_agg : {'mean', 'sum'}, optional
+    spatial_agg : {'mean', 'sum', 'weighted_mean'}, optional
         Spatial aggregation method
     lat_dim: str, default 'lat'
         Name of the latitude dimension in infiles
@@ -163,9 +169,9 @@ def open_dataset(
     if spatial_coords is None:
         pass
     elif len(spatial_coords) == 4:
-        ds = spatial_selection.select_box_region(ds, spatial_coords)
+        ds = spatial_selection.select_box_region(ds, spatial_coords, agg=spatial_agg, lat_dim=lat_dim, lon_dim=lon_dim)
     elif len(spatial_coords) == 2:
-        ds = spatial_selection.select_point_region(ds, spatial_coords)
+        ds = spatial_selection.select_point_region(ds, spatial_coords, lat_dim=lat_dim, lon_dim=lon_dim)
     else:
         msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
         raise ValueError(msg)
@@ -174,17 +180,13 @@ def open_dataset(
             ds,
             shapefile,
             agg=spatial_agg,
-            header=shape_label_header,
+            method=shapefile_method,
+            min_overlap=shapefile_overlap,
+            header=shapefile_label_header,
             combine_shapes=combine_shapes,
+            lat_dim=lat_dim,
+            lon_dim=lon_dim
         )
-    if (spatial_agg == "sum") and not shapefile:
-        ds = ds.sum(dim=(lat_dim, lon_dim))
-    elif (spatial_agg == "mean") and not shapefile:
-        ds = ds.mean(dim=(lat_dim, lon_dim))
-    elif (spatial_agg is None) or shapefile:
-        pass
-    else:
-        raise ValueError("""spatial_agg must be None, 'sum' or 'mean'""")
 
     # Unit conversion (at middle)
     if units and (units_timing == "middle"):
@@ -642,6 +644,18 @@ def _parse_command_line():
         "--shapefile", type=str, default=None, help="Shapefile for region selection"
     )
     parser.add_argument(
+        "--shp_method",
+        type=str,
+        default='centre',
+        help="Shapefile grid cell selection method",
+    )
+    parser.add_argument(
+        "--shp_overlap",
+        type=float,
+        default=0.5,
+        help="Minimum fractional overlap used for shapefile fraction method",
+    )
+    parser.add_argument(
         "--shp_header",
         type=str,
         default=None,
@@ -749,7 +763,9 @@ def _main():
         "variables": args.variables,
         "spatial_coords": args.spatial_coords,
         "shapefile": args.shapefile,
-        "shape_label_header": args.shp_header,
+        "shapefile_method": args.shp_method,
+        "shapefile_overlap": args.shp_overlap,
+        "shapefile_label_header": args.shp_header,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,

@@ -1,5 +1,7 @@
 """Functions for spatial selection."""
 
+import math
+
 import numpy as np
 import xarray as xr
 import geopandas as gp
@@ -171,8 +173,10 @@ def select_shapefile_regions(
 
     if agg == "none" :
         if mask.ndim == 2:
-            mask = xr.where(mask.notnull(), True, False)
+            mask = _mask_to_np_bool(mask)
         ds = ds.where(mask)
+        ds = ds.dropna(lat_dim, how='all')
+        ds = ds.dropna(lon_dim, how='all')
     elif agg == "sum":
         ds = ds.groupby(mask).sum(keep_attrs=True)
     elif agg == "mean":
@@ -291,6 +295,7 @@ def fraction_overlap_mask(shapes_gp, lons, lats, min_overlap):
 
     shapes_rm = regionmask.from_geopandas(shapes_gp)
     fraction = overlap_fraction(shapes_rm, lons, lats)
+    fraction = fraction.squeeze()
     mask_3D = fraction > min_overlap
 
     return mask_3D
@@ -359,7 +364,7 @@ def _check_regular_grid(dim_values):
     spaces = np.diff(dim_values)
     min_spacing = np.max(spaces)
     max_spacing = np.min(spaces)
-    assert min_spacing == max_spacing, "Grid spacing must be uniform"
+    assert math.isclose(min_spacing, max_spacing), "Grid spacing must be uniform"
 
 
 def _add_combined_shape(mask):
@@ -371,5 +376,26 @@ def _add_combined_shape(mask):
         "region"
     )
     mask = xr.concat([mask, mask_combined], "region")
+
+    return mask
+
+
+def _mask_to_np_bool(mask):
+    """Convert a mask to a numpy array of dtype bool."""
+
+    if type(mask) == np.ndarray:
+        if mask.dtype != "bool":
+            # Case 1: Numpy Array of NaNs and region numbers
+            mask = ~np.isnan(mask)
+    elif mask.values.dtype != "bool":
+        # Case 2: xarray DataArray of NaNs and region numbers
+        mask = xr.where(mask.notnull(), True, False)
+        mask = mask.values
+    else:
+        # Case 3: xarray DataArray of bools
+        mask = mask.values
+
+    assert type(mask) == np.ndarray
+    assert mask.dtype == "bool"
 
     return mask

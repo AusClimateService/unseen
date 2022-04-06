@@ -175,16 +175,19 @@ def select_shapefile_regions(
         if mask.ndim == 2:
             mask = _mask_to_np_bool(mask)
         ds = ds.where(mask)
-        ds = ds.dropna(lat_dim, how='all')
-        ds = ds.dropna(lon_dim, how='all')
+        ds = ds.dropna(lat_dim, how="all")
+        ds = ds.dropna(lon_dim, how="all")
     elif agg == "sum":
         ds = ds.groupby(mask).sum(keep_attrs=True)
+        ds = _squeeze_and_drop_region(ds)
     elif agg == "mean":
         ds = ds.groupby(mask).mean(keep_attrs=True)
+        ds = _squeeze_and_drop_region(ds)
     elif agg == "weighted_mean":
-        assert mask.ndim == 3
         if combine_shapes:
             mask = _add_combined_shape(mask)
+        else:
+            mask = _squeeze_and_drop_region(mask)
         weights = np.cos(np.deg2rad(ds["lat"]))
         ds = ds.weighted(mask * weights).mean(dim=("lat", "lon"), keep_attrs=True)
 
@@ -295,7 +298,7 @@ def fraction_overlap_mask(shapes_gp, lons, lats, min_overlap):
 
     shapes_rm = regionmask.from_geopandas(shapes_gp)
     fraction = overlap_fraction(shapes_rm, lons, lats)
-    fraction = fraction.squeeze()
+    fraction = _squeeze_and_drop_region(fraction)
     mask_3D = fraction > min_overlap
 
     return mask_3D
@@ -399,3 +402,16 @@ def _mask_to_np_bool(mask):
     assert mask.dtype == "bool"
 
     return mask
+
+
+def _squeeze_and_drop_region(ds):
+    """Squeeze and drop region dimension if necessary."""
+
+    ds = ds.squeeze()
+    try:
+        if ds['region'].size <= 1:
+            ds = ds.drop('region')
+    except KeyError:
+        pass
+
+    return ds

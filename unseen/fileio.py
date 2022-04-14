@@ -167,13 +167,14 @@ def open_dataset(
             ds[var] = general_utils.convert_units(ds[var], target_units)
 
     # Spatial subsetting and aggregation
+    spatial_coord_agg = "none" if shapefile else spatial_agg
     if spatial_coords is None:
         pass
     elif len(spatial_coords) == 4:
         ds = spatial_selection.select_box_region(
             ds,
             spatial_coords,
-            agg=spatial_agg,
+            agg=spatial_coord_agg,
             lat_dim=lat_dim,
             lon_dim=lon_dim
         )
@@ -672,7 +673,7 @@ def _parse_command_line():
     parser.add_argument(
         "--spatial_agg",
         type=str,
-        choices=("mean", "sum"),
+        choices=("mean", "sum", "weighted_mean"),
         default=None,
         help="Spatial aggregation method",
     )

@@ -99,8 +99,7 @@ def select_shapefile_regions(
     ds,
     shapefile,
     agg="none",
-    method="centre",
-    min_overlap=0.5,
+    overlap_fraction=None,
     header=None,
     combine_shapes=False,
     lat_dim="lat",
@@ -115,10 +114,10 @@ def select_shapefile_regions(
         File path for shapefile
     agg : {'mean', 'sum', 'weighted_mean', 'none'}, default 'none'
         Spatial aggregation method
-    method : {'centre', 'touch', 'fraction'}, default 'centre'
-        Grid cell selection method
-    min_overlap : float, default 0.5
-        Minimum fractional overlap used for 'fraction' method
+    overlap_fraction : float, optional
+        Fraction that a grid cell must overlap with a shape to be included.
+        If no fraction is provided, grid cells are selected if their centre
+        point falls within the shape.
     header : str, optional
         Name of the shapefile column containing the region names
     combine_shape : bool, default False
@@ -155,41 +154,36 @@ def select_shapefile_regions(
     lats = ds["lat"].values
     shapes = gp.read_file(shapefile)
 
-    if method == "centre":
+    if overlap_fraction:
+        mask = fraction_overlap_mask(shapes, lons, lats, overlap_fraction)
+    else:
         outdim = "3D" if ("weighted" in agg) else "2D"
         mask = centre_mask(shapes, lons, lats, output=outdim)
-    elif method == "fraction":
-        mask = fraction_overlap_mask(shapes, lons, lats, min_overlap)
-    elif method == "touch":
-        if "weighted" in agg:
-            mask = fraction_overlap_mask(shapes, lons, lats, 0.001)
-        else:
-            mask = touch_mask(shapes, lons, lats)
+
+    if combine_shapes:
+        mask = _add_combined_shape(mask)
     else:
-        return ValueError("Invalid selection method")
+        mask = _squeeze_and_drop_region(mask)
 
-    if (mask.ndim == 3) and not ("weighted" in agg):
-        mask = mask.max("region")
-
-    if agg == "none" :
-        if mask.ndim == 2:
-            mask = _mask_to_np_bool(mask)
-        ds = ds.where(mask)
+    if (agg == "sum") and not (overlap_fraction or combine_shapes):
+        ds = ds.groupby(mask).sum(keep_attrs=True)
+    elif (agg == "mean") and not (overlap_fraction or combine_shapes):
+        ds = ds.groupby(mask).mean(keep_attrs=True)
+    else:
+        mask = _nan_to_bool(mask)
+        ds = ds.where(mask.values)
         ds = ds.dropna(lat_dim, how="all")
         ds = ds.dropna(lon_dim, how="all")
-    elif agg == "sum":
-        ds = ds.groupby(mask).sum(keep_attrs=True)
-        ds = _squeeze_and_drop_region(ds)
-    elif agg == "mean":
-        ds = ds.groupby(mask).mean(keep_attrs=True)
-        ds = _squeeze_and_drop_region(ds)
-    elif agg == "weighted_mean":
-        if combine_shapes:
-            mask = _add_combined_shape(mask)
+        if agg == "sum":
+            ds = ds.sum(dim=("lat", "lon"), keep_attrs=True)
+        elif agg == "mean":
+            ds = ds.mean(dim=("lat", "lon"), keep_attrs=True)
+        elif agg == "weighted_mean":
+            weights = np.cos(np.deg2rad(ds["lat"]))
+            ds = ds.weighted(weights).mean(dim=("lat", "lon"), keep_attrs=True)
         else:
-            mask = _squeeze_and_drop_region(mask)
-        weights = np.cos(np.deg2rad(ds["lat"]))
-        ds = ds.weighted(mask * weights).mean(dim=("lat", "lon"), keep_attrs=True)
+            assert agg == "none"
+    ds = _squeeze_and_drop_region(ds)
 
     if header:
         shape_names = shapes[header].to_list()
@@ -229,46 +223,6 @@ def centre_mask(shapes_gp, lons, lats, output="2D"):
         raise ValueError("""Output argument must be '2D' and '3D'""")
 
     return mask
-
-
-def touch_mask(shapes_gp, lons, lats):
-    """Create a 2D region value array indicating grid cells touched by each shape.
-
-    Parameters
-    ----------
-    shapes_gp : geopandas GeoDataFrame
-        Shapes/regions
-    lons : numpy ndarray
-        Grid longitude values
-    lats : numpy ndarray
-        Grid latitude values
-
-    Returns
-    -------
-    mask_2D : numpy ndarray
-        Two dimensional (i.e. lat/lon) region value array.
-        Values are a region number or NaN.
-
-    Notes
-    -----
-    From https://github.com/regionmask/regionmask/issues/225#issuecomment-915033614
-    2D region value arrays don't allow for overlapping regions.
-    Must be a regularly spaced grid.
-    """
-
-    _check_regular_grid(lons)
-    _check_regular_grid(lats)
-
-    shapes_rm = regionmask.from_geopandas(shapes_gp)
-    mask_2D = regionmask.core.mask._mask_rasterize(
-        lons,
-        lats,
-        shapes_rm.polygons,
-        shapes_rm.numbers,
-        all_touched=True
-    )
-
-    return mask_2D
 
 
 def fraction_overlap_mask(shapes_gp, lons, lats, min_overlap):
@@ -383,23 +337,23 @@ def _add_combined_shape(mask):
     return mask
 
 
-def _mask_to_np_bool(mask):
-    """Convert a mask to a numpy array of dtype bool."""
+def _nan_to_bool(mask):
+    """Convert array of NaNs and floats to booleans.
 
-    if type(mask) == np.ndarray:
-        if mask.dtype != "bool":
-            # Case 1: Numpy Array of NaNs and region numbers
-            mask = ~np.isnan(mask)
-    elif mask.values.dtype != "bool":
-        # Case 2: xarray DataArray of NaNs and region numbers
+    Parameters
+    ----------
+    mask : xarray DataArray
+        Data array of NaN's and floats
+
+    Returns
+    -------
+    mask : xarray DataArray
+        Data array of True (where floats were) and False (where NaNs were) values
+    """
+
+    assert type(mask) == xr.core.dataarray.DataArray
+    if mask.values.dtype != "bool":
         mask = xr.where(mask.notnull(), True, False)
-        mask = mask.values
-    else:
-        # Case 3: xarray DataArray of bools
-        mask = mask.values
-
-    assert type(mask) == np.ndarray
-    assert mask.dtype == "bool"
 
     return mask
 

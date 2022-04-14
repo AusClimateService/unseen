@@ -29,9 +29,8 @@ def open_dataset(
     variables=[],
     spatial_coords=None,
     shapefile=None,
-    shapefile_method='centre',
-    shapefile_overlap=0.5,
     shapefile_label_header=None,
+    shape_overlap=None,
     combine_shapes=False,
     spatial_agg="none",
     lat_dim="lat",
@@ -72,12 +71,12 @@ def open_dataset(
         List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
     shapefile : str, optional
         Shapefile for spatial subseting
-    shapefile_method : {'centre', 'touch', 'fraction'}, default 'centre'
-        Grid cell selection method
-    shapefile_overlap : float, default 0.5
-        Minimum fractional overlap used for shapefile 'fraction' method
     shapefile_label_header : str
         Name of the shapefile column containing the region names
+    shape_overlap : float, optional
+        Fraction that a grid cell must overlap with a shape to be included.
+        If no fraction is provided, grid cells are selected if their centre
+        point falls within the shape.
     combine_shapes : bool, default False
         Add a region that combines all shapes
     spatial_agg : {'mean', 'sum', 'weighted_mean'}, optional
@@ -190,8 +189,7 @@ def open_dataset(
             ds,
             shapefile,
             agg=spatial_agg,
-            method=shapefile_method,
-            min_overlap=shapefile_overlap,
+            overlap_fraction=shape_overlap,
             header=shapefile_label_header,
             combine_shapes=combine_shapes,
             lat_dim=lat_dim,
@@ -654,16 +652,10 @@ def _parse_command_line():
         "--shapefile", type=str, default=None, help="Shapefile for region selection"
     )
     parser.add_argument(
-        "--shp_method",
-        type=str,
-        default='centre',
-        help="Shapefile grid cell selection method",
-    )
-    parser.add_argument(
         "--shp_overlap",
         type=float,
-        default=0.5,
-        help="Minimum fractional overlap used for shapefile fraction method",
+        default=None,
+        help="Fraction that a grid cell must overlap with a shape to be included",
     )
     parser.add_argument(
         "--shp_header",
@@ -773,9 +765,8 @@ def _main():
         "variables": args.variables,
         "spatial_coords": args.spatial_coords,
         "shapefile": args.shapefile,
-        "shapefile_method": args.shp_method,
-        "shapefile_overlap": args.shp_overlap,
         "shapefile_label_header": args.shp_header,
+        "shape_overlap": args.shp_overlap,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,

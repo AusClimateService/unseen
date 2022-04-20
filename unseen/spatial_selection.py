@@ -321,7 +321,7 @@ def _check_regular_grid(dim_values):
     spaces = np.diff(dim_values)
     min_spacing = np.max(spaces)
     max_spacing = np.min(spaces)
-    assert math.isclose(min_spacing, max_spacing), "Grid spacing must be uniform"
+    assert math.isclose(min_spacing, max_spacing, rel_tol=1e-4), "Grid spacing must be uniform"
 
 
 def _add_combined_shape(mask):

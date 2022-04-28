@@ -1,5 +1,5 @@
 """Functions for spatial selection."""
-
+import pdb
 import math
 
 import numpy as np
@@ -152,7 +152,7 @@ def select_shapefile_regions(
 
     lons = ds["lon"].values
     lats = ds["lat"].values
-    shapes = gp.read_file(shapefile)
+    shapes = gp.read_file(shapefile) # FIXME: Have the function take a geodataframe instead of file name.
 
     if overlap_fraction:
         mask = fraction_overlap_mask(shapes, lons, lats, overlap_fraction)
@@ -171,7 +171,8 @@ def select_shapefile_regions(
         ds = ds.groupby(mask).mean(keep_attrs=True)
     else:
         mask = _nan_to_bool(mask)
-        ds = ds.where(mask.values)
+        ds = ds.where(mask.values)  #FIXME: Make this dimension aware (i.e. ds.where(mask)) or match dimension order.
+                                    #       Fails on multi-region fraction overlap masks. 
         ds = ds.dropna(lat_dim, how="all")
         ds = ds.dropna(lon_dim, how="all")
         if agg == "sum":
@@ -183,9 +184,11 @@ def select_shapefile_regions(
             ds = ds.weighted(weights).mean(dim=("lat", "lon"), keep_attrs=True)
         else:
             assert agg == "none"
+    if agg != "none":
+        assert len(shapes) == len(ds['region']), "For some shapes no grid points were selected"
     ds = _squeeze_and_drop_region(ds)
 
-    if header:
+    if header and (agg != "none"):
         shape_names = shapes[header].to_list()
         if combine_shapes:
             shape_names.append("all")

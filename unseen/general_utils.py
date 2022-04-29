@@ -130,10 +130,14 @@ def event_in_context(data, threshold, direction):
 
     Returns
     -------
-    percentile : float
-        Event percentile relative to population (%)
+    n_events : int
+        Number of events in population
+    n_population : int
+        Size of population
     return_period : float
         Return period for event
+    percentile : float
+        Event percentile relative to population (%)
     """
 
     n_population = len(data)
@@ -146,4 +150,4 @@ def event_in_context(data, threshold, direction):
     percentile = (np.sum(data < threshold) / n_population) * 100
     return_period = n_population / n_events
 
-    return percentile, return_period
+    return n_events, n_population, return_period, percentile

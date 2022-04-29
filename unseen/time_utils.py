@@ -339,13 +339,12 @@ def _crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
 
     # to X from X
     count_dict = {
-        ("A", "D"): 365,
+        ("A", "D"): 360,
         ("A", "M"): 12,
         ("M", "D"): 28,
         ("Q", "M"): 3,
         ("Q", "D"): 89,
     }
-
     min_sample = count_dict[(output_freq[0], input_freq)]
     ds = ds.where(counts.values >= min_sample)
 

@@ -10,6 +10,7 @@ import git
 import yaml
 import numpy as np
 import pandas as pd
+import geopandas as gp
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -29,9 +30,10 @@ def open_dataset(
     variables=[],
     spatial_coords=None,
     shapefile=None,
-    shape_label_header=None,
+    shapefile_label_header=None,
+    shape_overlap=None,
     combine_shapes=False,
-    spatial_agg=None,
+    spatial_agg="none",
     lat_dim="lat",
     lon_dim="lon",
     standard_calendar=False,
@@ -70,11 +72,15 @@ def open_dataset(
         List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
     shapefile : str, optional
         Shapefile for spatial subseting
-    shape_label_header : str
+    shapefile_label_header : str
         Name of the shapefile column containing the region names
+    shape_overlap : float, optional
+        Fraction that a grid cell must overlap with a shape to be included.
+        If no fraction is provided, grid cells are selected if their centre
+        point falls within the shape.
     combine_shapes : bool, default False
         Add a region that combines all shapes
-    spatial_agg : {'mean', 'sum'}, optional
+    spatial_agg : {'mean', 'sum', 'weighted_mean'}, optional
         Spatial aggregation method
     lat_dim: str, default 'lat'
         Name of the latitude dimension in infiles
@@ -162,31 +168,36 @@ def open_dataset(
             ds[var] = general_utils.convert_units(ds[var], target_units)
 
     # Spatial subsetting and aggregation
+    spatial_coord_agg = "none" if shapefile else spatial_agg
     if spatial_coords is None:
         pass
     elif len(spatial_coords) == 4:
-        ds = spatial_selection.select_box_region(ds, spatial_coords)
+        ds = spatial_selection.select_box_region(
+            ds,
+            spatial_coords,
+            agg=spatial_coord_agg,
+            lat_dim=lat_dim,
+            lon_dim=lon_dim
+        )
     elif len(spatial_coords) == 2:
-        ds = spatial_selection.select_point_region(ds, spatial_coords)
+        ds = spatial_selection.select_point_region(
+            ds, spatial_coords, lat_dim=lat_dim, lon_dim=lon_dim
+        )
     else:
         msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
         raise ValueError(msg)
     if shapefile:
+        shapes = gp.read_file(shapefile)
         ds = spatial_selection.select_shapefile_regions(
             ds,
-            shapefile,
+            shapes,
             agg=spatial_agg,
-            header=shape_label_header,
+            overlap_fraction=shape_overlap,
+            header=shapefile_label_header,
             combine_shapes=combine_shapes,
+            lat_dim=lat_dim,
+            lon_dim=lon_dim
         )
-    if (spatial_agg == "sum") and not shapefile:
-        ds = ds.sum(dim=(lat_dim, lon_dim))
-    elif (spatial_agg == "mean") and not shapefile:
-        ds = ds.mean(dim=(lat_dim, lon_dim))
-    elif (spatial_agg is None) or shapefile:
-        pass
-    else:
-        raise ValueError("""spatial_agg must be None, 'sum' or 'mean'""")
 
     # Unit conversion (at middle)
     if units and (units_timing == "middle"):
@@ -644,6 +655,12 @@ def _parse_command_line():
         "--shapefile", type=str, default=None, help="Shapefile for region selection"
     )
     parser.add_argument(
+        "--shp_overlap",
+        type=float,
+        default=None,
+        help="Fraction that a grid cell must overlap with a shape to be included",
+    )
+    parser.add_argument(
         "--shp_header",
         type=str,
         default=None,
@@ -658,7 +675,7 @@ def _parse_command_line():
     parser.add_argument(
         "--spatial_agg",
         type=str,
-        choices=("mean", "sum"),
+        choices=("mean", "sum", "weighted_mean"),
         default=None,
         help="Spatial aggregation method",
     )
@@ -751,7 +768,8 @@ def _main():
         "variables": args.variables,
         "spatial_coords": args.spatial_coords,
         "shapefile": args.shapefile,
-        "shape_label_header": args.shp_header,
+        "shapefile_label_header": args.shp_header,
+        "shape_overlap": args.shp_overlap,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,

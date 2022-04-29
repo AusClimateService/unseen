@@ -182,7 +182,9 @@ def select_shapefile_regions(
         else:
             assert agg == "none"
     if agg != "none":
-        assert len(shapes) == len(ds['region']), "For some shapes no grid points were selected"
+        assert len(shapes) == len(
+            ds["region"]
+        ), "For some shapes no grid points were selected"
     ds = _squeeze_and_drop_region(ds)
 
     if header and (agg != "none"):
@@ -322,7 +324,9 @@ def _check_regular_grid(dim_values):
     spaces = np.diff(dim_values)
     min_spacing = np.max(spaces)
     max_spacing = np.min(spaces)
-    assert math.isclose(min_spacing, max_spacing, rel_tol=1e-4), "Grid spacing must be uniform"
+    assert math.isclose(
+        min_spacing, max_spacing, rel_tol=1e-4
+    ), "Grid spacing must be uniform"
 
 
 def _add_combined_shape(mask):
@@ -364,8 +368,8 @@ def _squeeze_and_drop_region(ds):
 
     ds = ds.squeeze()
     try:
-        if ds['region'].size <= 1:
-            ds = ds.drop('region')
+        if ds["region"].size <= 1:
+            ds = ds.drop("region")
     except KeyError:
         pass
 

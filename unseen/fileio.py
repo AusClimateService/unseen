@@ -128,11 +128,7 @@ def open_dataset(
     preprocess = time_utils.switch_calendar if standard_calendar else None
     engine = file_format if file_format else _guess_file_format(infiles)
     ds = xr.open_mfdataset(
-        infiles,
-        engine=engine,
-        preprocess=preprocess,
-        use_cftime=True,
-        chunks=chunks
+        infiles, engine=engine, preprocess=preprocess, use_cftime=True, chunks=chunks
     )
 
     # Metadata
@@ -173,11 +169,7 @@ def open_dataset(
         pass
     elif len(spatial_coords) == 4:
         ds = spatial_selection.select_box_region(
-            ds,
-            spatial_coords,
-            agg=spatial_coord_agg,
-            lat_dim=lat_dim,
-            lon_dim=lon_dim
+            ds, spatial_coords, agg=spatial_coord_agg, lat_dim=lat_dim, lon_dim=lon_dim
         )
     elif len(spatial_coords) == 2:
         ds = spatial_selection.select_point_region(
@@ -196,7 +188,7 @@ def open_dataset(
             header=shapefile_label_header,
             combine_shapes=combine_shapes,
             lat_dim=lat_dim,
-            lon_dim=lon_dim
+            lon_dim=lon_dim,
         )
 
     # Unit conversion (at middle)

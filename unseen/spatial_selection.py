@@ -1,10 +1,9 @@
 """Functions for spatial selection."""
-import pdb
+
 import math
 
 import numpy as np
 import xarray as xr
-import geopandas as gp
 import regionmask
 
 
@@ -97,7 +96,7 @@ def select_box_region(ds, box, agg="none", lat_dim="lat", lon_dim="lon"):
 
 def select_shapefile_regions(
     ds,
-    shapefile,
+    shapes,
     agg="none",
     overlap_fraction=None,
     header=None,
@@ -110,8 +109,8 @@ def select_shapefile_regions(
     Parameters
     ----------
     ds : xarray DataArray or Dataset
-    shapefile : str
-        File path for shapefile
+    shapes : geopandas GeoDataFrame
+        Shapes/regions
     agg : {'mean', 'sum', 'weighted_mean', 'none'}, default 'none'
         Spatial aggregation method
     overlap_fraction : float, optional
@@ -152,7 +151,6 @@ def select_shapefile_regions(
 
     lons = ds["lon"].values
     lats = ds["lat"].values
-    shapes = gp.read_file(shapefile) # FIXME: Have the function take a geodataframe instead of file name.
 
     if overlap_fraction:
         mask = fraction_overlap_mask(shapes, lons, lats, overlap_fraction)
@@ -171,10 +169,9 @@ def select_shapefile_regions(
         ds = ds.groupby(mask).mean(keep_attrs=True)
     else:
         mask = _nan_to_bool(mask)
-        ds = ds.where(mask.values)  #FIXME: Make this dimension aware (i.e. ds.where(mask)) or match dimension order.
-                                    #       Fails on multi-region fraction overlap masks. 
-        ds = ds.dropna(lat_dim, how="all")
-        ds = ds.dropna(lon_dim, how="all")
+        ds = ds.where(mask)
+        ds = ds.dropna("lat", how="all")
+        ds = ds.dropna("lon", how="all")
         if agg == "sum":
             ds = ds.sum(dim=("lat", "lon"), keep_attrs=True)
         elif agg == "mean":
@@ -297,6 +294,7 @@ def overlap_fraction(shapes_rm, lons, lats):
     for num in numbers:
         # coarsen the mask again
         mask_coarse = (mask == num).coarsen(lat=10, lon=10).mean()
+        mask_coarse = mask_coarse.assign_coords({"lat": lats, "lon": lons})
         mask_sampled.append(mask_coarse)
 
     mask_sampled = xr.concat(

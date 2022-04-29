@@ -10,6 +10,7 @@ import git
 import yaml
 import numpy as np
 import pandas as pd
+import geopandas as gp
 import xarray as xr
 import cmdline_provenance as cmdprov
 
@@ -186,9 +187,10 @@ def open_dataset(
         msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
         raise ValueError(msg)
     if shapefile:
+        shapes = gp.read_file(shapefile)
         ds = spatial_selection.select_shapefile_regions(
             ds,
-            shapefile,
+            shapes,
             agg=spatial_agg,
             overlap_fraction=shape_overlap,
             header=shapefile_label_header,

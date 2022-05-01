@@ -223,7 +223,8 @@ def centre_mask(shapes_gp, lons, lats, output="2D"):
         mask = regionmask.mask_3D_geopandas(shapes_gp, lons, lats)
     else:
         raise ValueError("""Output argument must be '2D' and '3D'""")
-
+    mask = mask.rename('region')
+    
     return mask
 
 

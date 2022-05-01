@@ -224,7 +224,7 @@ def centre_mask(shapes_gp, lons, lats, output="2D"):
     else:
         raise ValueError("""Output argument must be '2D' and '3D'""")
     mask = mask.rename("region")
-    
+
     return mask
 
 

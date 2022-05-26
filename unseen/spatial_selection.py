@@ -181,7 +181,7 @@ def select_shapefile_regions(
             ds = ds.weighted(weights).mean(dim=("lat", "lon"), keep_attrs=True)
         else:
             assert agg == "none"
-    if agg != "none":
+    if "region" in ds.dims:
         assert len(shapes) == len(
             ds["region"]
         ), "For some shapes no grid points were selected"

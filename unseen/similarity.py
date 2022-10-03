@@ -1,5 +1,5 @@
 """Funcitons and command line program for similarity testing."""
-import pdb
+
 import argparse
 
 import numpy as np
@@ -67,8 +67,8 @@ def univariate_ks_test(
         fcst_data = fcst_stacked.sel({lead_dim: lead_time})
         if not np.isnan(fcst_data[var].values).all():
             ks = xstatstests.ks_2samp_1d(obs_stacked, fcst_data, "sample")
-            ks = ks.rename({'statistic': "ks"})
-            ks = ks.rename({'pvalue': "pval"})
+            ks = ks.rename({"statistic": "ks"})
+            ks = ks.rename({"pvalue": "pval"})
             ks_distances.append(ks["ks"])
             pvals.append(ks["pval"])
 

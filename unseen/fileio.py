@@ -42,6 +42,7 @@ def open_dataset(
     time_freq=None,
     time_agg=None,
     month=None,
+    season=None,
     reset_times=False,
     complete_time_agg_periods=False,
     input_freq=None,
@@ -98,6 +99,8 @@ def open_dataset(
         Force a common calendar on all input files
     month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
         Select a single month from the dataset
+    season : {'DJF', 'MAM', 'JJA', 'SON'}, optional
+        Select a single season after Q-NOV temporal resampling
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
     complete_time_agg_periods : bool default False
@@ -212,9 +215,11 @@ def open_dataset(
             input_freq,
             time_agg,
             variables,
+            season=season,
             reset_times=reset_times,
             complete=complete_time_agg_periods,
         )
+            
     output_freq = time_freq[0] if time_freq else input_freq
     if output_freq:
         ds[time_dim].attrs["frequency"] = output_freq
@@ -611,6 +616,13 @@ def _parse_command_line():
         help="Select a single month from the dataset",
     )
     parser.add_argument(
+        "--season",
+        type=str,
+        choices=('DJF', 'MAM', 'JJA', 'SON'),
+        default=None,
+        help="Select a single season after Q-NOV temporal resampling",
+    )
+    parser.add_argument(
         "--reset_times",
         action="store_true",
         default=False,
@@ -772,6 +784,7 @@ def _main():
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
         "month": args.month,
+        "season": args.season,
         "reset_times": args.reset_times,
         "complete_time_agg_periods": args.complete_time_agg_periods,
         "input_freq": args.input_freq,

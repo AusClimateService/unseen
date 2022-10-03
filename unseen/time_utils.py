@@ -90,8 +90,8 @@ def temporal_aggregation(
         raise ValueError(f"Unsupported temporal aggregation method: {agg_method}")
 
     if season:
-        assert target_freq == 'Q-NOV'
-        final_month = {'DJF': 2, 'MAM': 5, 'JJA': 8, 'SON': 11}
+        assert target_freq == "Q-NOV"
+        final_month = {"DJF": 2, "MAM": 5, "JJA": 8, "SON": 11}
         season_month = final_month[season]
         ds = select_month(ds, season_month, time_dim=time_dim)
 

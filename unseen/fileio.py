@@ -219,7 +219,7 @@ def open_dataset(
             reset_times=reset_times,
             complete=complete_time_agg_periods,
         )
-            
+
     output_freq = time_freq[0] if time_freq else input_freq
     if output_freq:
         ds[time_dim].attrs["frequency"] = output_freq
@@ -618,7 +618,7 @@ def _parse_command_line():
     parser.add_argument(
         "--season",
         type=str,
-        choices=('DJF', 'MAM', 'JJA', 'SON'),
+        choices=("DJF", "MAM", "JJA", "SON"),
         default=None,
         help="Select a single season after Q-NOV temporal resampling",
     )

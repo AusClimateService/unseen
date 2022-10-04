@@ -4,11 +4,11 @@ import argparse
 
 import numpy as np
 import xarray as xr
+import xstatstests
 
 from . import dask_setup
 from . import fileio
 from . import general_utils
-import xks
 
 
 def univariate_ks_test(
@@ -66,11 +66,11 @@ def univariate_ks_test(
     for lead_time in fcst_stacked[lead_dim].values:
         fcst_data = fcst_stacked.sel({lead_dim: lead_time})
         if not np.isnan(fcst_data[var].values).all():
-            ks_distance, pval = xks.ks1d2s(obs_stacked, fcst_data, "sample")
-            ks_distance = ks_distance.rename({var: "ks"})
-            pval = pval.rename({var: "pval"})
-            ks_distances.append(ks_distance["ks"])
-            pvals.append(pval["pval"])
+            ks = xstatstests.ks_2samp_1d(obs_stacked, fcst_data, "sample")
+            ks = ks.rename({"statistic": "ks"})
+            ks = ks.rename({"pvalue": "pval"})
+            ks_distances.append(ks["ks"])
+            pvals.append(ks["pval"])
 
     ks_distances = xr.concat(ks_distances, lead_dim)
     pvals = xr.concat(pvals, lead_dim)

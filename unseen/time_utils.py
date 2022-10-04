@@ -16,6 +16,7 @@ def temporal_aggregation(
     input_freq,
     agg_method,
     variables,
+    season=None,
     reset_times=False,
     complete=False,
     time_dim="time",
@@ -33,6 +34,8 @@ def temporal_aggregation(
         Variables in the dataset
     input_freq : {'D', 'M', 'Q', 'A'}
         Temporal frequency of input data (daily, monthly or annual)
+    season : {'DJF', 'MAM', 'JJA', 'SON'}, optional
+        Select a single season after Q-NOV resampling
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
         (used mainly for forecast data)
@@ -85,6 +88,12 @@ def temporal_aggregation(
             raise ValueError(f"Unsupported input time frequency: {input_freq}")
     else:
         raise ValueError(f"Unsupported temporal aggregation method: {agg_method}")
+
+    if season:
+        assert target_freq == "Q-NOV"
+        final_month = {"DJF": 2, "MAM": 5, "JJA": 8, "SON": 11}
+        season_month = final_month[season]
+        ds = select_month(ds, season_month, time_dim=time_dim)
 
     if reset_times:
         diff = ds[time_dim].values[0] - start_time

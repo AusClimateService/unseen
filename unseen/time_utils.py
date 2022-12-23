@@ -1,13 +1,48 @@
 """Utilities for working with time axes and values"""
 
 import re
-from datetime import datetime
+import datetime
 
 import numpy as np
 import cftime
 import xarray as xr
 
 from . import array_handling
+
+
+def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
+    """Record the date of each time aggregated/resampled event (e.g. annual max)
+
+    Parameters
+    ----------
+    ds : xarray Dataset
+        A time resampled dataset
+    var : str
+        A variable in the dataset
+    target_freq : str
+        Target frequency for the resampling
+    agg_method : {'min', 'max'}
+        Aggregation method
+    time_dim: str, default 'time'
+        Name of the time dimension in ds
+
+    Returns
+    -------
+    event_datetimes_str : numpy.ndarray
+        Array of event dates
+    """
+
+    reduce_funcs = {"min": np.nanargmin, "max": np.nanargmax}
+
+    ds_arg = ds.resample(
+        time=target_freq, label="left", loffset=datetime.timedelta(days=1)
+    ).reduce(reduce_funcs[agg_method], dim=time_dim)
+    time_diffs = ds_arg[var].values.astype("timedelta64[D]")
+    str_times = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
+    event_datetimes_np = np.array(str_times, dtype="datetime64") + time_diffs
+    event_datetimes_str = np.datetime_as_string(event_datetimes_np)
+
+    return event_datetimes_str
 
 
 def temporal_aggregation(
@@ -19,6 +54,7 @@ def temporal_aggregation(
     season=None,
     reset_times=False,
     complete=False,
+    agg_dates=False,
     time_dim="time",
 ):
     """Temporal aggregation of data.
@@ -26,7 +62,7 @@ def temporal_aggregation(
     Parameters
     ----------
     ds : xarray Dataset
-    target_freq : {'A-DEC', 'Q-NOV', 'M', 'A-NOV'}
+    target_freq : {'A-DEC', 'Q-NOV', 'M', 'A-NOV', 'A-AUG'}
         Target frequency for the resampling
     agg_method : {'mean', 'min', 'max', 'sum'}
         Aggregation method
@@ -38,7 +74,8 @@ def temporal_aggregation(
         Select a single season after Q-NOV resampling
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
-        (used mainly for forecast data)
+    agg_dates : bool, default False
+        Record the date of each time aggregated event (e.g. annual max)
     complete : bool, default False
         Keep only complete time units (e.g. complete years or months)
     time_dim: str, default 'time'
@@ -71,10 +108,17 @@ def temporal_aggregation(
 
     if input_freq == target_freq[0]:
         pass
-    elif agg_method == "max":
-        ds = ds.resample(time=target_freq).max(dim=time_dim, keep_attrs=True)
-    elif agg_method == "min":
-        ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
+    elif agg_method in ["max", "min"]:
+        if agg_dates:
+            agg_dates_var = get_agg_dates(
+                ds, variables[0], target_freq, agg_method, time_dim=time_dim
+            )
+        if agg_method == "max":
+            ds = ds.resample(time=target_freq).max(dim=time_dim, keep_attrs=True)
+        else:
+            ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
+        if agg_dates:
+            ds = ds.assign(event_time=(time_dim, agg_dates_var))
     elif agg_method == "sum":
         ds = ds.resample(time=target_freq).sum(dim=time_dim, keep_attrs=True)
         for var in variables:
@@ -101,7 +145,10 @@ def temporal_aggregation(
         assert ds[time_dim].values[0] == start_time
 
     if complete:
-        ds = _crop_to_complete_time_periods(ds, counts, input_freq, target_freq)
+        for var in variables:
+            ds[var] = _crop_to_complete_time_periods(
+                ds[var], counts, input_freq, target_freq
+            )
 
     if reindexed:
         ds = ds.compute()
@@ -228,12 +275,12 @@ def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
     return str_times
 
 
-def str_to_cftime(datestring):
+def str_to_cftime(datestring, cftime_type=cftime.DatetimeJulian):
     """Convert a date string to cftime object"""
 
-    dt = datetime.strptime(datestring, "%Y-%m-%d")
+    dt = datetime.datetime.strptime(datestring, "%Y-%m-%d")
     # cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
-    cfdt = cftime.DatetimeJulian(dt.year, dt.month, dt.day)
+    cfdt = cftime_type(dt.year, dt.month, dt.day)
 
     return cfdt
 

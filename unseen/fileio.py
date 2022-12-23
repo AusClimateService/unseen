@@ -41,6 +41,7 @@ def open_dataset(
     rolling_sum_window=None,
     time_freq=None,
     time_agg=None,
+    time_agg_dates=False,
     month=None,
     season=None,
     reset_times=False,
@@ -95,6 +96,8 @@ def open_dataset(
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
+    time_agg_dates : bool, default False
+        Record the date of each time aggregated event (e.g. annual max)
     standard_calendar : bool, default False
         Force a common calendar on all input files
     month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
@@ -218,6 +221,7 @@ def open_dataset(
             season=season,
             reset_times=reset_times,
             complete=complete_time_agg_periods,
+            agg_dates=time_agg_dates,
         )
 
     output_freq = time_freq[0] if time_freq else input_freq
@@ -238,7 +242,7 @@ def open_dataset(
 def _chunks(lst, n):
     """Split a list into n sub-lists"""
 
-    new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
+    new_lst = [lst[i:i+n] for i in range(0, len(lst), n)]
 
     return new_lst
 
@@ -609,6 +613,12 @@ def _parse_command_line():
         help="Temporal aggregation method",
     )
     parser.add_argument(
+        "--time_agg_dates",
+        action="store_true",
+        default=False,
+        help="Record the date of each time aggregated event (e.g. annual max) [default=False]",
+    )
+    parser.add_argument(
         "--month",
         type=int,
         choices=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
@@ -783,6 +793,7 @@ def _main():
         "rolling_sum_window": args.rolling_sum_window,
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
+        "time_agg_dates": args.time_agg_dates,
         "month": args.month,
         "season": args.season,
         "reset_times": args.reset_times,
@@ -818,7 +829,9 @@ def _main():
 
     if args.output_chunks:
         ds = ds.chunk(args.output_chunks)
-    ds = ds[args.variables]
+    if args.time_agg_dates:
+        ds = ds.set_coords(("event_time"))
+    ds = ds[kwargs["variables"]]
 
     ds.attrs["history"] = get_new_log()
     to_zarr(ds, args.outfile)

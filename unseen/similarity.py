@@ -94,7 +94,7 @@ def similarity_tests(
     ds["ad_statistic"].attrs = {"long_name": "anderson_darling_statistic"}
     ds["ad_pval"].attrs = {
         "long_name": "p_value",
-        "note": "If p > 0.05 cannot reject the null hypothesis that the samples are drawn from the same population"
+        "note": "If p > 0.05 cannot reject the null hypothesis that the samples are drawn from the same population",
     }
 
     return ds

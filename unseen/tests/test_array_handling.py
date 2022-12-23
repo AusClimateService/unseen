@@ -25,7 +25,7 @@ def test_stack_by_init_date(
         ver = np.empty((len(indexes), n_lead_steps))
         ver[:] = np.nan
         for i, idx in enumerate(indexes):
-            time_slice = data[idx : idx + n_lead_steps]
+            time_slice = data[idx:idx+n_lead_steps]
             ver[i, : len(time_slice)] = time_slice
         return ver
 

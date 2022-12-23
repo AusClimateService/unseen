@@ -291,7 +291,7 @@ def overlap_fraction(shapes_rm, lons, lats):
     mask = shapes_rm.mask(lons_sampled, lats_sampled)
     isnan = np.isnan(mask.values)
     numbers = np.unique(mask.values[~isnan])
-    numbers = numbers.astype(np.int)
+    numbers = numbers.astype(int)
 
     mask_sampled = list()
     for num in numbers:

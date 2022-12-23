@@ -242,7 +242,7 @@ def open_dataset(
 def _chunks(lst, n):
     """Split a list into n sub-lists"""
 
-    new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
+    new_lst = [lst[i:i+n] for i in range(0, len(lst), n)]
 
     return new_lst
 
@@ -830,7 +830,7 @@ def _main():
     if args.output_chunks:
         ds = ds.chunk(args.output_chunks)
     if args.time_agg_dates:
-        ds = ds.set_coords(('event_time'))
+        ds = ds.set_coords(("event_time"))
     ds = ds[kwargs["variables"]]
 
     ds.attrs["history"] = get_new_log()

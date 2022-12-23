@@ -10,7 +10,7 @@ import xarray as xr
 from . import array_handling
 
 
-def get_agg_dates(ds, var, target_freq, agg_method, time_dim='time'):
+def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
     """Record the date of each time aggregated/resampled event (e.g. annual max)
 
     Parameters
@@ -32,13 +32,14 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim='time'):
         Array of event dates
     """
 
-    reduce_funcs = {'min': np.nanargmin, 'max': np.nanargmax}
+    reduce_funcs = {"min": np.nanargmin, "max": np.nanargmax}
 
-    cftime_type = type(ds[time_dim].values[0])
-    ds_arg = ds.resample(time=target_freq, label='left', loffset=datetime.timedelta(days=1)).reduce(reduce_funcs[agg_method], dim=time_dim)
-    time_diffs = ds_arg[var].values.astype('timedelta64[D]')
+    ds_arg = ds.resample(
+        time=target_freq, label="left", loffset=datetime.timedelta(days=1)
+    ).reduce(reduce_funcs[agg_method], dim=time_dim)
+    time_diffs = ds_arg[var].values.astype("timedelta64[D]")
     str_times = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
-    event_datetimes_np = np.array(str_times, dtype='datetime64') + time_diffs
+    event_datetimes_np = np.array(str_times, dtype="datetime64") + time_diffs
     event_datetimes_str = np.datetime_as_string(event_datetimes_np)
 
     return event_datetimes_str
@@ -109,13 +110,15 @@ def temporal_aggregation(
         pass
     elif agg_method in ["max", "min"]:
         if agg_dates:
-            agg_dates_var = get_agg_dates(ds, variables[0], target_freq, agg_method, time_dim=time_dim)
+            agg_dates_var = get_agg_dates(
+                ds, variables[0], target_freq, agg_method, time_dim=time_dim
+            )
         if agg_method == "max":
             ds = ds.resample(time=target_freq).max(dim=time_dim, keep_attrs=True)
         else:
             ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
         if agg_dates:
-            ds = ds.assign(event_time=(time_dim, agg_dates_var))   
+            ds = ds.assign(event_time=(time_dim, agg_dates_var))
     elif agg_method == "sum":
         ds = ds.resample(time=target_freq).sum(dim=time_dim, keep_attrs=True)
         for var in variables:
@@ -143,7 +146,9 @@ def temporal_aggregation(
 
     if complete:
         for var in variables:
-            ds[var] = _crop_to_complete_time_periods(ds[var], counts, input_freq, target_freq)
+            ds[var] = _crop_to_complete_time_periods(
+                ds[var], counts, input_freq, target_freq
+            )
 
     if reindexed:
         ds = ds.compute()

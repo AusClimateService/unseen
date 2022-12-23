@@ -28,8 +28,8 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim='time'):
 
     Returns
     -------
-    ds : xarray Dataset
-        The time resampled dataset with an added event_time variable
+    event_datetimes_str : numpy.ndarray
+        Array of event dates
     """
 
     reduce_funcs = {'min': np.nanargmin, 'max': np.nanargmax}
@@ -40,9 +40,8 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim='time'):
     str_times = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
     event_datetimes_np = np.array(str_times, dtype='datetime64') + time_diffs
     event_datetimes_str = np.datetime_as_string(event_datetimes_np)
-    event_datetimes_cftime = [str_to_cftime(time, cftime_type=cftime_type) for time in event_datetimes_str]
 
-    return event_datetimes_cftime
+    return event_datetimes_str
 
 
 def temporal_aggregation(
@@ -143,7 +142,8 @@ def temporal_aggregation(
         assert ds[time_dim].values[0] == start_time
 
     if complete:
-        ds = _crop_to_complete_time_periods(ds, counts, input_freq, target_freq)
+        for var in variables:
+            ds[var] = _crop_to_complete_time_periods(ds[var], counts, input_freq, target_freq)
 
     if reindexed:
         ds = ds.compute()

@@ -830,11 +830,10 @@ def _main():
     if args.output_chunks:
         ds = ds.chunk(args.output_chunks)
     if args.time_agg_dates:
-        kwargs["variables"].append("event_time")
+        ds = ds.set_coords(('event_time'))
     ds = ds[kwargs["variables"]]
 
     ds.attrs["history"] = get_new_log()
-    #FIXME: xarray won't write an event_time variable with type object
     to_zarr(ds, args.outfile)
 
 

@@ -38,8 +38,16 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
         time=target_freq, label="left", loffset=datetime.timedelta(days=1)
     ).reduce(reduce_funcs[agg_method], dim=time_dim)
     time_diffs = ds_arg[var].values.astype("timedelta64[D]")
-    str_times = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
-    event_datetimes_np = np.array(str_times, dtype="datetime64") + time_diffs
+    str_time_axis = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
+    datetime_time_axis = np.array(str_time_axis, dtype="datetime64")
+    assert time_diffs.ndim <= 2
+    if time_diffs.ndim == 2:
+        other_dims = list(ds_arg[var].dims)
+        other_dims.remove(time_dim)
+        other_dim_name = other_dims[0]
+        other_dim_index = ds_arg[var].dims.index(other_dim_name)
+        datetime_time_axis = np.expand_dims(datetime_time_axis, axis=other_dim_index)
+    event_datetimes_np = datetime_time_axis + time_diffs
     event_datetimes_str = np.datetime_as_string(event_datetimes_np)
 
     return event_datetimes_str
@@ -118,7 +126,7 @@ def temporal_aggregation(
         else:
             ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
         if agg_dates:
-            ds = ds.assign(event_time=(time_dim, agg_dates_var))
+            ds = ds.assign(event_time=(ds[variables[0]].dims, agg_dates_var))
     elif agg_method == "sum":
         ds = ds.resample(time=target_freq).sum(dim=time_dim, keep_attrs=True)
         for var in variables:

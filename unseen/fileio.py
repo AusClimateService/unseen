@@ -28,7 +28,9 @@ def open_dataset(
     chunks=None,
     metadata_file=None,
     variables=[],
-    spatial_coords=None,
+    point_selection=None,
+    lat_bnds=None,
+    lon_bnds=None,
     shapefile=None,
     shapefile_label_header=None,
     shape_overlap=None,
@@ -69,9 +71,12 @@ def open_dataset(
         YAML file path specifying required file metadata changes
     variables : list, optional
         Subset of variables of interest
-    spatial_coords : list, optional
-        Coordinates for spatial point or box selection.
-        List of length 2 [lat, lon], 4 [south bound, north bound, east bound, west bound]
+    point_selection : list, optional
+        Point coordinates: [lat, lon]
+    lat_bnds : list, optional
+        Latitude bounds: [south bound, north bound]
+    lat_bnds : list, optional
+        Longitude bounds: [west bound, east bound]
     shapefile : str, optional
         Shapefile for spatial subseting
     shapefile_label_header : str
@@ -170,20 +175,14 @@ def open_dataset(
             ds[var] = general_utils.convert_units(ds[var], target_units)
 
     # Spatial subsetting and aggregation
-    spatial_coord_agg = "none" if shapefile else spatial_agg
-    if spatial_coords is None:
-        pass
-    elif len(spatial_coords) == 4:
-        ds = spatial_selection.select_box_region(
-            ds, spatial_coords, agg=spatial_coord_agg, lat_dim=lat_dim, lon_dim=lon_dim
+    if point_selection:
+        ds = spatial_selection.select_point(
+            ds, point_selection, lat_dim=lat_dim, lon_dim=lon_dim
         )
-    elif len(spatial_coords) == 2:
-        ds = spatial_selection.select_point_region(
-            ds, spatial_coords, lat_dim=lat_dim, lon_dim=lon_dim
-        )
-    else:
-        msg = "coordinate selection must be None, a box (list of 4 floats) or a point (list of 2 floats)"
-        raise ValueError(msg)
+    if lat_bnds:
+        ds = spatial_selection.subset_lat(ds, lat_bnds, lat_dim=lat_dim)
+    if lon_bnds:
+        ds = spatial_selection.subset_lon(ds, lon_bnds, lon_dim=lon_dim)
     if shapefile:
         shapes = gp.read_file(shapefile)
         ds = spatial_selection.select_shapefile_regions(
@@ -195,6 +194,10 @@ def open_dataset(
             combine_shapes=combine_shapes,
             lat_dim=lat_dim,
             lon_dim=lon_dim,
+        )
+    elif spatial_agg != "none":
+        ds = spatial_selection.aggregate(
+            ds, spatial_agg, lat_dim=lat_dim, lon_dim=lon_dim
         )
 
     # Unit conversion (at middle)
@@ -579,13 +582,11 @@ def _parse_command_line():
         default={},
         help="Chunks for writing data to file (e.g. lead_time=50)",
     )
-
     parser.add_argument(
         "--metadata_file",
         type=str,
         help="YAML file specifying required file metadata changes",
     )
-
     parser.add_argument(
         "--no_leap_days",
         action="store_true",
@@ -657,13 +658,26 @@ def _parse_command_line():
         default="time",
         help="Name of time dimension",
     )
-
-    parser.add_argument(
-        "--spatial_coords",
+    arg_parser.add_argument(
+        "--point_selection",
         type=float,
-        nargs="*",
+        nargs=2,
         default=None,
-        help="Point [lat, lon] or box [south bound, north bound, east bound, west bound] for spatial subsetting",
+        help='Point coordinates: [lat, lon]',
+    )
+    arg_parser.add_argument(
+        "--lat_bnds",
+        type=float,
+        nargs=2,
+        default=None,
+        help='Latitude bounds: (south_bound, north_bound)',
+    )
+    arg_parser.add_argument(
+        "--lon_bnds",
+        type=float,
+        nargs=2,
+        default=None,
+        help='Longitude bounds: (west_bound, east_bound)',
     )
     parser.add_argument(
         "--shapefile", type=str, default=None, help="Shapefile for region selection"
@@ -690,8 +704,8 @@ def _parse_command_line():
         "--spatial_agg",
         type=str,
         choices=("mean", "sum", "weighted_mean"),
-        default=None,
-        help="Spatial aggregation method",
+        default="none",
+        help="Spatial aggregation method [default is none]",
     )
     parser.add_argument(
         "--lat_dim",
@@ -705,7 +719,6 @@ def _parse_command_line():
         default="lon",
         help="Name of longitude dimension",
     )
-
     parser.add_argument(
         "--units",
         type=str,
@@ -761,7 +774,6 @@ def _parse_command_line():
         default=False,
         help="Force a standard calendar when opening each file",
     )
-
     args = parser.parse_args()
 
     return args
@@ -780,7 +792,9 @@ def _main():
         "chunks": args.input_chunks,
         "metadata_file": args.metadata_file,
         "variables": args.variables,
-        "spatial_coords": args.spatial_coords,
+        "point_selection": args.point_selection,
+        "lat_bnds": args.lat_bnds,
+        "lon_bnds": args.lon_bnds,
         "shapefile": args.shapefile,
         "shapefile_label_header": args.shp_header,
         "shape_overlap": args.shp_overlap,

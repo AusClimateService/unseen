@@ -7,12 +7,13 @@ import xarray as xr
 import regionmask
 
 
-def select_point_region(ds, point, lat_dim="lat", lon_dim="lon"):
+def select_point(ds, point, lat_dim="lat", lon_dim="lon"):
     """Select a single grid point.
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data
     point : list
         Point coordinates: [lat, lon]
     lat_dim: str, default 'lat'
@@ -22,7 +23,8 @@ def select_point_region(ds, point, lat_dim="lat", lon_dim="lon"):
 
     Returns
     -------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
     """
 
     ds = ds.assign_coords({lon_dim: (ds[lon_dim] + 360) % 360})
@@ -35,15 +37,74 @@ def select_point_region(ds, point, lat_dim="lat", lon_dim="lon"):
     return ds
 
 
-def select_box_region(ds, box, agg="none", lat_dim="lat", lon_dim="lon"):
-    """Select grid points that fall within a lat/lon box.
+def subset_lat(ds, lat_bnds, lat_dim="lat"):
+    """Select grid points that fall within latitude bounds.
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
-    box : list
-        Box coordinates: [south bound, north bound, east bound, west bound]
-    agg : {'mean', 'sum', 'weighted_mean', 'none'}, default 'none'
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data
+    lat_bnds : list
+        Latitude bounds: [south bound, north bound]
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in ds
+
+    Returns
+    -------
+    Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
+    """
+
+    south_bound, north_bound = lat_bnds
+    assert -90 <= south_bound <= 90, "Valid latitude range is [-90, 90]"
+    assert -90 <= north_bound <= 90, "Valid latitude range is [-90, 90]"
+    
+    selection = (ds[lat_dim] <= north_bound) & (ds[lat_dim] >= south_bound)
+    ds = ds.where(selection, drop=True)
+
+    return ds
+
+
+def subset_lon(ds, lon_bnds, lon_dim="lon"):
+    """Select grid points that fall within longitude bounds.
+
+    Parameters
+    ----------
+    ds : Union[xarray.DataArray, xarray.Dataset]
+        Input data
+    lon_bnds : list
+        Longitude bounds: [west bound, east bound]
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in ds
+
+    Returns
+    -------
+    Union[xarray.DataArray, xarray.Dataset]
+        Subsetted xarray.DataArray or xarray.Dataset
+    """
+
+    west_bound, east_bound = lon_bnds
+    assert west_bound >= ds[lon_dim].values.min()
+    assert west_bound <= ds[lon_dim].values.max()
+    assert east_bound >= ds[lon_dim].values.min()
+    assert east_bound <= ds[lon_dim].values.max()
+
+    if east_bound > west_bound:
+        selection = (ds[lon_dim] <= east_bound) & (ds[lon_dim] >= west_bound)
+    else:
+        selection = (ds[lon_dim] <= east_bound) | (ds[lon_dim] >= west_bound)
+    ds = ds.where(selection, drop=True)
+
+    return ds
+
+
+def aggregate(ds, method, lat_dim="lat", lon_dim="lon"):
+    """Perform spatial aggregation.
+
+    Parameters
+    ----------
+    ds : Union[xarray.DataArray, xarray.Dataset]
+    method : {'mean', 'sum', 'weighted_mean', 'none'}, default 'none'
         Spatial aggregation method
     lat_dim: str, default 'lat'
         Name of the latitude dimension in ds
@@ -52,42 +113,17 @@ def select_box_region(ds, box, agg="none", lat_dim="lat", lon_dim="lon"):
 
     Returns
     -------
-    ds : xarray DataArray or Dataset
+    Union[xarray.DataArray, xarray.Dataset]
+        Spatially aggregated xarray.DataArray or xarray.Dataset
     """
 
-    lat_south_bound, lat_north_bound, lon_east_bound, lon_west_bound = box
-    assert -90 <= lat_south_bound <= 90, "Valid latitude range is [-90, 90]"
-    assert -90 <= lat_north_bound <= 90, "Valid latitude range is [-90, 90]"
-    assert lat_south_bound < lat_north_bound, "South bound greater than north bound"
-
-    lon_east_bound = (lon_east_bound + 360) % 360
-    lon_west_bound = (lon_west_bound + 360) % 360
-    assert 0 <= lon_east_bound <= 360, "Valid longitude range is [0, 360]"
-    assert 0 <= lon_west_bound <= 360, "Valid longitude range is [0, 360]"
-
-    ds = ds.assign_coords({lon_dim: (ds[lon_dim] + 360) % 360})
-    ds = ds.sortby(ds[lon_dim])
-
-    selection_lat = (ds[lat_dim] >= lat_south_bound) & (ds[lat_dim] <= lat_north_bound)
-    if lon_east_bound < lon_west_bound:
-        selection_lon = (ds[lon_dim] >= lon_east_bound) & (
-            ds[lon_dim] <= lon_west_bound
-        )
-    else:
-        selection_lon = (ds[lon_dim] >= lon_east_bound) | (
-            ds[lon_dim] <= lon_west_bound
-        )
-    ds = ds.where(selection_lat & selection_lon, drop=True)
-
-    if agg == "sum":
+    if method == "sum":
         ds = ds.sum(dim=(lat_dim, lon_dim))
-    elif agg == "mean":
+    elif method == "mean":
         ds = ds.mean(dim=(lat_dim, lon_dim))
-    elif agg == "weighted_mean":
+    elif method == "weighted_mean":
         weights = np.cos(np.deg2rad(ds[lat_dim]))
         ds = ds.weighted(weights).mean(dim=(lat_dim, lon_dim), keep_attrs=True)
-    elif agg == "none":
-        pass
     else:
         raise ValueError("""Invalid spatial aggregation method""")
 

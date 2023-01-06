@@ -213,7 +213,7 @@ def select_time_period(ds, period, time_name="time"):
         mask_values = _vinbounds(time_values, time_bounds)
         mask = ds[time_name].copy()
         mask.values = mask_values
-        selection = ds.where(mask)
+        selection = ds.where(mask, drop=True)
     else:
         raise ValueError("No time axis for masking")
     selection.attrs = ds.attrs
@@ -469,3 +469,75 @@ def select_month(ds, month, init_month=False, time_dim="time"):
         ds_selection[time_dim] = ds_selection[time_dim] - diff
 
     return ds_selection
+
+
+def _get_groupby_and_reduce_dims(ds, frequency, init_dim="init_date", ensemble_dim="ensemble", time_name="time"):
+    """Get groupby and reduction dimensions.
+
+    For performing operations like calculating anomalies and percentile thresholds.
+    """
+
+    def _same_group_per_lead(time, frequency):
+        group_value = getattr(time.dt, frequency)
+        return (group_value == group_value.isel({init_dim: 0})).all()
+
+    if time_name in ds.dims:
+        groupby = f"{time_name}.{frequency}" if (frequency is not None) else None
+        reduce_dim = time_name
+    elif init_dim in ds.dims:
+        if frequency is not None:
+            # In the case of forecast data, if frequency is not None, all that
+            # is done is to check that all the group values are the same for each
+            # lead
+            time = ds[time_name].compute()
+            same_group_per_lead = (
+                time.groupby(f"{init_dim}.month")
+                .map(_same_group_per_lead, frequency=frequency)
+                .values
+            )
+            assert all(
+                same_group_per_lead
+            ), "All group values are not the same for each lead"
+        groupby = f"{init_dim}.month"
+        reduce_dim = init_dim
+    else:
+        raise ValueError("I can't work out how to apply groupby on this data")
+
+    if ensemble_dim in ds.dims:
+        reduce_dim = [reduce_dim, ensemble_dim]
+
+    return groupby, reduce_dim
+
+
+def anomalise(ds, clim_period, frequency=None, init_dim="init_date", ensemble_dim="ensemble", time_name="time"):
+    """Calculate anomaly.
+
+    Uses a shortcut for calculating hindcast climatologies that will not work
+    for hindcasts with initialisation frequencies more regular than monthly.
+
+    Parameters
+    ----------
+    ds : xarray Dataset
+        The data to anomalise
+    clim_period : iterable
+        Size 2 iterable containing strings indicating the start and end dates
+        of the climatological period
+    frequency : str, optional
+        The frequency at which to bin the climatology, e.g. per month. Must be
+        an available attribute of the datetime accessor. Specify "None" to
+        indicate no frequency (climatology calculated by averaging all times).
+        Note, setting to "None" for hindcast data can be dangerous, since only
+        certain times may be available at each lead.
+    """
+    ds_period = select_time_period(ds, clim_period, time_name=time_name)
+
+    groupby, reduce_dim = _get_groupby_and_reduce_dims(
+        ds, frequency, init_dim=init_dim, ensemble_dim=ensemble_dim, time_name=time_name,
+    )
+
+    if groupby is None:
+        clim = ds_period.mean(reduce_dim)
+        return ds - clim
+    else:
+        clim = ds_period.groupby(groupby).mean(reduce_dim)
+        return (ds.groupby(groupby) - clim).drop(groupby.split(".")[-1])

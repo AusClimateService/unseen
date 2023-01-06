@@ -38,6 +38,8 @@ def open_dataset(
     spatial_agg="none",
     lat_dim="lat",
     lon_dim="lon",
+    agg_y_dim=None,
+    agg_x_dim=None,
     standard_calendar=False,
     no_leap_days=False,
     rolling_sum_window=None,
@@ -93,6 +95,10 @@ def open_dataset(
         Name of the latitude dimension in infiles
     lon_dim: str, default 'lon'
         Name of the longitude dimension in infiles
+    agg_y_dim : str, optional
+        Name of Y dimension for spatial aggregation (default = lat_dim)
+    agg_x_dim : str, optional
+        Name of X dimension for spatial aggregation (default = lon_dim)
     no_leap_days : bool, default False
         Remove leap days from data
     rolling_sum_window : int, default None
@@ -196,8 +202,10 @@ def open_dataset(
             lon_dim=lon_dim,
         )
     elif spatial_agg != "none":
+        agg_y_dim = agg_y_dim if agg_y_dim else lat_dim
+        agg_x_dim = agg_x_dim if agg_x_dim else lon_dim
         ds = spatial_selection.aggregate(
-            ds, spatial_agg, lat_dim=lat_dim, lon_dim=lon_dim
+            ds, spatial_agg, lat_dim=agg_y_dim, lon_dim=agg_x_dim
         )
 
     # Unit conversion (at middle)
@@ -658,21 +666,35 @@ def _parse_command_line():
         default="time",
         help="Name of time dimension",
     )
-    arg_parser.add_argument(
+    parser.add_argument(
+        "--anomaly",
+        type=str,
+        nargs=2,
+        default=None,
+        help='Calculate anomaly with this base period: (base_start_date, base_end_date)'
+    )
+    parser.add_argument(
+        "--anomaly_freq",
+        type=str,
+        default=None,
+        choices=['month'],
+        help='Anomaly can monthly (month) or all times (none)'
+    )
+    parser.add_argument(
         "--point_selection",
         type=float,
         nargs=2,
         default=None,
         help='Point coordinates: [lat, lon]',
     )
-    arg_parser.add_argument(
+    parser.add_argument(
         "--lat_bnds",
         type=float,
         nargs=2,
         default=None,
         help='Latitude bounds: (south_bound, north_bound)',
     )
-    arg_parser.add_argument(
+    parser.add_argument(
         "--lon_bnds",
         type=float,
         nargs=2,
@@ -718,6 +740,18 @@ def _parse_command_line():
         type=str,
         default="lon",
         help="Name of longitude dimension",
+    )
+    parser.add_argument(
+        "--agg_y_dim",
+        type=str,
+        default=None,
+        help="Name of Y dimension for spatial aggregation",
+    )
+    parser.add_argument(
+        "--agg_x_dim",
+        type=str,
+        default=None,
+        help="Name of X dimension for spatial aggregation",
     )
     parser.add_argument(
         "--units",
@@ -802,6 +836,8 @@ def _main():
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,
         "lon_dim": args.lon_dim,
+        "agg_y_dim": args.agg_y_dim,
+        "agg_x_dim": args.agg_x_dim,
         "standard_calendar": args.standard_calendar,
         "no_leap_days": args.no_leap_days,
         "rolling_sum_window": args.rolling_sum_window,
@@ -839,6 +875,11 @@ def _main():
     if index == "ffdi":
         ds["ffdi"] = indices.calc_FFDI(
             ds, time_dim=temporal_dim, scale_dims=[temporal_dim]
+        )
+
+    if args.anomaly:
+        ds = time_utils.anomalise(
+            ds, args.anomaly, frequency=args.anomaly_freq, time_name=args.time_dim
         )
 
     if args.output_chunks:

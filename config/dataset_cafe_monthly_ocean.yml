@@ -1,0 +1,12 @@
+# CAFE required metadata changes
+
+rename:
+  sst: tos
+
+drop_coords:
+  - average_DT
+  - average_T1
+  - average_T2
+  - area_t
+
+

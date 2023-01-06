@@ -471,7 +471,9 @@ def select_month(ds, month, init_month=False, time_dim="time"):
     return ds_selection
 
 
-def _get_groupby_and_reduce_dims(ds, frequency, init_dim="init_date", ensemble_dim="ensemble", time_name="time"):
+def _get_groupby_and_reduce_dims(
+    ds, frequency, init_dim="init_date", ensemble_dim="ensemble", time_name="time"
+):
     """Get groupby and reduction dimensions.
 
     For performing operations like calculating anomalies and percentile thresholds.
@@ -509,7 +511,14 @@ def _get_groupby_and_reduce_dims(ds, frequency, init_dim="init_date", ensemble_d
     return groupby, reduce_dim
 
 
-def anomalise(ds, clim_period, frequency=None, init_dim="init_date", ensemble_dim="ensemble", time_name="time"):
+def anomalise(
+    ds,
+    clim_period,
+    frequency=None,
+    init_dim="init_date",
+    ensemble_dim="ensemble",
+    time_name="time",
+):
     """Calculate anomaly.
 
     Uses a shortcut for calculating hindcast climatologies that will not work
@@ -532,7 +541,11 @@ def anomalise(ds, clim_period, frequency=None, init_dim="init_date", ensemble_di
     ds_period = select_time_period(ds, clim_period, time_name=time_name)
 
     groupby, reduce_dim = _get_groupby_and_reduce_dims(
-        ds, frequency, init_dim=init_dim, ensemble_dim=ensemble_dim, time_name=time_name,
+        ds,
+        frequency,
+        init_dim=init_dim,
+        ensemble_dim=ensemble_dim,
+        time_name=time_name,
     )
 
     if groupby is None:

@@ -253,7 +253,7 @@ def open_dataset(
 def _chunks(lst, n):
     """Split a list into n sub-lists"""
 
-    new_lst = [lst[i:i+n] for i in range(0, len(lst), n)]
+    new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
 
     return new_lst
 
@@ -671,35 +671,35 @@ def _parse_command_line():
         type=str,
         nargs=2,
         default=None,
-        help='Calculate anomaly with this base period: (base_start_date, base_end_date)'
+        help="Calculate anomaly with this base period: (base_start_date, base_end_date)",
     )
     parser.add_argument(
         "--anomaly_freq",
         type=str,
         default=None,
-        choices=['month'],
-        help='Anomaly can monthly (month) or all times (none)'
+        choices=["month"],
+        help="Anomaly can monthly (month) or all times (none)",
     )
     parser.add_argument(
         "--point_selection",
         type=float,
         nargs=2,
         default=None,
-        help='Point coordinates: [lat, lon]',
+        help="Point coordinates: [lat, lon]",
     )
     parser.add_argument(
         "--lat_bnds",
         type=float,
         nargs=2,
         default=None,
-        help='Latitude bounds: (south_bound, north_bound)',
+        help="Latitude bounds: (south_bound, north_bound)",
     )
     parser.add_argument(
         "--lon_bnds",
         type=float,
         nargs=2,
         default=None,
-        help='Longitude bounds: (west_bound, east_bound)',
+        help="Longitude bounds: (west_bound, east_bound)",
     )
     parser.add_argument(
         "--shapefile", type=str, default=None, help="Shapefile for region selection"

@@ -7,7 +7,6 @@ import xarray as xr
 
 from unseen.spatial_selection import (
     select_point,
-    subset_lat,
     subset_lon,
     select_shapefile_regions,
 )
@@ -40,10 +39,11 @@ def test_selected_lon_bnds(example_da_lon, lon_bnds, data_object):
     else:
         assert selection.data.max() == 359
         assert selection.data.min() == 0
-        assert np.diff(selection['lon'].values).max() == west_bound - east_bound
+        assert np.diff(selection["lon"].values).max() == west_bound - east_bound
 
 
 # Point selection tests
+
 
 @pytest.mark.parametrize("example_da_lon", [180, 360], indirect=True)
 @pytest.mark.parametrize("point", [[-55, 50], [60, -80]])
@@ -67,6 +67,7 @@ def test_selected_point_lon(example_da_lon, point, data_object):
 
 
 # Shape selection tests
+
 
 @pytest.fixture
 def shapes():

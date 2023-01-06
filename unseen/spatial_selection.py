@@ -58,7 +58,7 @@ def subset_lat(ds, lat_bnds, lat_dim="lat"):
     south_bound, north_bound = lat_bnds
     assert -90 <= south_bound <= 90, "Valid latitude range is [-90, 90]"
     assert -90 <= north_bound <= 90, "Valid latitude range is [-90, 90]"
-    
+
     selection = (ds[lat_dim] <= north_bound) & (ds[lat_dim] >= south_bound)
     ds = ds.where(selection, drop=True)
 

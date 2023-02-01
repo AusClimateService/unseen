@@ -889,7 +889,10 @@ def _main():
     ds = ds[kwargs["variables"]]
 
     ds.attrs["history"] = get_new_log()
-    to_zarr(ds, args.outfile)
+    if "zarr" in args.outfile:
+        to_zarr(ds, args.outfile)
+    else:
+        ds.to_netcdf(args.outfile)
 
 
 if __name__ == "__main__":

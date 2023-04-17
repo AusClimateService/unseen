@@ -11,6 +11,26 @@ from . import fileio
 from . import general_utils
 
 
+def ks_test(obs_ds, fcst_ds):
+    """Calculate KS test statistic and p-value."""
+
+    ks = xstatstests.ks_2samp_1d(obs_ds, fcst_ds, dim="sample")
+    ks = ks.rename({"statistic": "ks_statistic"})
+    ks = ks.rename({"pvalue": "ks_pval"})
+     
+    return ks   
+
+
+def anderson_darling_test(obs_ds, fcst_ds):
+    """Calculate Anderson Darline test statistic and p-value"""
+    
+    ad = xstatstests.anderson_ksamp(obs_ds, fcst_ds, dim="sample")
+    ad = ad.rename({"statistic": "ad_statistic"})
+    ad = ad.rename({"pvalue": "ad_pval"})
+
+    return ad
+
+
 def similarity_tests(
     fcst,
     obs,
@@ -19,6 +39,7 @@ def similarity_tests(
     init_dim="init_date",
     ensemble_dim="ensemble",
     time_dim="time",
+    by_lead=False,
 ):
     """Perform a series of similarity tests.
 
@@ -38,6 +59,8 @@ def similarity_tests(
         Name of the ensemble member dimension in fcst
     time_dim: str, default 'time'
         Name of the time dimension in obs
+    by_lead: bool, default False
+        Test each lead time separately
 
     Returns
     -------
@@ -55,36 +78,39 @@ def similarity_tests(
     if isinstance(obs, xr.DataArray):
         obs = obs.to_dataset()
 
-    fcst_stacked = fcst.stack({"sample": [ensemble_dim, init_dim]})
+    stack_dims = [ensemble_dim, init_dim]
+    if not by_lead:
+        stack_dims = stack_dims + [lead_dim]
+    fcst = fcst.dropna(dim=lead_dim, how='all')
+    fcst_stacked = fcst.stack({"sample": stack_dims})
     fcst_stacked = fcst_stacked.chunk({"sample": -1})
 
     obs_stacked = obs.rename({time_dim: "sample"})
     obs_stacked = obs_stacked.chunk({"sample": -1})
 
-    ks_statistics = []
-    ks_pvals = []
-    ad_statistics = []
-    ad_pvals = []
-    for lead_time in fcst_stacked[lead_dim].values:
-        fcst_data = fcst_stacked.sel({lead_dim: lead_time})
-        if not np.isnan(fcst_data[var].values).all():
-            ks = xstatstests.ks_2samp_1d(obs_stacked, fcst_data, dim="sample")
-            ks = ks.rename({"statistic": "ks_statistic"})
-            ks = ks.rename({"pvalue": "ks_pval"})
-            ks_statistics.append(ks["ks_statistic"])
-            ks_pvals.append(ks["ks_pval"])
-            ad = xstatstests.anderson_ksamp(obs_stacked, fcst_data, dim="sample")
-            ad = ad.rename({"statistic": "ad_statistic"})
-            ad = ad.rename({"pvalue": "ad_pval"})
-            ad_statistics.append(ad["ad_statistic"])
-            ad_pvals.append(ad["ad_pval"])
-
-    ks_statistics = xr.concat(ks_statistics, lead_dim)
-    ks_pvals = xr.concat(ks_pvals, lead_dim)
-    ad_statistics = xr.concat(ad_statistics, lead_dim)
-    ad_pvals = xr.concat(ad_pvals, lead_dim)
-
-    ds = xr.merge([ks_statistics, ks_pvals, ad_statistics, ad_pvals])
+    if by_lead:
+        ks_statistics = []
+        ks_pvals = []
+        ad_statistics = []
+        ad_pvals = []
+        for lead_time in fcst_stacked[lead_dim].values:
+            fcst_data = fcst_stacked.sel({lead_dim: lead_time})
+            if not np.isnan(fcst_data[var].values).all():
+                ks = ks_test(obs_stacked, fcst_data)
+                ks_statistics.append(ks["ks_statistic"])
+                ks_pvals.append(ks["ks_pval"])
+                ad = anderson_darling_test(obs_stacked, fcst_data)
+                ad_statistics.append(ad["ad_statistic"])
+                ad_pvals.append(ad["ad_pval"])
+        ks_statistics = xr.concat(ks_statistics, lead_dim)
+        ks_pvals = xr.concat(ks_pvals, lead_dim)
+        ad_statistics = xr.concat(ad_statistics, lead_dim)
+        ad_pvals = xr.concat(ad_pvals, lead_dim)
+        ds = xr.merge([ks_statistics, ks_pvals, ad_statistics, ad_pvals])
+    else:
+        ks = ks_test(obs_stacked, fcst_stacked)
+        ad = anderson_darling_test(obs_stacked, fcst_stacked)
+        ds = xr.merge([ks, ad])
 
     ds["ks_statistic"].attrs = {"long_name": "kolmogorov_smirnov_statistic"}
     ds["ks_pval"].attrs = {
@@ -155,7 +181,12 @@ def _parse_command_line():
         default="lead_time",
         help="Name of lead time dimension",
     )
-
+    parser.add_argument(
+        "--by_lead",
+        action="store_true",
+        default=False,
+        help="Similarity test each lead time separately [default=False]",
+    )
     args = parser.parse_args()
 
     return args
@@ -184,6 +215,7 @@ def _main():
         lead_dim=args.lead_dim,
         ensemble_dim=args.ensemble_dim,
         time_dim=args.time_dim,
+        by_lead=args.by_lead,
     )
 
     infile_logs = {

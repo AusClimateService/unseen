@@ -17,13 +17,13 @@ def ks_test(obs_ds, fcst_ds):
     ks = xstatstests.ks_2samp_1d(obs_ds, fcst_ds, dim="sample")
     ks = ks.rename({"statistic": "ks_statistic"})
     ks = ks.rename({"pvalue": "ks_pval"})
-     
-    return ks   
+
+    return ks
 
 
 def anderson_darling_test(obs_ds, fcst_ds):
     """Calculate Anderson Darline test statistic and p-value"""
-    
+
     ad = xstatstests.anderson_ksamp(obs_ds, fcst_ds, dim="sample")
     ad = ad.rename({"statistic": "ad_statistic"})
     ad = ad.rename({"pvalue": "ad_pval"})
@@ -81,7 +81,7 @@ def similarity_tests(
     stack_dims = [ensemble_dim, init_dim]
     if not by_lead:
         stack_dims = stack_dims + [lead_dim]
-    fcst = fcst.dropna(dim=lead_dim, how='all')
+    fcst = fcst.dropna(dim=lead_dim, how="all")
     fcst_stacked = fcst.stack({"sample": stack_dims})
     fcst_stacked = fcst_stacked.chunk({"sample": -1})
 

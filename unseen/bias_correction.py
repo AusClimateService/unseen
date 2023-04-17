@@ -59,7 +59,7 @@ def get_bias(
     obs_ave_dims = [init_dim]
     if not by_lead:
         fcst_ave_dims = fcst_ave_dims + [lead_dim]
-        obs_ave_dims = obs_ave_dims + [lead_dim] 
+        obs_ave_dims = obs_ave_dims + [lead_dim]
 
     fcst_clim = time_utils.get_clim(
         fcst,

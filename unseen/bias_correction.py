@@ -20,6 +20,7 @@ def get_bias(
     ensemble_dim="ensemble",
     init_dim="init_date",
     lead_dim="lead_time",
+    by_lead=False,
 ):
     """Calculate forecast bias.
 
@@ -41,6 +42,8 @@ def get_bias(
         Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in fcst
+    by_lead: bool, default False
+        Calculate bias for each lead time separately
 
     Returns
     -------
@@ -52,13 +55,18 @@ def get_bias(
         For invalid method
     """
 
+    fcst_ave_dims = [ensemble_dim, init_dim]
+    obs_ave_dims = [init_dim]
+    if not by_lead:
+        fcst_ave_dims = fcst_ave_dims + [lead_dim]
+        obs_ave_dims = obs_ave_dims + [lead_dim]
+
     fcst_clim = time_utils.get_clim(
         fcst,
-        [ensemble_dim, init_dim],
+        fcst_ave_dims,
         time_period=time_period,
         groupby_init_month=True,
     )
-
     obs_stacked = array_handling.stack_by_init_date(
         obs,
         init_dates=fcst[init_dim],
@@ -66,7 +74,10 @@ def get_bias(
         time_rounding=time_rounding,
     )
     obs_clim = time_utils.get_clim(
-        obs_stacked, init_dim, time_period=time_period, groupby_init_month=True
+        obs_stacked,
+        obs_ave_dims,
+        time_period=time_period,
+        groupby_init_month=True,
     )
 
     with xr.set_options(keep_attrs=True):
@@ -173,7 +184,12 @@ def _parse_command_line():
         default=None,
         help="Minimum lead time to include in analysis",
     )
-
+    parser.add_argument(
+        "--by_lead",
+        action="store_true",
+        default=False,
+        help="Remove bias for each lead time separately [default=False]",
+    )
     args = parser.parse_args()
 
     return args
@@ -198,6 +214,7 @@ def _main():
         args.method,
         time_period=args.base_period,
         time_rounding=args.rounding_freq,
+        by_lead=args.by_lead,
     )
     da_fcst_bc = remove_bias(da_fcst, bias, args.method)
 

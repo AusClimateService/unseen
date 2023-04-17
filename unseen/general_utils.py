@@ -52,12 +52,24 @@ def convert_units(da, target_units):
        Array with converted units
     """
 
-    xclim_unit_check = {"deg_k": "degK"}
+    xclim_unit_check = {
+        "deg_k": "degK",
+        "kg/m2/s": "kg m-2 s-1",
+    }
 
     if da.attrs["units"] in xclim_unit_check:
         da.attrs["units"] = xclim_unit_check[da.units]
 
-    da = xclim.units.convert_units_to(da, target_units)
+    try:
+        da = xclim.units.convert_units_to(da, target_units)
+    except Exception as e:
+        in_precip_kg = da.attrs["units"] == "kg m-2 s-1"
+        out_precip_mm = target_units in ["mm d-1", "mm day-1"]
+        if in_precip_kg and out_precip_mm:
+            da = da * 86400
+            da.attrs["units"] = target_units
+        else:
+            raise e
 
     return da
 

@@ -70,7 +70,7 @@ def temporal_aggregation(
     Parameters
     ----------
     ds : xarray Dataset
-    target_freq : {'A-DEC', 'Q-NOV', 'M', 'A-NOV', 'A-AUG'}
+    target_freq : {'A-DEC', 'Q-NOV', 'M', 'A-NOV', 'A-AUG', 'A-JUN'}
         Target frequency for the resampling
     agg_method : {'mean', 'min', 'max', 'sum'}
         Aggregation method
@@ -100,9 +100,10 @@ def temporal_aggregation(
     Q-NOV = DJF, MAM, JJA, SON, with date label being last day of season
     A-NOV = annual Dec-Nov, date label being last day of the year
     A-AUG = annual Sep-Aug, date label being last day of the year
+    A-JUN = annual Jul-Jun, date label being last day of the year
     """
 
-    assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"]
+    assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"]
     assert input_freq in ["D", "M", "Q", "A"]
 
     if time_dim not in ds.dims:
@@ -399,7 +400,7 @@ def _crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
     """
 
     assert input_freq in ["D", "M"]
-    assert output_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"]
+    assert output_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"]
 
     # to X from X
     count_dict = {

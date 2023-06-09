@@ -27,6 +27,7 @@ setup(
             "independence = unseen.independence:_main",
             "similarity = unseen.similarity:_main",
             "bias_correction = unseen.bias_correction:_main",
+            "stability = unseen.stability:_main",
         ]
     },
 )

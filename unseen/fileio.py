@@ -103,7 +103,7 @@ def open_dataset(
         Remove leap days from data
     rolling_sum_window : int, default None
         Apply a rolling sum with this window width
-    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV', 'A-AUG'}, optional
+    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV', 'A-AUG', 'A-JUN'}, optional
         Target temporal frequency for resampling
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
@@ -610,7 +610,7 @@ def _parse_command_line():
     parser.add_argument(
         "--time_freq",
         type=str,
-        choices=("A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG"),
+        choices=("A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"),
         default=None,
         help="Target frequency for temporal aggregation",
     )

@@ -108,32 +108,32 @@ def return_curve(data, method):
     return return_periods, return_values
 
 
-# def plot_return(data, method, outfile=None):
-#    """Plot a single return period curve.
-#
-#    Parameters
-#    ----------
-#    data : xarray DataArray
-#    method : {'gev', 'empirical'}
-#        Fit a GEV or not to data
-#    """
-#
-#    fig = plt.figure(figsize=[8, 6])
-#    ax = fig.add_subplot()
-#    return_periods, return_values = return_curve(data, method)
-#    ax.plot(return_periods, return_values)
-#    ax.set_xscale('log')
-#    ax.set_xlabel('return period (years)')
-#    ax.set_ylabel(data.attrs['units'])
-#    ax.grid()
-#    if outfile:
-#        plt.savefig(outfile, bbox_inches='tight', facecolor='white', dpi=dpi)
-#        print(outfile)
-#    else:
-#        plt.show()
+def plot_return(data, method, outfile=None):
+    """Plot a single return period curve.
+
+    Parameters
+    ----------
+    data : xarray DataArray
+    method : {'gev', 'empirical'}
+        Fit a GEV or not to data
+    """
+
+    fig = plt.figure(figsize=[8, 6])
+    ax = fig.add_subplot()
+    return_periods, return_values = return_curve(data, method)
+    ax.plot(return_periods, return_values)
+    ax.set_xscale('log')
+    ax.set_xlabel('return period (years)')
+    ax.set_ylabel(data.attrs['units'])
+    ax.grid()
+    if outfile:
+        plt.savefig(outfile, bbox_inches='tight', facecolor='white', dpi=dpi)
+        print(outfile)
+    else:
+        plt.show()
 
 
-def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead_time"):
+def plot_return_by_lead(ax, sample_da, metric, method, uncertainty=False, lead_dim="lead_time"):
     """Plot return period curves for each lead time.
 
     Parameters
@@ -144,6 +144,8 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
         Stacked forecast array with a sample dimension
     metric : str
         Metric name for plot title
+    method : str {'empirical', 'gev'}
+        Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
     lead_dim: str, default 'lead_time'
@@ -155,7 +157,7 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
     for lead in lead_times:
         selection_da = sample_da.sel({"lead_time": lead})
         selection_da = selection_da.dropna("sample")
-        return_periods, return_values = return_curve(selection_da, method="empirical")
+        return_periods, return_values = return_curve(selection_da, method)
         n_values = len(selection_da)
         label = f"lead time {lead} ({n_values} samples)"
         color = next(colors)
@@ -165,9 +167,7 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
         random_return_values = []
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_values)
-            return_periods, return_values = return_curve(
-                random_sample, method="empirical"
-            )
+            return_periods, return_values = return_curve(random_sample, method)
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)
         upper_ci = np.percentile(random_return_values_stacked, 97.5, axis=0)
@@ -302,7 +302,12 @@ def create_plot(
 
     plot_dist_by_lead(ax1, da_fcst_stacked, metric, lead_dim=lead_dim)
     plot_return_by_lead(
-        ax2, da_fcst_stacked, metric, uncertainty=uncertainty, lead_dim=lead_dim
+        ax2,
+        da_fcst_stacked,
+        metric,
+        return_method,
+        uncertainty=uncertainty,
+        lead_dim=lead_dim
     )
     plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years)
     plot_return_by_time(
@@ -331,7 +336,13 @@ def _parse_command_line():
     )
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("metric", type=str, help="Metric name")
-    parser.add_argument("--outfile", type=str, default=None, help="Output file name")
+
+    parser.add_argument(
+        "--outfile",
+        type=str,
+        default=None,
+        help="Output file name"
+    )
     parser.add_argument(
         "--start_years",
         type=int,
@@ -343,7 +354,7 @@ def _parse_command_line():
         "--uncertainty",
         default=False,
         action="store_true",
-        help="Plot the 95% confidence interval [default: False]",
+        help="Plot the 95 percent confidence interval [default: False]",
     )
     parser.add_argument(
         "--return_method",

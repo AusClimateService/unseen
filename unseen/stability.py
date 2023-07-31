@@ -127,18 +127,20 @@ def plot_return(data, method, outfile=None):
     ax = fig.add_subplot()
     return_periods, return_values = return_curve(data, method)
     ax.plot(return_periods, return_values)
-    ax.set_xscale('log')
-    ax.set_xlabel('return period (years)')
-    ax.set_ylabel(data.attrs['units'])
+    ax.set_xscale("log")
+    ax.set_xlabel("return period (years)")
+    ax.set_ylabel(data.attrs["units"])
     ax.grid()
     if outfile:
-        plt.savefig(outfile, bbox_inches='tight', facecolor='white', dpi=dpi)
+        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=dpi)
         print(outfile)
     else:
         plt.show()
 
 
-def plot_return_by_lead(ax, sample_da, metric, method, uncertainty=False, lead_dim="lead_time"):
+def plot_return_by_lead(
+    ax, sample_da, metric, method, uncertainty=False, lead_dim="lead_time"
+):
     """Plot return period curves for each lead time.
 
     Parameters
@@ -314,7 +316,7 @@ def create_plot(
         metric,
         return_method,
         uncertainty=uncertainty,
-        lead_dim=lead_dim
+        lead_dim=lead_dim,
     )
     plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years)
     plot_return_by_time(
@@ -344,12 +346,7 @@ def _parse_command_line():
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("metric", type=str, help="Metric name")
 
-    parser.add_argument(
-        "--outfile",
-        type=str,
-        default=None,
-        help="Output file name"
-    )
+    parser.add_argument("--outfile", type=str, default=None, help="Output file name")
     parser.add_argument(
         "--start_years",
         type=int,

@@ -132,7 +132,7 @@ def plot_return(data, method, outfile=None):
     ax.set_ylabel(data.attrs["units"])
     ax.grid()
     if outfile:
-        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=dpi)
+        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
         print(outfile)
     else:
         plt.show()

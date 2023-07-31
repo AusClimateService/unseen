@@ -86,7 +86,7 @@ def plot_dist_by_time(ax, sample_da, metric, start_years):
     ax.legend()
 
 
-def return_curve(data, method):
+def return_curve(data, method, params=[]):
     """Return x and y data for a return period curve.
 
     Parameters
@@ -94,16 +94,21 @@ def return_curve(data, method):
     data : xarray DataArray
     method : {'gev', 'empirical'}
         Fit a GEV or not to data
+    params : list, default None
+        shape, location and scale parameters (calculated if None)
     """
 
-    if method == "gev":
-        return_periods = np.logspace(0, 4, num=10000)
-        probabilities = 1.0 / return_periods
-        shape, loc, scale = indices.fit_gev(data, generate_estimates=True)
-        return_values = gev.isf(probabilities, shape, loc, scale)
-    elif method == "empirical":
+    if method == "empirical":
         return_values = np.sort(data, axis=None)[::-1]
         return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
+    else:
+        return_periods = np.logspace(0, 4, num=10000)
+        probabilities = 1.0 / return_periods
+        if params:
+            shape, loc, scale = params
+        else:
+            shape, loc, scale = indices.fit_gev(data, generate_estimates=True)
+        return_values = gev.isf(probabilities, shape, loc, scale)
 
     return return_periods, return_values
 
@@ -187,6 +192,7 @@ def plot_return_by_lead(ax, sample_da, metric, method, uncertainty=False, lead_d
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
     ax.legend()
+    ax.set_ylim((50, None))
 
 
 def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=False):
@@ -245,6 +251,7 @@ def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
+    ax.set_ylim((50, None))
     ax.legend()
 
 

@@ -35,6 +35,7 @@ def similarity_tests(
     fcst,
     obs,
     var,
+    min_lead=None,
     lead_dim="lead_time",
     init_dim="init_date",
     ensemble_dim="ensemble",
@@ -51,6 +52,8 @@ def similarity_tests(
         Observational/comparison dataset with a time dimension.
     var : str
         Variable from the datasets to process.
+    min_lead : int, optional
+        Minimum lead time
     init_dim: str, default 'init_date'
         Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
@@ -72,6 +75,9 @@ def similarity_tests(
     If p > 0.05 you can't reject the null hypothesis
     that the two samples are from the same population.
     """
+
+    if min_lead is not None:
+        fcst = fcst.where(fcst[lead_dim] >= min_lead)
 
     if isinstance(fcst, xr.DataArray):
         fcst = fcst.to_dataset()
@@ -182,6 +188,12 @@ def _parse_command_line():
         help="Name of lead time dimension",
     )
     parser.add_argument(
+        "--min_lead",
+        type=int,
+        default=None,
+        help="Minimum lead time",
+    )
+    parser.add_argument(
         "--by_lead",
         action="store_true",
         default=False,
@@ -211,6 +223,7 @@ def _main():
         ds_fcst,
         ds_obs,
         args.var,
+        min_lead=args.min_lead,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,
         ensemble_dim=args.ensemble_dim,

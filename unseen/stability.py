@@ -86,8 +86,35 @@ def plot_dist_by_time(ax, sample_da, metric, start_years):
     ax.legend()
 
 
-def return_curve(data, method):
+def return_curve(data, method, params=[]):
     """Return x and y data for a return period curve.
+
+    Parameters
+    ----------
+    data : xarray DataArray
+    method : {'gev', 'empirical'}
+        Fit a GEV or not to data
+    params : list, default None
+        shape, location and scale parameters (calculated if None)
+    """
+
+    if method == "empirical":
+        return_values = np.sort(data, axis=None)[::-1]
+        return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
+    else:
+        return_periods = np.logspace(0, 4, num=10000)
+        probabilities = 1.0 / return_periods
+        if params:
+            shape, loc, scale = params
+        else:
+            shape, loc, scale = indices.fit_gev(data, generate_estimates=True)
+        return_values = gev.isf(probabilities, shape, loc, scale)
+
+    return return_periods, return_values
+
+
+def plot_return(data, method, outfile=None):
+    """Plot a single return period curve.
 
     Parameters
     ----------
@@ -96,44 +123,24 @@ def return_curve(data, method):
         Fit a GEV or not to data
     """
 
-    if method == "gev":
-        return_periods = np.logspace(0, 4, num=10000)
-        probabilities = 1.0 / return_periods
-        shape, loc, scale = indices.fit_gev(data, generate_estimates=True)
-        return_values = gev.isf(probabilities, shape, loc, scale)
-    elif method == "empirical":
-        return_values = np.sort(data, axis=None)[::-1]
-        return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
-
-    return return_periods, return_values
-
-
-# def plot_return(data, method, outfile=None):
-#    """Plot a single return period curve.
-#
-#    Parameters
-#    ----------
-#    data : xarray DataArray
-#    method : {'gev', 'empirical'}
-#        Fit a GEV or not to data
-#    """
-#
-#    fig = plt.figure(figsize=[8, 6])
-#    ax = fig.add_subplot()
-#    return_periods, return_values = return_curve(data, method)
-#    ax.plot(return_periods, return_values)
-#    ax.set_xscale('log')
-#    ax.set_xlabel('return period (years)')
-#    ax.set_ylabel(data.attrs['units'])
-#    ax.grid()
-#    if outfile:
-#        plt.savefig(outfile, bbox_inches='tight', facecolor='white', dpi=dpi)
-#        print(outfile)
-#    else:
-#        plt.show()
+    fig = plt.figure(figsize=[8, 6])
+    ax = fig.add_subplot()
+    return_periods, return_values = return_curve(data, method)
+    ax.plot(return_periods, return_values)
+    ax.set_xscale("log")
+    ax.set_xlabel("return period (years)")
+    ax.set_ylabel(data.attrs["units"])
+    ax.grid()
+    if outfile:
+        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
+        print(outfile)
+    else:
+        plt.show()
 
 
-def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead_time"):
+def plot_return_by_lead(
+    ax, sample_da, metric, method, uncertainty=False, lead_dim="lead_time"
+):
     """Plot return period curves for each lead time.
 
     Parameters
@@ -144,6 +151,8 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
         Stacked forecast array with a sample dimension
     metric : str
         Metric name for plot title
+    method : str {'empirical', 'gev'}
+        Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
     lead_dim: str, default 'lead_time'
@@ -155,7 +164,7 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
     for lead in lead_times:
         selection_da = sample_da.sel({"lead_time": lead})
         selection_da = selection_da.dropna("sample")
-        return_periods, return_values = return_curve(selection_da, method="empirical")
+        return_periods, return_values = return_curve(selection_da, method)
         n_values = len(selection_da)
         label = f"lead time {lead} ({n_values} samples)"
         color = next(colors)
@@ -165,9 +174,7 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
         random_return_values = []
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_values)
-            return_periods, return_values = return_curve(
-                random_sample, method="empirical"
-            )
+            return_periods, return_values = return_curve(random_sample, method)
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)
         upper_ci = np.percentile(random_return_values_stacked, 97.5, axis=0)
@@ -187,6 +194,7 @@ def plot_return_by_lead(ax, sample_da, metric, uncertainty=False, lead_dim="lead
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
     ax.legend()
+    ax.set_ylim((50, None))
 
 
 def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=False):
@@ -245,6 +253,7 @@ def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
+    ax.set_ylim((50, None))
     ax.legend()
 
 
@@ -302,7 +311,12 @@ def create_plot(
 
     plot_dist_by_lead(ax1, da_fcst_stacked, metric, lead_dim=lead_dim)
     plot_return_by_lead(
-        ax2, da_fcst_stacked, metric, uncertainty=uncertainty, lead_dim=lead_dim
+        ax2,
+        da_fcst_stacked,
+        metric,
+        return_method,
+        uncertainty=uncertainty,
+        lead_dim=lead_dim,
     )
     plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years)
     plot_return_by_time(
@@ -331,6 +345,7 @@ def _parse_command_line():
     )
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("metric", type=str, help="Metric name")
+
     parser.add_argument("--outfile", type=str, default=None, help="Output file name")
     parser.add_argument(
         "--start_years",
@@ -343,7 +358,7 @@ def _parse_command_line():
         "--uncertainty",
         default=False,
         action="store_true",
-        help="Plot the 95% confidence interval [default: False]",
+        help="Plot the 95 percent confidence interval [default: False]",
     )
     parser.add_argument(
         "--return_method",

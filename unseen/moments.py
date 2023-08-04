@@ -1,12 +1,16 @@
 """Functions and command line program for moments testing."""
 
 import argparse
+import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 
 from . import fileio
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 def calc_ci(data):
@@ -55,7 +59,7 @@ def create_plot(
     sample_size = len(da_obs)
     mean_obs = float(np.mean(da_obs))
     std_obs = float(np.std(da_obs))
-    skewness_obs = float(scipy.stats.skew(da_obs))
+    skew_obs = float(scipy.stats.skew(da_obs))
     kurtosis_obs = float(scipy.stats.kurtosis(da_obs))
 
     ds_fcst = fileio.open_dataset(fcst_file)
@@ -67,22 +71,22 @@ def create_plot(
 
     mean_values = []
     std_values = []
-    skewness_values = []
+    skew_values = []
     kurtosis_values = []
     for i in range(1000):
         random_sample = np.random.choice(da_fcst_stacked, sample_size)
         mean = float(np.mean(random_sample))
         std = float(np.std(random_sample))
-        skewness = float(scipy.stats.skew(random_sample))
+        skew = float(scipy.stats.skew(random_sample))
         kurtosis = float(scipy.stats.kurtosis(random_sample))
         mean_values.append(mean)
         std_values.append(std)
-        skewness_values.append(skewness)
+        skew_values.append(skew)
         kurtosis_values.append(kurtosis)
 
     mean_lower_ci, mean_upper_ci = calc_ci(mean_values)
     std_lower_ci, std_upper_ci = calc_ci(std_values)
-    skewness_lower_ci, skewness_upper_ci = calc_ci(skewness_values)
+    skew_lower_ci, skew_upper_ci = calc_ci(skew_values)
     kurtosis_lower_ci, kurtosis_upper_ci = calc_ci(kurtosis_values)
 
     fig = plt.figure(figsize=[15, 12])
@@ -105,12 +109,12 @@ def create_plot(
     ax2.axvline(std_obs)
     ax2.set_ylabel("count")
 
-    ax3.hist(skewness_values, rwidth=0.8, color="0.5")
+    ax3.hist(skew_values, rwidth=0.8, color="0.5")
     ax3.set_title("(c) skewness")
     ax3.set_ylabel("count")
-    ax3.axvline(skewness_lower_ci, color="0.2", linestyle="--")
-    ax3.axvline(skewness_upper_ci, color="0.2", linestyle="--")
-    ax3.axvline(skewness_obs)
+    ax3.axvline(skew_lower_ci, color="0.2", linestyle="--")
+    ax3.axvline(skew_upper_ci, color="0.2", linestyle="--")
+    ax3.axvline(skew_obs)
 
     ax4.hist(kurtosis_values, rwidth=0.8, color="0.5")
     ax4.set_title("(d) kurtosis")
@@ -119,8 +123,35 @@ def create_plot(
     ax4.axvline(kurtosis_upper_ci, color="0.2", linestyle="--")
     ax4.axvline(kurtosis_obs)
 
+    mean_text = f"Obs = {mean_obs}, Model 95% CI ={mean_lower_ci} to {mean_upper_ci}" 
+    std_text = f"Obs = {std_obs}, Model 95% CI ={std_lower_ci} to {std_upper_ci}"
+    skew_text = f"Obs = {skew_obs}, Model 95% CI ={skew_lower_ci} to {skew_upper_ci}"
+    kurtosis_text = f"Obs = {kurtosis_obs}, Model 95% CI ={kurtosis_lower_ci} to {kurtosis_upper_ci}"  
+    logging.info(f"Mean: {mean_text}")
+    logging.info(f"Standard deviation: {std_text}")
+    logging.info(f"Skewness: {skew_text}")
+    logging.info(f"Kurtosis: {kurtosis_text}")
+
     if outfile:
-        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
+        infile_logs = {
+            fcst_file: ds_fcst.attrs["history"],
+            obs_file: ds_obs.attrs["history"], 
+        }
+        command_history = fileio.get_new_log(infile_logs=infile_logs)
+        metadata = {
+            "mean": mean_text,
+            "standard deviation": std_text,
+            "skewness": skew_text,
+            "kurtosis": kurtosis_text,
+            "history": command_history,
+        }
+        plt.savefig(
+            outfile,
+            bbox_inches="tight",
+            facecolor="white",
+            dpi=200,
+            metadata=metadata,
+        )
     else:
         plt.show()
 

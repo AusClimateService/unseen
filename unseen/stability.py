@@ -139,7 +139,7 @@ def plot_return(data, method, outfile=None):
 
 
 def plot_return_by_lead(
-    ax, sample_da, metric, method, uncertainty=False, lead_dim="lead_time"
+    ax, sample_da, metric, method, uncertainty=False, ymax=None, lead_dim="lead_time"
 ):
     """Plot return period curves for each lead time.
 
@@ -155,6 +155,8 @@ def plot_return_by_lead(
         Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
+    ymax : float, optional
+        ymax for return curve plot
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in sample_da
     """
@@ -194,10 +196,12 @@ def plot_return_by_lead(
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
     ax.legend()
-    ax.set_ylim((50, None))
+    ax.set_ylim((50, ymax))
 
 
-def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=False):
+def plot_return_by_time(
+    ax, sample_da, metric, start_years, method, uncertainty=False, ymax=None
+):
     """Plot return period curves for each time slice (e.g. decade).
 
     Parameters
@@ -214,6 +218,8 @@ def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=
         Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
+    ymax : float, optional
+        ymax for return curve plot
     """
 
     step = start_years[1] - start_years[0] - 1
@@ -253,7 +259,7 @@ def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
     ax.set_ylabel(sample_da.attrs["units"])
-    ax.set_ylim((50, None))
+    ax.set_ylim((50, ymax))
     ax.legend()
 
 
@@ -263,8 +269,8 @@ def create_plot(
     metric,
     start_years,
     outfile=None,
-    min_lead=None,
     uncertainty=False,
+    ymax=None,
     return_method="empirical",
     ensemble_dim="ensemble",
     init_dim="init_date",
@@ -282,10 +288,10 @@ def create_plot(
         Metric name (for plot title)
     outfile : str, default None
         Path for output image file
-    min_lead : int, optional
-        Minimum lead time
     uncertainty: bool, default False
         Plot the 95% confidence interval
+    ymax : float, optional
+        ymax for return curve plots
     return_method : {'empirical', 'gev'}, default empirial
         Method for fitting the return period curve
     ensemble_dim : str, default ensemble
@@ -298,8 +304,6 @@ def create_plot(
 
     ds_fcst = fileio.open_dataset(fcst_file)
     da_fcst = ds_fcst[var]
-    if min_lead is not None:
-        da_fcst = da_fcst.where(ds_fcst[lead_dim] >= min_lead)
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
 
@@ -316,6 +320,7 @@ def create_plot(
         metric,
         return_method,
         uncertainty=uncertainty,
+        ymax=ymax,
         lead_dim=lead_dim,
     )
     plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years)
@@ -326,6 +331,7 @@ def create_plot(
         start_years,
         return_method,
         uncertainty=uncertainty,
+        ymax=ymax,
     )
 
     if outfile:
@@ -361,6 +367,12 @@ def _parse_command_line():
         help="Plot the 95 percent confidence interval [default: False]",
     )
     parser.add_argument(
+        "--ymax",
+        type=float,
+        default=None,
+        help="ymax for return curve plots",
+    )
+    parser.add_argument(
         "--return_method",
         type=str,
         default="empirical",
@@ -385,12 +397,6 @@ def _parse_command_line():
         default="lead_time",
         help="Name of lead time dimension",
     )
-    parser.add_argument(
-        "--min_lead",
-        type=int,
-        default=None,
-        help="Minimum lead time",
-    )
     args = parser.parse_args()
 
     return args
@@ -407,9 +413,9 @@ def _main():
         args.metric,
         args.start_years,
         outfile=args.outfile,
-        min_lead=args.min_lead,
         return_method=args.return_method,
         uncertainty=args.uncertainty,
+        ymax=args.ymax,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,

@@ -199,7 +199,9 @@ def plot_return_by_lead(
     ax.set_ylim((50, ymax))
 
 
-def plot_return_by_time(ax, sample_da, metric, start_years, method, uncertainty=False, ymax=None):
+def plot_return_by_time(
+    ax, sample_da, metric, start_years, method, uncertainty=False, ymax=None
+):
     """Plot return period curves for each time slice (e.g. decade).
 
     Parameters
@@ -267,7 +269,6 @@ def create_plot(
     metric,
     start_years,
     outfile=None,
-    min_lead=None,
     uncertainty=False,
     ymax=None,
     return_method="empirical",
@@ -287,8 +288,6 @@ def create_plot(
         Metric name (for plot title)
     outfile : str, default None
         Path for output image file
-    min_lead : int, optional
-        Minimum lead time
     uncertainty: bool, default False
         Plot the 95% confidence interval
     ymax : float, optional
@@ -305,8 +304,6 @@ def create_plot(
 
     ds_fcst = fileio.open_dataset(fcst_file)
     da_fcst = ds_fcst[var]
-    if min_lead is not None:
-        da_fcst = da_fcst.where(ds_fcst[lead_dim] >= min_lead)
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
 
@@ -400,12 +397,6 @@ def _parse_command_line():
         default="lead_time",
         help="Name of lead time dimension",
     )
-    parser.add_argument(
-        "--min_lead",
-        type=int,
-        default=None,
-        help="Minimum lead time",
-    )
     args = parser.parse_args()
 
     return args
@@ -422,7 +413,6 @@ def _main():
         args.metric,
         args.start_years,
         outfile=args.outfile,
-        min_lead=args.min_lead,
         return_method=args.return_method,
         uncertainty=args.uncertainty,
         ymax=args.ymax,

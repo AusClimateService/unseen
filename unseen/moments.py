@@ -123,10 +123,10 @@ def create_plot(
     ax4.axvline(kurtosis_upper_ci, color="0.2", linestyle="--")
     ax4.axvline(kurtosis_obs)
 
-    mean_text = f"Obs = {mean_obs}, Model 95% CI ={mean_lower_ci} to {mean_upper_ci}" 
+    mean_text = f"Obs = {mean_obs}, Model 95% CI ={mean_lower_ci} to {mean_upper_ci}"
     std_text = f"Obs = {std_obs}, Model 95% CI ={std_lower_ci} to {std_upper_ci}"
     skew_text = f"Obs = {skew_obs}, Model 95% CI ={skew_lower_ci} to {skew_upper_ci}"
-    kurtosis_text = f"Obs = {kurtosis_obs}, Model 95% CI ={kurtosis_lower_ci} to {kurtosis_upper_ci}"  
+    kurtosis_text = f"Obs = {kurtosis_obs}, Model 95% CI ={kurtosis_lower_ci} to {kurtosis_upper_ci}"
     logging.info(f"Mean: {mean_text}")
     logging.info(f"Standard deviation: {std_text}")
     logging.info(f"Skewness: {skew_text}")
@@ -135,7 +135,7 @@ def create_plot(
     if outfile:
         infile_logs = {
             fcst_file: ds_fcst.attrs["history"],
-            obs_file: ds_obs.attrs["history"], 
+            obs_file: ds_obs.attrs["history"],
         }
         command_history = fileio.get_new_log(infile_logs=infile_logs)
         metadata = {

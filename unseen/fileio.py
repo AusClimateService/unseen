@@ -77,7 +77,7 @@ def open_dataset(
         Point coordinates: [lat, lon]
     lat_bnds : list, optional
         Latitude bounds: [south bound, north bound]
-    lat_bnds : list, optional
+    lon_bnds : list, optional
         Longitude bounds: [west bound, east bound]
     shapefile : str, optional
         Shapefile for spatial subseting

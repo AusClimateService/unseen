@@ -64,64 +64,52 @@ def log_results(moments_obs, model_lower_cis, model_upper_cis, bias_corrected=Fa
 
 
 def create_plot(
-    fcst_file,
-    obs_file,
-    var,
+    da_fcst,
+    da_obs,
+    da_bc_fcst=None,
     outfile=None,
-    bc_fcst_file=None,
-    min_lead=None,
     ensemble_dim="ensemble",
     init_dim="init_date",
     lead_dim="lead_time",
+    infile_logs=None,
 ):
     """Create a stability assessment plot.
 
     Parameters
     ----------
-    fcst_file : str
-        Forecast file containing metric of interest
-    obs_file : str
-        Observations file containing metric of interest
-    var : str
-        Variable name (in fcst_file)
+    da_fcst : xarray Data Array
+        Forecast data for metric of interest
+    da_obs : xarray Data Array
+        Observations data for metric of interest
+    da_bc_fcst : xarray Data Array, optional
+        Bias corrected forecast data for metric of interest
     outfile : str, optional
         Path for output image file
-    bc_fcst_file : str, optional
-        Forecast file containing bias corrected metric of interest
-    min_lead : int, optional
-        Minimum lead time
     ensemble_dim : str, default ensemble
         Name of ensemble member dimension
     init_dim : str, default init_date
         Name of initial date dimension
     lead_dim : str, default lead_time
         Name of lead time dimension
+    infile_logs : dict, optional
+        File names (keys) and history attributes (values) of input data files
+        (For outfile image metadata)
     """
 
-    ds_obs = fileio.open_dataset(obs_file)
-    da_obs = ds_obs[var].dropna("time")
     sample_size = len(da_obs)
     moments_obs = calc_moments(da_obs)
 
-    ds_fcst = fileio.open_dataset(fcst_file)
-    da_fcst = ds_fcst[var]
-    if min_lead is not None:
-        da_fcst = da_fcst.where(ds_fcst[lead_dim] >= min_lead)
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
     moments_fcst = calc_moments(da_fcst_stacked)
 
-    if bc_fcst_file:
-        ds_bc_fcst = fileio.open_dataset(bc_fcst_file)
-        da_bc_fcst = ds_bc_fcst[var]
-        if min_lead is not None:
-            da_bc_fcst = da_bc_fcst.where(ds_bc_fcst[lead_dim] >= min_lead)
+    if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})
 
     bootstrap_values = {}
     bootstrap_lower_ci = {}
     bootstrap_upper_ci = {}
-    if bc_fcst_file:
+    if da_bc_fcst is not None:
         bc_bootstrap_values = {}
         bc_bootstrap_lower_ci = {}
         bc_bootstrap_upper_ci = {}
@@ -130,7 +118,7 @@ def create_plot(
         bootstrap_values[moment] = []
         bootstrap_lower_ci[moment] = []
         bootstrap_upper_ci[moment] = []
-        if bc_fcst_file:
+        if da_bc_fcst is not None:
             bc_bootstrap_values[moment] = []
             bc_bootstrap_lower_ci[moment] = []
             bc_bootstrap_upper_ci[moment] = []
@@ -144,7 +132,7 @@ def create_plot(
         for moment in moments:
             bootstrap_values[moment].append(sample_moments[moment])
 
-        if bc_fcst_file:
+        if da_bc_fcst is not None:
             bc_random_sample = np.random.choice(da_bc_fcst_stacked, sample_size)
             bc_sample_moments = calc_moments(
                 bc_random_sample,
@@ -157,7 +145,7 @@ def create_plot(
         lower_ci, upper_ci = calc_ci(bootstrap_values[moment])
         bootstrap_lower_ci[moment] = lower_ci
         bootstrap_upper_ci[moment] = upper_ci
-        if bc_fcst_file:
+        if da_bc_fcst is not None:
             bc_lower_ci, bc_upper_ci = calc_ci(bc_bootstrap_values[moment])
             bc_bootstrap_lower_ci[moment] = bc_lower_ci
             bc_bootstrap_upper_ci[moment] = bc_upper_ci
@@ -182,7 +170,7 @@ def create_plot(
         ax.axvline(
             moments_obs[moment], linewidth=4.0, color="tab:gray", label="observations"
         )
-        if bc_fcst_file:
+        if da_bc_fcst is not None:
             ax.hist(
                 bc_bootstrap_values[moment],
                 rwidth=0.8,
@@ -209,7 +197,7 @@ def create_plot(
             ax.legend()
 
     metadata = log_results(moments_obs, bootstrap_lower_ci, bootstrap_upper_ci)
-    if bc_fcst_file:
+    if da_bc_fcst is not None:
         bc_metadata = log_results(
             moments_obs,
             bc_bootstrap_lower_ci,
@@ -219,11 +207,6 @@ def create_plot(
         metadata = metadata | bc_metadata
 
     if outfile:
-        infile_logs = {obs_file: ds_obs.attrs["history"]}
-        if bc_fcst_file:
-            infile_logs[bc_fcst_file] = ds_bc_fcst.attrs["history"]
-        else:
-            infile_logs[fcst_file] = ds_fcst.attrs["history"]
         metadata["history"] = fileio.get_new_log(infile_logs=infile_logs)
         plt.savefig(
             outfile,
@@ -282,16 +265,41 @@ def _main():
 
     args = _parse_command_line()
 
+    ds_fcst = fileio.open_dataset(args.fcst_file)
+    da_fcst = ds_fcst[args.var]
+    if args.min_lead is not None:
+        da_fcst = da_fcst.where(ds_fcst[args.lead_dim] >= args.min_lead)
+
+    ds_obs = fileio.open_dataset(args.obs_file)
+    da_obs = ds_obs[args.var].dropna("time")
+
+    if args.bias_file:
+        ds_bc_fcst = fileio.open_dataset(args.bias_file)
+        da_bc_fcst = ds_bc_fcst[var]
+        if args.min_lead is not None:
+            da_bc_fcst = da_bc_fcst.where(ds_bc_fcst[args.lead_dim] >= args.min_lead)
+    else:
+        da_bc_fcst = None
+
+    if args.outfile:
+        infile_logs = {args.obs_file: ds_obs.attrs["history"]}
+        if args.bias_file:
+            infile_logs[args.bias_file] = ds_bc_fcst.attrs["history"]
+        else:
+            infile_logs[args.fcst_file] = ds_fcst.attrs["history"]
+    else:
+        infile_logs = None
+
     create_plot(
-        args.fcst_file,
-        args.obs_file,
-        args.var,
+        da_fcst,
+        da_obs,
+        da_bc_fcst=da_bc_fcst,
         outfile=args.outfile,
-        bc_fcst_file=args.bias_file,
         min_lead=args.min_lead,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,
+        infile_logs=infile_logs,
     )
 
 

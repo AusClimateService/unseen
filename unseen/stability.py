@@ -264,8 +264,7 @@ def plot_return_by_time(
 
 
 def create_plot(
-    fcst_file,
-    var,
+    da_fcst,
     metric,
     start_years,
     outfile=None,
@@ -280,12 +279,12 @@ def create_plot(
 
     Parameters
     ----------
-    fcst_file : str
-        Forecast file containing metric of interest
-    var : str
-        Variable name (in fcst_file)
+    da_fcst : xarray Data Array
+        Forecast data
     metric: str
         Metric name (for plot title)
+    start_years : list
+        Equally spaced list of start years
     outfile : str, default None
         Path for output image file
     uncertainty: bool, default False
@@ -302,8 +301,6 @@ def create_plot(
         Name of lead time dimension
     """
 
-    ds_fcst = fileio.open_dataset(fcst_file)
-    da_fcst = ds_fcst[var]
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
 
@@ -407,9 +404,11 @@ def _main():
 
     args = _parse_command_line()
 
+    ds_fcst = fileio.open_dataset(args.fcst_file)
+    da_fcst = ds_fcst[args.var]
+
     create_plot(
-        args.fcst_file,
-        args.var,
+        da_fcst,
         args.metric,
         args.start_years,
         outfile=args.outfile,

@@ -230,7 +230,7 @@ Stability and stationarity testing
 ^^^^^^^^^^^^^^^^^^^^
 
 Now that we have our annual rainfall data for the wheatbelt region,
-we need to check with the dataset is stable (no drift/trend with lead time)
+we need to check whether the dataset is stable (no drift/trend with lead time)
 and stationary (no trend with time).
 To do this, we can use the ``stability`` module:
 
@@ -251,18 +251,25 @@ To do this, we can use the ``stability`` module:
 .. image:: wheatbelt_stability_CanESM5.png
    :width: 800
 
+In this case, it looks like the there's model drift in the first few lead times
+before the simulations settle down (confirmed also in the indpendence analysis; see below).
+There is also some evidence of a trend with time in the data,
+so we might decide to remove earlier forecast years (e.g. start at 1980 instead of 1960)
+from our analysis or detrend the data
+(detrending functionality isn't currently available in the UNSEEN software).
+
 
 Independence testing
 ^^^^^^^^^^^^^^^^^^^^
 
-Next we want to ensure that each sample in our model dataset is independent.
+Next, we want to ensure that each sample in our model dataset is independent.
 To do this, we can use the ``independence`` module:
 
 .. code-block:: python
 
    from unseen import independence
 
-   mean_correlations, null_correlation_bounds = independence.run_tests(cafe_da_bc)
+   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])
 
 
 For each initialisation time/month,
@@ -276,15 +283,10 @@ as well as the bounds on zero correlation based on random sampling.
 
 .. code-block:: none
 
-   {5: <xarray.DataArray (lead_time: 11)>
- dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
- Coordinates:
-   * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10,
- 11: <xarray.DataArray (lead_time: 11)>
- dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
- Coordinates:
-   * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10} 
-
+    {1: <xarray.DataArray (lead_time: 10)>
+    dask.array<mean_agg-aggregate, shape=(10,), dtype=float64, chunksize=(10,), chunktype=numpy.ndarray>
+    Coordinates:
+      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9}
 
 The mean correlations and null correlation bounds can then be plotted:
 
@@ -293,7 +295,7 @@ The mean correlations and null correlation bounds can then be plotted:
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
-       'wheatbelt_independence.png'
+       'wheatbelt_independence_CanESM5.png'
    )
 
 
@@ -301,16 +303,19 @@ The mean correlations and null correlation bounds can then be plotted:
    :width: 450
 
 
-(Lead time 0 and 10 aren't present in the plot because they didn't contain data for the full year.)
-
-In this case we only want to retain lead time 3 onwards.
-At this point we shouldn't use ``cafe_ds['pr'].sel({'lead_time': slice(3, None)}`` to remove the unwanted lead times
-(for some of the array operations performed in the bias correction the data needs to retain its original shape),
-but we can set unwanted values to NaN.
+Consistent with the stability analysis,
+it's clear that the first three lead times aren't independent.
+We can remove the early lead times from our dataset as follows:
 
 .. code-block:: python
 
-   cafe_da_indep = cafe_ds['pr'].where(cafe_ds['lead_time'] > 2)
+    model_da_indep = model_ds['pr'].where(model_ds['lead_time'] > 2)
+
+
+Fidelity testing
+^^^^^^^^^^^^^^^
+
+
 
 
 Bias correction

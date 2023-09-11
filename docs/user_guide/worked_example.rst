@@ -33,7 +33,8 @@ We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/60096007
      '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
      '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
 
-The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset:
+The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset
+and apply simple temporal and spatial aggregation:
 
 .. code-block:: python
 
@@ -141,9 +142,10 @@ Model data
 ^^^^^^^^^^
 
 The CanESM5 submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
-We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast`` and it will sort and process
-them into a single xarray dataset.
-We just need to order the files in the list by initialisation date and then ensemble member. For example,
+We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast``
+and it will sort and process them into a single xarray dataset.
+We just need to order the files in the list by initialisation date and then ensemble member.
+For example:
 
 .. code-block:: none
 
@@ -232,6 +234,7 @@ Stability and stationarity testing
 Now that we have our annual rainfall data for the wheatbelt region,
 we need to check whether the dataset is stable (no drift/trend with lead time)
 and stationary (no trend with time).
+
 To do this, we can use the ``stability`` module:
 
 .. code-block:: python
@@ -262,38 +265,28 @@ from our analysis or detrend the data
 Independence testing
 ^^^^^^^^^^^^^^^^^^^^
 
-Next, we want to ensure that each sample in our model dataset is independent.
-To determine the lead time at which the ensemble members can be considered independent, we follow \citet{Squire2021} and test whether the correlation between ensemble members at a given lead time is sufficiently close to zero. At each lead time, the HadGEM3-GC31-MM submission to DCPP (for instance) provides 10 (members), 59-year timeseries of Rx15day (spanning, e.g., 1961-2019 at 1-year lead, or 1965–2023 at 5-year lead). We define our test statistic, $\rho_t$, for each lead time as the mean Spearman correlation in time between all combinations of the 10 ensemble members (of which there are 45: member 1 with 2, member 1 with 3 etc). Significance of $\rho_t$ is estimated using a permutation test, whereby 10,000 sets of 10 $\times$ 59 points are randomly drawn from the complete model dataset to produce 10,000 estimates of the mean Spearman correlation. Because these estimates are constructed from randomly drawn data, they represent the distribution of mean correlation values for uncorrelated data (i.e., the null distribution). Ensemble members are considered to be dependent (i.e., the null hypothesis of independence is rejected) at a given lead time if $\rho_t$ falls outside of the 95\% confidence interval calculated from the randomly sampled distribution. Samples from dependent lead times (see Figure S11) were removed prior to fidelity and likelihood assessment.
+Next, we want to determine the lead time at which the ensemble members can be considered independent.
+To do this, we can test whether the correlation between ensemble members at a given lead time is sufficiently close to zero.
+At each lead time, the CanESM5 submission to DCPP provides 20 (members), 57-year timeseries of annual mean rainfall
+(spanning, e.g., 1961-2017 at 1-year lead, or 1965–2021 at 5-year lead).
+We define our test statistic, $\rho_t$,
+for each lead time as the mean Spearman correlation in time between all combinations of the 20 ensemble members
+(of which there are 190: member 1 with 2, member 1 with 3 etc).
+Significance of $\rho_t$ is estimated using a permutation test,
+whereby 10,000 sets of 20 times 57 points are randomly drawn from the complete model dataset
+to produce 10,000 estimates of the mean Spearman correlation.
+Because these estimates are constructed from randomly drawn data,
+they represent the distribution of mean correlation values for uncorrelated data (i.e., the null distribution).
+Ensemble members are considered to be dependent (i.e., the null hypothesis of independence is rejected)
+at a given lead time if $\rho_t$ falls outside of the 95\% confidence interval calculated from the randomly sampled distribution.
 
-To do this, we can use the ``independence`` module:
+To perform this test, we can use the ``independence`` module:
 
 .. code-block:: python
 
    from unseen import independence
 
-   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])
-
-
-For each initialisation time/month,
-``run_tests`` calculates the mean correlation between all the ensemble members (for each lead time)
-as well as the bounds on zero correlation based on random sampling.
-
-.. code-block:: python
-    
-   print(mean_correlations)   
-
-
-.. code-block:: none
-
-    {1: <xarray.DataArray (lead_time: 10)>
-    dask.array<mean_agg-aggregate, shape=(10,), dtype=float64, chunksize=(10,), chunktype=numpy.ndarray>
-    Coordinates:
-      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9}
-
-The mean correlations and null correlation bounds can then be plotted:
-
-.. code-block:: python
-
+   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])      
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
@@ -371,7 +364,7 @@ to see the effect of the bias correction.
 
 
 .. image:: wheatbelt_precip_histogram_CanESM5.png
-   :width: 450
+   :width: 700
 
 
 Fidelity testing

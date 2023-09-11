@@ -9,19 +9,28 @@ So dry, in fact, that wheat was imported into the country for the first time sin
 
 In this worked example,
 we'll put this record dry year in context by applying the UNSEEN approach to
-an observational dataset (`AGCD <http://www.bom.gov.au/metadata/catalogue/19115/ANZCW0503900567>`__)
-and a large forecast ensemble (`CAFE <https://www.publish.csiro.au/ES/justaccepted/ES21024>`__).
+an observational dataset (AGCD)
+and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
 
 Observational data
 ^^^^^^^^^^^^^^^^^^
 
-We can use the AGCD rainfall data regridded to the CAFE model grid for our analysis.
-(See `this repo <https://github.com/AusClimateService/agcd>`__ for details.)
+We can use the `AGCD dataset available on NCI <https://dx.doi.org/10.25914/6009600786063>`__.
 
 .. code-block:: python
+    import glob
 
-   agcd_file = '/g/data/ia39/agcd/post-processed/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip'
+    agcd_files = glob.glob('/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_*.nc')
+    agcd_files.sort()
+    print(agcd_files)
 
+.. code-block:: none
+
+    ['/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1900.nc',
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1901.nc',
+     ...
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
 
 The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset:
 
@@ -34,14 +43,12 @@ The ``fileio.open_dataset`` function can be used to open a data file/s as an xar
         variables=['pr'],
         shapefile='wheatbelt.zip',
         spatial_agg='mean',
-        shape_label_header='region',
         time_freq='A-DEC',
         time_agg='sum',
         input_freq='M',
         metadata_file='../../config/dataset_agcd_monthly.yml',
         complete_time_agg_periods=True
     )
-
 
 In addition to opening the AGCD file,
 we've asked the function to:
@@ -51,47 +58,32 @@ we've asked the function to:
 -  Calculate the spatial mean across the wheatbelt (as defined in a shapefile)
 -  Convert the monthly timescale data to an annual sum and only retain years where data for all months are available 
 
-The order of operations here
-(e.g. spatial before temporal selection and aggregation)
-is set within the ``open_dataset`` function,
-so if you require a different order you can use the relevant functions
-from the ``spatial_selection`` and ``time_utils`` modules on their own
-to acheive the order you need.
-
-We can then squeeze the redundant ``region`` dimension
-(there's only one region in the shapefile)
-and drop the years that are NaN because they didn't have data for all months:
-
 .. code-block:: python
 
-   agcd_ds = agcd_ds.squeeze(drop=True)
-   agcd_ds = agcd_ds.dropna('time')
-   print(agcd_ds)
-
+    print(agcd_ds)
 
 .. code-block:: none
 
-   <xarray.Dataset>
-   Dimensions:  (time: 120)
-   Coordinates:
-     * time     (time) object 1900-12-31 00:00:00 ... 2019-12-31 00:00:00
-   Data variables:
-       pr       (time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
-   Attributes: (12/29)
-       Conventions:               CF-1.6, ACDD-1.3
-       acknowledgment:            The Australian Government, Bureau of Meteorolo...
-       agcd_version:              AGCD v2.0.0 Snapshot (1900-01-01 to 2020-05-31)
-       analysis_components:       total: the gridded accumulation of rainfall.
-       attribution:               Data should be cited as : Australian Bureau of...
-       cdm_data_type:             Grid
-       ...                        ...
-       summary:                   The monthly rainfall data represents the amoun...
-       time_coverage_end:         1900-12-31T00:00:00
-       time_coverage_start:       1900-01-01T00:00:00
-       title:                     Interpolated Rain Gauge Precipitation
-       url:                       http://www.bom.gov.au/climate/
-       uuid:                      43596dc1-c56e-42a2-ba87-4e3b726a6e60
-
+    <xarray.Dataset>
+    Dimensions:  (time: 123)
+    Coordinates:
+      * time     (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
+    Data variables:
+        pr       (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+    Attributes: (12/33)
+        geospatial_lat_min:        -44.525
+        geospatial_lat_max:        -9.975
+        geospatial_lon_min:        111.975
+        geospatial_lon_max:        156.275
+        time_coverage_start:       1900-01-01T00:00:00
+        date_created:              2020-08-27T21:49:15.867624
+        ...                        ...
+        licence:                   Data Licence: The grid data files in this AGCD...
+        description:               This AGCD data is a snapshot of the operationa...
+        date_issued:               2023-05-21 22:51:24
+        attribution:               Data should be cited as : Australian Bureau of...
+        copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
+        history:            
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
 otherwise the dask task graph can get out of control.
@@ -140,11 +132,15 @@ otherwise the dask task graph can get out of control.
    1919    377.921436
    Name: pr, dtype: float64
 
+Analysis of the AGCD data shows that 2019 was indeed an unprecented dry year with an average annual rainfall
+over the wheatbelt of only 259mm. 
+
 
 Model data
 ^^^^^^^^^^
 
-The CAFE dataset consists of multiple forecast files - one for each initialisation date:
+The CanESM5 submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
+
 
 .. code-block:: python
 

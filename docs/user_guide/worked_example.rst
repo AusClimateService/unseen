@@ -25,6 +25,7 @@ We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/60096007
     agcd_files.sort()
     print(agcd_files)
 
+
 .. code-block:: none
 
     ['/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1900.nc',
@@ -32,6 +33,7 @@ We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/60096007
      ...
      '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
      '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
+
 
 The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset
 and apply simple temporal and spatial aggregation:
@@ -52,6 +54,7 @@ and apply simple temporal and spatial aggregation:
         complete_time_agg_periods=True
     )
 
+
 In addition to opening the AGCD file,
 we've asked the function to:
 
@@ -63,6 +66,7 @@ we've asked the function to:
 .. code-block:: python
 
     print(agcd_ds)
+
 
 .. code-block:: none
 
@@ -86,6 +90,7 @@ we've asked the function to:
         attribution:               Data should be cited as : Australian Bureau of...
         copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
         history:            
+
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
 otherwise the dask task graph can get out of control.
@@ -134,6 +139,7 @@ otherwise the dask task graph can get out of control.
    1919    377.921436
    Name: pr, dtype: float64
 
+
 Analysis of the AGCD data shows that 2019 was indeed an unprecented dry year with an average annual rainfall
 over the wheatbelt of only 259mm. 
 
@@ -151,6 +157,7 @@ For example:
 
     cat CanESM5_dcppA-hindcast_pr_files.txt
 
+
 .. code-block:: none    
 
     /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r1i1p2f1_gn_19610101-19701231.nc
@@ -167,6 +174,7 @@ For example:
     /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r18i1p2f1_gn_20170101-20261231.nc
     /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r19i1p2f1_gn_20170101-20261231.nc
     /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r20i1p2f1_gn_20170101-20261231.nc
+
 
 .. code-block:: python
 
@@ -186,6 +194,7 @@ For example:
        units={'pr': 'mm day-1'},
        units_timing='middle'
    )
+
 
 We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
@@ -250,6 +259,7 @@ To do this, we can use the ``stability`` module:
         return_method='empirical',
         ymax=None,
     )
+
 
 .. image:: wheatbelt_stability_CanESM5.png
    :width: 800
@@ -340,6 +350,7 @@ To do this, we can use the ``bias_correction`` module:
 
     model_da_bc = bias_correction.remove_bias(model_da_indep, bias, correction_method)
 
+
 We can plot both the raw and bias corrected model data against the observed
 to see the effect of the bias correction.
 
@@ -392,6 +403,7 @@ To perform the moments test, we can use the ``moments`` module:
         outfile='wheatbelt_moments_CanESM5.png',
     )
 
+
 .. image:: wheatbelt_moments_CanESM5.png
    :width: 700
 
@@ -416,6 +428,7 @@ To perform these similarity tests, we can use the ``similarity`` module:
     print('AD score:', similarity_ds['ad_statistic'].values)
     print('AD p-value:', similarity_ds['ad_pval'].values)
 
+
 .. code-block:: none
 
     KS score: 0.1046641
@@ -430,7 +443,7 @@ Results
 Once we've got to the point where our data is procesed
 and we are satisified that the observational and (independent, bias corrected) model data
 have similar enough statistical distributions,
-the ``general_utils`` module has a number of functions to help to express our unpreecedented event
+the unseen software has a number of functions to help to express our unpreecedented event
 (in this case the 2019 annual rainfall total over the Australian wheatbelt)
 in the context of our large ensemble.
 
@@ -438,77 +451,58 @@ Once we've stacked our model data so it's one dimensional,
 
 .. code-block:: python
 
-   cafe_da_indep_stacked = cafe_da_indep.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
-   print(cafe_da_indep_stacked)
+   model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+   print(model_da_indep_stacked)
 
 
 .. code-block:: none
 
-   <xarray.DataArray 'pr' (sample: 34944)>
-   array([444.60986567, 689.77274747, 402.1668014 , ..., 388.06818872,
-          523.24595738, 452.023927  ])
-   Coordinates:
-       time       (sample) object 1998-05-01 12:00:00 ... 2029-11-01 12:00:00
-     * sample     (sample) MultiIndex
-     - ensemble   (sample) int64 1 1 1 1 1 1 1 1 1 1 ... 96 96 96 96 96 96 96 96 96
-     - init_date  (sample) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-     - lead_time  (sample) int64 3 4 5 6 7 8 9 3 4 5 6 7 ... 6 7 8 9 3 4 5 6 7 8 9
-   Attributes:
-       cell_methods:   time: mean
-       interp_method:  conserve_order1
-       long_name:      Total precipitation rate
-       time_avg_info:  average_T1,average_T2,average_DT
-       units:          mm d-1
-
-
-we can plot an exceedance curve
-(or in this case a deceedance curve since we are interested in rainfall events below the 2019 value).  
+    <xarray.DataArray 'pr' (sample: 7980)>
+    array([519.9104 , 426.1649 , 301.16626, ..., 350.6456 , 760.3037 ,
+           551.5477 ], dtype=float32)
+    Coordinates:
+        time       (sample) object 1964-01-01 12:00:00 ... 2026-01-01 12:00:00
+      * sample     (sample) object MultiIndex
+      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 ... 19 19 19 19 19 19 19 19 19
+      * init_date  (sample) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
+      * lead_time  (sample) int64 3 4 5 6 7 8 9 3 4 5 6 7 ... 6 7 8 9 3 4 5 6 7 8 9
+    Attributes:
+        units:                   mm d-1
+        standard_name:           lwe_precipitation_rate
+        bias_correction_method:  additive
+        bias_correction_period:  1961-01-01-2017-12-31
+ 
 
 .. code-block:: python
 
-   from unseen import general_utils
-
-   sorted_data, deceedance = general_utils.exceedance_curve(cafe_da_indep_stacked.data, deceedance=True)
-
-   pr2019 = agcd_ds['pr'].data.min()
-   print(pr2019)
+    stability.plot_return(model_da_bc_stacked, 'gev', outfile='return_curve_CanESM5.png')
 
 
-.. code-block:: none
-   
-   258.7729632499339
+.. image:: return_curve_CanESM5.png
+   :width: 700
 
 
 .. code-block:: python
 
-   fig = plt.figure(figsize=[8, 6])
-   ax = fig.add_subplot()
-   ax.plot(sorted_data, deceedance)
-   ax.invert_xaxis()
-   ax.set_title(f'Average precipitation across the wheatbelt')
-   ax.set_ylabel('likelihood of deceedance (%)')
-   ax.set_xlabel('annual precipitation (mm)')
-   ax.axvline(pr2019, color='0.5', linestyle='--')
-   plt.show()
+    from unseen import general_utils
 
-
-.. image:: deceedance_curve.png
-   :width: 450
-
-
-We can also generate common event statistics such as a percentile or return period.
-
-.. code-block:: python
-
-   percentile, return_period = general_utils.event_in_context(cafe_da_indep_stacked.data, pr2019, 'below')
-
-   print(f'{percentile:.2f}% percentile')
-   print(f'{return_period:.0f} year return period')
+    pr2019 = agcd_ds['pr'].data.min()
+    print(pr2019)
+    
+    n_events_bc, n_population_bc, return_period_bc, percentile_bc = general_utils.event_in_context(
+        model_da_bc_stacked.values,
+        pr2019,
+        'below',
+    )
+    print('BIAS CORRECTED DATA')
+    print(f'{n_events_bc} events in {n_population_bc} samples')
+    print(f'{percentile_bc:.2f}% percentile')
+    print(f'{return_period_bc:.0f} year return period')
 
 
 .. code-block:: none
 
-   1.78% percentile
-   56 year return period
-
-     
+    BIAS CORRECTED DATA
+    83 events in 7980 samples
+    1.04% percentile
+    96 year return period

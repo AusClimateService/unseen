@@ -15,9 +15,10 @@ and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP)
 Observational data
 ^^^^^^^^^^^^^^^^^^
 
-We can use the `AGCD dataset available on NCI <https://dx.doi.org/10.25914/6009600786063>`__.
+We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/6009600786063>`__:
 
 .. code-block:: python
+
     import glob
 
     agcd_files = glob.glob('/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_*.nc')
@@ -140,58 +141,56 @@ Model data
 ^^^^^^^^^^
 
 The CanESM5 submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
-
-
-.. code-block:: python
-
-   import glob
-
-   cafe_files1990s = glob.glob('/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-199[5,6,7,8,9]*/atmos_isobaric_daily.zarr.zip')
-   cafe_files2000s = glob.glob('/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-2*/atmos_isobaric_daily.zarr.zip')
-   cafe_files = cafe_files1990s + cafe_files2000s
-   cafe_files.sort()
-   print(cafe_files)
-
+We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast`` and it will sort and process
+them into a single xarray dataset.
+We just need to order the files in the list by initialisation date and then ensemble member. For example,
 
 .. code-block:: none
 
-   ['/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19950501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19951101/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19960501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19961101/atmos_isobaric_daily.zarr.zip',
+    cat CanESM5_dcppA-hindcast_pr_files.txt
+
+.. code-block:: none    
+
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r1i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r2i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r3i1p2f1_gn_19610101-19701231.nc
     ...
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20190501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20191101/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20200501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20201101/atmos_isobaric_daily.zarr.zip']
-
-
-In order to open and combine a multi-file forecast data,
-we can use the ``fileio.open_mfforecast`` function:
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r18i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r19i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r20i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r1i1p2f1_gn_19620101-19711231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r2i1p2f1_gn_19620101-19711231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r3i1p2f1_gn_19620101-19711231.nc
+    ...
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r18i1p2f1_gn_20170101-20261231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r19i1p2f1_gn_20170101-20261231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r20i1p2f1_gn_20170101-20261231.nc
 
 .. code-block:: python
 
-   cafe_ds = fileio.open_mfforecast(cafe_files,
+   cafe_ds = fileio.open_mfforecast(
+       'CanESM5_dcppA-hindcast_pr_files.txt',
+       n_ensemble_files=20,
        variables=['pr'],
-       spatial_coords=[-44, -11, 113, 154],
+       lat_bnds=[-44, -11],
+       lon_bnds=[113, 154],
        shapefile='wheatbelt.zip',
        spatial_agg='mean',
        time_freq='A-DEC',
        time_agg='sum',
        input_freq='D',
        reset_times=True,
-       metadata_file='../../config/dataset_cafe_monthly.yml',
        complete_time_agg_periods=True,
        units={'pr': 'mm day-1'},
        units_timing='middle'
    )
 
-
 We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
 with a couple of additions:
 
--  Selecting a box region (using the ``spatial_coords`` argument) around your shapefile region can help reduce the memory required to work with the shapefile
+-  The ``n_ensemble_members`` argument helps the function sort the contents of the input file list 
+-  Selecting a box region (using the ``lat_bnds`` and ``lon_bnds`` arguments) around your shapefile region can help reduce the memory required to work with the shapefile
 -  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
 -  The ``units`` option allows you to convert the units of particular variables. You can choose (using the ``units_timing`` option) for the conversion to happen at the start (before spatial and temporal operations), middle (after the spatial but before the temporal operations) or end.
 
@@ -199,28 +198,34 @@ The only other thing we need to do is once again remove the redundant dimension:
 
 .. code-block:: python
 
-   cafe_ds = cafe_ds.squeeze(drop=True)
-   cafe_ds = cafe_ds.compute()
-   print(cafe_ds)
+   print(model_ds)
    
 
 .. code-block:: none
 
-   <xarray.Dataset>
-   Dimensions:    (ensemble: 96, init_date: 52, lead_time: 11)
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * ensemble   (ensemble) int64 1 2 3 4 5 6 7 8 9 ... 88 89 90 91 92 93 94 95 96
-     * init_date  (init_date) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-       time       (lead_time, init_date) object 1995-05-01 12:00:00 ... 2030-11-...
-   Data variables:
-       pr         (init_date, lead_time, ensemble) float64 dask.array<chunksize=(1, 1, 96), meta=np.ndarray>
-   Attributes:
-       comment:    pressure level interpolator, version 3.0, precision=double
-       filename:   atmos_isobaric_daily.zarr
-       grid_tile:  N/A
-       grid_type:  regular
-       title:      AccessOcean-AM2
+    <xarray.Dataset>
+    Dimensions:    (init_date: 57, ensemble: 20, lead_time: 10)
+    Coordinates:
+      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9
+      * ensemble   (ensemble) int64 0 1 2 3 4 5 6 7 8 ... 11 12 13 14 15 16 17 18 19
+      * init_date  (init_date) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
+        time       (lead_time, init_date) object 1961-01-01 12:00:00 ... 2026-01-...
+    Data variables:
+        pr         (init_date, ensemble, lead_time) float32 dask.array<chunksize=(1, 1, 1), meta=np.ndarray>
+    Attributes: (12/53)
+        CCCma_model_hash:            Unknown
+        CCCma_parent_runid:          d2a-asm-e01
+        CCCma_pycmor_hash:           13db8596c37129e414cad7ae31f2927ca8f5dd39
+        CCCma_runid:                 d2a196101e01
+        Conventions:                 CF-1.7 CMIP-6.2
+        YMDH_branch_time_in_child:   1961:01:01:00
+        ...                          ...
+        tracking_id:                 hdl:21.14100/f220e01c-1214-4625-be6a-c0475c2...
+        variable_id:                 pr
+        variant_label:               r1i1p2f1
+        version:                     v20190429
+        license:                     CMIP6 model data produced by The Government ...
+        cmor_version:                3.4.0
 
 
 Independence testing

@@ -110,7 +110,7 @@ otherwise the dask task graph can get out of control.
 
 
 .. image:: observational_record.png
-   :width: 800
+   :width: 1000
 
 
 .. code-block:: python
@@ -194,8 +194,6 @@ with a couple of additions:
 -  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
 -  The ``units`` option allows you to convert the units of particular variables. You can choose (using the ``units_timing`` option) for the conversion to happen at the start (before spatial and temporal operations), middle (after the spatial but before the temporal operations) or end.
 
-The only other thing we need to do is once again remove the redundant dimension:
-
 .. code-block:: python
 
    print(model_ds)
@@ -228,11 +226,36 @@ The only other thing we need to do is once again remove the redundant dimension:
         cmor_version:                3.4.0
 
 
-Independence testing
+Stability and stationarity testing
 ^^^^^^^^^^^^^^^^^^^^
 
 Now that we have our annual rainfall data for the wheatbelt region,
-we want to ensure that each sample in our model dataset is independent.
+we need to check with the dataset is stable (no drift/trend with lead time)
+and stationary (no trend with time).
+To do this, we can use the ``stability`` module:
+
+.. code-block:: python
+
+    from unseen import stability
+
+    stability.create_plot(
+        model_ds['pr'],
+        'annual mean rainfall',
+        [1960, 1970, 1980, 1990, 2000, 2010],
+        outfile='wheatbelt_stability_CanESM5.png',
+        uncertainty=True,
+        return_method='empirical',
+        ymax=None,
+    )
+
+.. image:: wheatbelt_stability_CanESM5.png
+   :width: 800
+
+
+Independence testing
+^^^^^^^^^^^^^^^^^^^^
+
+Next we want to ensure that each sample in our model dataset is independent.
 To do this, we can use the ``independence`` module:
 
 .. code-block:: python

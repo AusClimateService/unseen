@@ -263,6 +263,8 @@ Independence testing
 ^^^^^^^^^^^^^^^^^^^^
 
 Next, we want to ensure that each sample in our model dataset is independent.
+To determine the lead time at which the ensemble members can be considered independent, we follow \citet{Squire2021} and test whether the correlation between ensemble members at a given lead time is sufficiently close to zero. At each lead time, the HadGEM3-GC31-MM submission to DCPP (for instance) provides 10 (members), 59-year timeseries of Rx15day (spanning, e.g., 1961-2019 at 1-year lead, or 1965–2023 at 5-year lead). We define our test statistic, $\rho_t$, for each lead time as the mean Spearman correlation in time between all combinations of the 10 ensemble members (of which there are 45: member 1 with 2, member 1 with 3 etc). Significance of $\rho_t$ is estimated using a permutation test, whereby 10,000 sets of 10 $\times$ 59 points are randomly drawn from the complete model dataset to produce 10,000 estimates of the mean Spearman correlation. Because these estimates are constructed from randomly drawn data, they represent the distribution of mean correlation values for uncorrelated data (i.e., the null distribution). Ensemble members are considered to be dependent (i.e., the null hypothesis of independence is rejected) at a given lead time if $\rho_t$ falls outside of the 95\% confidence interval calculated from the randomly sampled distribution. Samples from dependent lead times (see Figure S11) were removed prior to fidelity and likelihood assessment.
+
 To do this, we can use the ``independence`` module:
 
 .. code-block:: python
@@ -299,7 +301,7 @@ The mean correlations and null correlation bounds can then be plotted:
    )
 
 
-.. image:: wheatbelt_independence.png
+.. image:: wheatbelt_independence_CanESM5.png
    :width: 450
 
 
@@ -310,161 +312,90 @@ We can remove the early lead times from our dataset as follows:
 .. code-block:: python
 
     model_da_indep = model_ds['pr'].where(model_ds['lead_time'] > 2)
-
-
-Fidelity testing
-^^^^^^^^^^^^^^^
-
-
+    model_da_indep.dropna('lead_time')
 
 
 Bias correction
 ^^^^^^^^^^^^^^^
 
-In order to bias correct the (independent) model data,
-we can use the ``bias_correction`` module:
+The final step in the model evaluation is to assess fidelity -
+how well the model simulates the metric of interest (see below).
+If the model fails the fidelity test/s,
+it is common to bias correct the data
+and then re-test to see whether it might be appropriate to use
+bias corrected data for the likelihood analysis.
+The most common bias correction method used in the UNSEEN literature to overcome model bias
+in extreme precipitation is simple multiplicative mean scaling,
+whereby the model data is multiplied by the ratio of the average observed and modeled values.
+
+To do this, we can use the ``bias_correction`` module:
 
 .. code-block:: python
 
-   from unseen import bias_correction
+    from unseen import bias_correction
 
-   bias = bias_correction.get_bias(
-       cafe_da_indep,
-       agcd_ds['pr'],
-       'additive',
-       time_rounding='A',
-       time_period=['2004-01-01', '2019-12-31']
-   )
-   
-   print(bias)
+    correction_method = 'multiplicative'
 
+    bias = bias_correction.get_bias(
+        model_da_indep,
+        agcd_ds['pr'],
+        correction_method,
+        time_rounding='A',
+        time_period=['1961-01-01', '2017-12-31']
+    )
 
-.. code-block:: none
+    model_da_bc = bias_correction.remove_bias(model_da_indep, bias, correction_method)
 
-   <xarray.DataArray 'pr' (month: 2, lead_time: 11)>
-   array([[         nan,          nan,          nan, -79.73348325,
-           -66.94647375, -51.25970312, -54.93298978, -46.39792357,
-           -44.19195586, -46.706165  ,          nan],
-          [         nan,          nan,          nan, -65.09246704,
-           -73.51923507, -52.91778398, -45.92252261, -44.3704739 ,
-           -41.02545657, -47.19070081,          nan]])
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * month      (month) int64 5 11
-   Attributes:
-       cell_methods:            time: mean
-       interp_method:           conserve_order1
-       long_name:               Total precipitation rate
-       time_avg_info:           average_T1,average_T2,average_DT
-       units:                   mm d-1
-       climatological_period:   ['2004-01-01', '2019-12-31']
-       bias_correction_method:  additive
-       bias_correction_period:  2004-01-01-2019-12-31
-
-
-In this case we're using the additive (as opposed to multiplicative) bias correction method.
-The bias represents the difference between model (CAFE) and observed (AGCD) climatology over the period 2004-2019. 
-The first initialisation date is 1995, the last initialisation date is 2020, and each forecast is run for 10 years.
-Those 10 year windows actually span 11 calendar years but the first and last year are incomplete,
-so we end up with 9 annual rainfall values per forecast, the last 7 of which are independent samples.
-This means each year over the 2004-2023 period is sampled the same number of times (7 times).
-The AGCD data spans 1900-2019, so the common period is 2004-2019.
-
-A separate bias is calculated for each lead time/year.
+We can plot both the raw and bias corrected model data against the observed
+to see the effect of the bias correction.
 
 .. code-block:: python
 
-   cafe_da_bc = bias_correction.remove_bias(cafe_da_indep, bias, 'additive')
-   cafe_da_bc = cafe_da_bc.compute()
-   print(cafe_da_bc)
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure(figsize=[10, 6])
+    model_da_indep.plot.hist(
+        bins=50, density=True, label='MODEL', alpha=0.7
+    )
+    model_da_bc.plot.hist(
+        bins=50, density=True, label='MODEL BIAS CORRECTED', facecolor='darkblue', alpha=0.7
+    )
+    agcd_ds['pr'].plot.hist(
+        bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7
+    )
+    plt.xlabel('annual precipitation (mm)')
+    plt.ylabel('probability')
+    plt.title(f'Average precipitation across the Australian wheatbelt')
+    plt.legend()
+    plt.show()
 
 
-.. code-block:: none
-
-   <xarray.DataArray 'pr' (init_date: 52, lead_time: 11, ensemble: 96)>
-   array(...)
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * ensemble   (ensemble) int64 1 2 3 4 5 6 7 8 9 ... 88 89 90 91 92 93 94 95 96
-     * init_date  (init_date) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-       time       (lead_time, init_date) object 1995-05-01 12:00:00 ... 2030-11-...
-   Attributes:
-       cell_methods:            time: mean
-       interp_method:           conserve_order1
-       long_name:               Total precipitation rate
-       time_avg_info:           average_T1,average_T2,average_DT
-       units:                   mm d-1
-       bias_correction_method:  additive
-       bias_correction_period:  2004-01-01-2019-12-31 
-
-
-Similarity testing
-^^^^^^^^^^^^^^^^^^
-
-Before conducting the UNSEEN analysis,
-the last thing we need to do is determine whether the observed
-and (bias corrected, indepdenent) model data have a similar statistical distribution.
-
-We can check visually,
-
-.. code-block:: python
-
-   import matplotlib.pyplot as plt
-
-   fig = plt.figure(figsize=[10, 6])
-
-   cafe_da_indep.plot.hist(bins=50, density=True, label='CAFE', alpha=0.7)
-   cafe_da_bc.plot.hist(bins=50, density=True, label='CAFE BIAS CORRECTED', facecolor='darkblue', alpha=0.7)
-   agcd_ds['pr'].plot.hist(bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7)
-
-   plt.xlabel('annual precipitation (mm)')
-   plt.ylabel('probability')
-   plt.title(f'Average precipitation across the Australian wheatbelt')
-   plt.legend()
-   plt.show()
-
-
-.. image:: wheatbelt_precip_histogram.png
+.. image:: wheatbelt_precip_histogram_CanESM5.png
    :width: 450
 
 
-and/or conduct an appropriate statistical test using the ``similarity`` module.
+Fidelity testing
+^^^^^^^^^^^^^^^
 
-.. code-block:: python
-
-   from unseen import similarity
-
-   similarity_ds = similarity.univariate_ks_test(cafe_da_bc, agcd_ds, 'pr')
-   print(similarity_ds)
-
-
-.. code-block:: none
-
-   <xarray.Dataset>
-   Dimensions:    (lead_time: 7)
-   Coordinates:
-     * lead_time  (lead_time) int64 3 4 5 6 7 8 9
-   Data variables:
-       ks         (lead_time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
-       pval       (lead_time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
+The most common fidelity test used in the UNSEEN literature is the so-called bootstrap or moments test,
+whereby the model data is bootstrapped into a large number of (e.g. 1,000) series of equal length to the observed timeseries
+and the empirical moments of each series (mean, standard deviation, skewness and kurtosis) are calculated.
+If the moments of the observed timeseries fall within the 95% confidence intervals for the statistics derived from the bootstrapped series,
+the model is considered to have passed the test.
+In addition to these four basic empirical moments, some authors also calculate the shape, location and scale parameters
+from a Generalised Extreme Value (GEV) distribution fit (using maximum likelihood estimation of the distribution parameters) to the data.
 
 
-.. code-block:: python
 
-   print(similarity_ds['pval'].values)
-
-.. code-block:: none
-
-   [6.25815783e-04 4.22842520e-04 2.35883442e-05 1.61185358e-05
-    1.64659543e-05 2.02715531e-05 2.26184062e-05]
-
-
-The univariate Kolmogorov-Smirnov (KS) test is used to compare the distributions of two datasets.
-The null hypothesis is that the two dataset values are from the same continuous distribution.
-The alternative hypothesis is that these two datasets are from different continuous distributions.
-In this case p-values less than 0.05 (a commonly used significance threshold) point to null hypothesis being rejected.
-In other words,
-the test suggests that the AGCD and bias corrected independent AGCD data are from different distributions.
+In order to avoid issues associated with multiple testing,
+other authors prefer a single test score comparing the modeled and observed data.
+The Kolmogorov–Smirnov test and Anderson-Darling test have been used to assess
+how likely it is that the observed and model samples were drawn from the same (but unknown) probability distribution.
+A test p-value of greater than 0.05 is typically taken to indicate that the null hypothesis
+(that the two samples are from the same population) cannot be rejected,
+meaning the model data is sufficiently similar to observations to be used in likelihood analysis.
+Each of these tests/approaches can give slightly different insights,
+so they are all available  we apply all of them to our.
 
 
 Results

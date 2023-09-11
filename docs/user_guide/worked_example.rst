@@ -318,7 +318,8 @@ it is common to bias correct the data
 and then re-test to see whether it might be appropriate to use
 bias corrected data for the likelihood analysis.
 The most common bias correction method used in the UNSEEN literature to overcome model bias
-in extreme precipitation is simple multiplicative mean scaling,
+in extreme precipitation is simple multiplicative mean scaling
+(additive mean scaling tends to be used for temperature metrics),
 whereby the model data is multiplied by the ratio of the average observed and modeled values.
 
 To do this, we can use the ``bias_correction`` module:
@@ -378,6 +379,21 @@ the model is considered to have passed the test.
 In addition to these four basic empirical moments, some authors also calculate the shape, location and scale parameters
 from a Generalised Extreme Value (GEV) distribution fit (using maximum likelihood estimation of the distribution parameters) to the data.
 
+To perform the moments test, we can use the ``moments`` module:
+
+.. code-block:: python
+
+    from unseen import moments
+
+    moments.create_plot(
+        model_da_indep,
+        agcd_ds['pr'],
+        da_bc_fcst=model_da_bc,
+        outfile='wheatbelt_moments_CanESM5.png',
+    )
+
+.. image:: wheatbelt_moments_CanESM5.png
+   :width: 700
 
 
 In order to avoid issues associated with multiple testing,
@@ -387,8 +403,25 @@ how likely it is that the observed and model samples were drawn from the same (b
 A test p-value of greater than 0.05 is typically taken to indicate that the null hypothesis
 (that the two samples are from the same population) cannot be rejected,
 meaning the model data is sufficiently similar to observations to be used in likelihood analysis.
-Each of these tests/approaches can give slightly different insights,
-so they are all available  we apply all of them to our.
+
+To perform these similarity tests, we can use the ``similarity`` module:
+
+.. code-block:: python
+
+    from unseen import similarity
+
+    similarity_ds = similarity.similarity_tests(model_da_bc, agcd_ds, 'pr')
+    print('KS score:', similarity_ds['ks_statistic'].values)
+    print('KS p-value:', similarity_ds['ks_pval'].values)
+    print('AD score:', similarity_ds['ad_statistic'].values)
+    print('AD p-value:', similarity_ds['ad_pval'].values)
+
+.. code-block:: none
+
+    KS score: 0.1046641
+    KS p-value: 0.13088146
+    AD score: 2.3708122
+    AD p-value: 0.034534406
 
 
 Results

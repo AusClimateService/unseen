@@ -9,21 +9,34 @@ So dry, in fact, that wheat was imported into the country for the first time sin
 
 In this worked example,
 we'll put this record dry year in context by applying the UNSEEN approach to
-an observational dataset (`AGCD <http://www.bom.gov.au/metadata/catalogue/19115/ANZCW0503900567>`__)
-and a large forecast ensemble (`CAFE <https://www.publish.csiro.au/ES/justaccepted/ES21024>`__).
+an observational dataset (AGCD)
+and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
 
 Observational data
 ^^^^^^^^^^^^^^^^^^
 
-We can use the AGCD rainfall data regridded to the CAFE model grid for our analysis.
-(See `this repo <https://github.com/AusClimateService/agcd>`__ for details.)
+We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/6009600786063>`__:
 
 .. code-block:: python
 
-   agcd_file = '/g/data/ia39/agcd/post-processed/data/agcd_v2_precip_total_cafe-grid_monthly_1900-2020.zarr.zip'
+    import glob
+
+    agcd_files = glob.glob('/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_*.nc')
+    agcd_files.sort()
+    print(agcd_files)
 
 
-The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset:
+.. code-block:: none
+
+    ['/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1900.nc',
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1901.nc',
+     ...
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
+     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
+
+
+The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset
+and apply simple temporal and spatial aggregation:
 
 .. code-block:: python
 
@@ -34,7 +47,6 @@ The ``fileio.open_dataset`` function can be used to open a data file/s as an xar
         variables=['pr'],
         shapefile='wheatbelt.zip',
         spatial_agg='mean',
-        shape_label_header='region',
         time_freq='A-DEC',
         time_agg='sum',
         input_freq='M',
@@ -51,46 +63,33 @@ we've asked the function to:
 -  Calculate the spatial mean across the wheatbelt (as defined in a shapefile)
 -  Convert the monthly timescale data to an annual sum and only retain years where data for all months are available 
 
-The order of operations here
-(e.g. spatial before temporal selection and aggregation)
-is set within the ``open_dataset`` function,
-so if you require a different order you can use the relevant functions
-from the ``spatial_selection`` and ``time_utils`` modules on their own
-to acheive the order you need.
-
-We can then squeeze the redundant ``region`` dimension
-(there's only one region in the shapefile)
-and drop the years that are NaN because they didn't have data for all months:
-
 .. code-block:: python
 
-   agcd_ds = agcd_ds.squeeze(drop=True)
-   agcd_ds = agcd_ds.dropna('time')
-   print(agcd_ds)
+    print(agcd_ds)
 
 
 .. code-block:: none
 
-   <xarray.Dataset>
-   Dimensions:  (time: 120)
-   Coordinates:
-     * time     (time) object 1900-12-31 00:00:00 ... 2019-12-31 00:00:00
-   Data variables:
-       pr       (time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
-   Attributes: (12/29)
-       Conventions:               CF-1.6, ACDD-1.3
-       acknowledgment:            The Australian Government, Bureau of Meteorolo...
-       agcd_version:              AGCD v2.0.0 Snapshot (1900-01-01 to 2020-05-31)
-       analysis_components:       total: the gridded accumulation of rainfall.
-       attribution:               Data should be cited as : Australian Bureau of...
-       cdm_data_type:             Grid
-       ...                        ...
-       summary:                   The monthly rainfall data represents the amoun...
-       time_coverage_end:         1900-12-31T00:00:00
-       time_coverage_start:       1900-01-01T00:00:00
-       title:                     Interpolated Rain Gauge Precipitation
-       url:                       http://www.bom.gov.au/climate/
-       uuid:                      43596dc1-c56e-42a2-ba87-4e3b726a6e60
+    <xarray.Dataset>
+    Dimensions:  (time: 123)
+    Coordinates:
+      * time     (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
+    Data variables:
+        pr       (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+    Attributes: (12/33)
+        geospatial_lat_min:        -44.525
+        geospatial_lat_max:        -9.975
+        geospatial_lon_min:        111.975
+        geospatial_lon_max:        156.275
+        time_coverage_start:       1900-01-01T00:00:00
+        date_created:              2020-08-27T21:49:15.867624
+        ...                        ...
+        licence:                   Data Licence: The grid data files in this AGCD...
+        description:               This AGCD data is a snapshot of the operationa...
+        date_issued:               2023-05-21 22:51:24
+        attribution:               Data should be cited as : Australian Bureau of...
+        copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
+        history:            
 
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
@@ -117,7 +116,7 @@ otherwise the dask task graph can get out of control.
 
 
 .. image:: observational_record.png
-   :width: 800
+   :width: 1000
 
 
 .. code-block:: python
@@ -141,50 +140,56 @@ otherwise the dask task graph can get out of control.
    Name: pr, dtype: float64
 
 
+Analysis of the AGCD data shows that 2019 was indeed an unprecented dry year with an average annual rainfall
+over the wheatbelt of only 259mm. 
+
+
 Model data
 ^^^^^^^^^^
 
-The CAFE dataset consists of multiple forecast files - one for each initialisation date:
-
-.. code-block:: python
-
-   import glob
-
-   cafe_files1990s = glob.glob('/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-199[5,6,7,8,9]*/atmos_isobaric_daily.zarr.zip')
-   cafe_files2000s = glob.glob('/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-2*/atmos_isobaric_daily.zarr.zip')
-   cafe_files = cafe_files1990s + cafe_files2000s
-   cafe_files.sort()
-   print(cafe_files)
-
+The CanESM5 submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
+We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast``
+and it will sort and process them into a single xarray dataset.
+We just need to order the files in the list by initialisation date and then ensemble member.
+For example:
 
 .. code-block:: none
 
-   ['/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19950501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19951101/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19960501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-19961101/atmos_isobaric_daily.zarr.zip',
+    cat CanESM5_dcppA-hindcast_pr_files.txt
+
+
+.. code-block:: none    
+
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r1i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r2i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r3i1p2f1_gn_19610101-19701231.nc
     ...
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20190501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20191101/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20200501/atmos_isobaric_daily.zarr.zip',
-    '/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-20201101/atmos_isobaric_daily.zarr.zip']
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r18i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r19i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r20i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r1i1p2f1_gn_19620101-19711231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r2i1p2f1_gn_19620101-19711231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r3i1p2f1_gn_19620101-19711231.nc
+    ...
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r18i1p2f1_gn_20170101-20261231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r19i1p2f1_gn_20170101-20261231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r20i1p2f1_gn_20170101-20261231.nc
 
-
-In order to open and combine a multi-file forecast data,
-we can use the ``fileio.open_mfforecast`` function:
 
 .. code-block:: python
 
-   cafe_ds = fileio.open_mfforecast(cafe_files,
+   cafe_ds = fileio.open_mfforecast(
+       'CanESM5_dcppA-hindcast_pr_files.txt',
+       n_ensemble_files=20,
        variables=['pr'],
-       spatial_coords=[-44, -11, 113, 154],
+       lat_bnds=[-44, -11],
+       lon_bnds=[113, 154],
        shapefile='wheatbelt.zip',
        spatial_agg='mean',
        time_freq='A-DEC',
        time_agg='sum',
        input_freq='D',
        reset_times=True,
-       metadata_file='../../config/dataset_cafe_monthly.yml',
        complete_time_agg_periods=True,
        units={'pr': 'mm day-1'},
        units_timing='middle'
@@ -195,247 +200,263 @@ We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
 with a couple of additions:
 
--  Selecting a box region (using the ``spatial_coords`` argument) around your shapefile region can help reduce the memory required to work with the shapefile
+-  The ``n_ensemble_members`` argument helps the function sort the contents of the input file list 
+-  Selecting a box region (using the ``lat_bnds`` and ``lon_bnds`` arguments) around your shapefile region can help reduce the memory required to work with the shapefile
 -  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
 -  The ``units`` option allows you to convert the units of particular variables. You can choose (using the ``units_timing`` option) for the conversion to happen at the start (before spatial and temporal operations), middle (after the spatial but before the temporal operations) or end.
 
-The only other thing we need to do is once again remove the redundant dimension:
-
 .. code-block:: python
 
-   cafe_ds = cafe_ds.squeeze(drop=True)
-   cafe_ds = cafe_ds.compute()
-   print(cafe_ds)
+   print(model_ds)
    
 
 .. code-block:: none
 
-   <xarray.Dataset>
-   Dimensions:    (ensemble: 96, init_date: 52, lead_time: 11)
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * ensemble   (ensemble) int64 1 2 3 4 5 6 7 8 9 ... 88 89 90 91 92 93 94 95 96
-     * init_date  (init_date) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-       time       (lead_time, init_date) object 1995-05-01 12:00:00 ... 2030-11-...
-   Data variables:
-       pr         (init_date, lead_time, ensemble) float64 dask.array<chunksize=(1, 1, 96), meta=np.ndarray>
-   Attributes:
-       comment:    pressure level interpolator, version 3.0, precision=double
-       filename:   atmos_isobaric_daily.zarr
-       grid_tile:  N/A
-       grid_type:  regular
-       title:      AccessOcean-AM2
+    <xarray.Dataset>
+    Dimensions:    (init_date: 57, ensemble: 20, lead_time: 10)
+    Coordinates:
+      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9
+      * ensemble   (ensemble) int64 0 1 2 3 4 5 6 7 8 ... 11 12 13 14 15 16 17 18 19
+      * init_date  (init_date) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
+        time       (lead_time, init_date) object 1961-01-01 12:00:00 ... 2026-01-...
+    Data variables:
+        pr         (init_date, ensemble, lead_time) float32 dask.array<chunksize=(1, 1, 1), meta=np.ndarray>
+    Attributes: (12/53)
+        CCCma_model_hash:            Unknown
+        CCCma_parent_runid:          d2a-asm-e01
+        CCCma_pycmor_hash:           13db8596c37129e414cad7ae31f2927ca8f5dd39
+        CCCma_runid:                 d2a196101e01
+        Conventions:                 CF-1.7 CMIP-6.2
+        YMDH_branch_time_in_child:   1961:01:01:00
+        ...                          ...
+        tracking_id:                 hdl:21.14100/f220e01c-1214-4625-be6a-c0475c2...
+        variable_id:                 pr
+        variant_label:               r1i1p2f1
+        version:                     v20190429
+        license:                     CMIP6 model data produced by The Government ...
+        cmor_version:                3.4.0
+
+
+Stability and stationarity testing
+^^^^^^^^^^^^^^^^^^^^
+
+Now that we have our annual rainfall data for the wheatbelt region,
+we need to check whether the dataset is stable (no drift/trend with lead time)
+and stationary (no trend with time).
+
+To do this, we can use the ``stability`` module:
+
+.. code-block:: python
+
+    from unseen import stability
+
+    stability.create_plot(
+        model_ds['pr'],
+        'annual mean rainfall',
+        [1960, 1970, 1980, 1990, 2000, 2010],
+        outfile='wheatbelt_stability_CanESM5.png',
+        uncertainty=True,
+        return_method='empirical',
+        ymax=None,
+    )
+
+
+.. image:: wheatbelt_stability_CanESM5.png
+   :width: 800
+
+In this case, it looks like the there's model drift in the first few lead times
+before the simulations settle down (confirmed also in the indpendence analysis; see below).
+There is also some evidence of a trend with time in the data,
+so we might decide to remove earlier forecast years (e.g. start at 1980 instead of 1960)
+from our analysis or detrend the data
+(detrending functionality isn't currently available in the UNSEEN software).
 
 
 Independence testing
 ^^^^^^^^^^^^^^^^^^^^
 
-Now that we have our annual rainfall data for the wheatbelt region,
-we want to ensure that each sample in our model dataset is independent.
-To do this, we can use the ``independence`` module:
+Next, we want to determine the lead time at which the ensemble members can be considered independent.
+To do this, we can test whether the correlation between ensemble members at a given lead time is sufficiently close to zero.
+At each lead time, the CanESM5 submission to DCPP provides 20 (members), 57-year timeseries of annual mean rainfall
+(spanning, e.g., 1961-2017 at 1-year lead, or 1965–2021 at 5-year lead).
+We define our test statistic, $\rho_t$,
+for each lead time as the mean Spearman correlation in time between all combinations of the 20 ensemble members
+(of which there are 190: member 1 with 2, member 1 with 3 etc).
+Significance of $\rho_t$ is estimated using a permutation test,
+whereby 10,000 sets of 20 times 57 points are randomly drawn from the complete model dataset
+to produce 10,000 estimates of the mean Spearman correlation.
+Because these estimates are constructed from randomly drawn data,
+they represent the distribution of mean correlation values for uncorrelated data (i.e., the null distribution).
+Ensemble members are considered to be dependent (i.e., the null hypothesis of independence is rejected)
+at a given lead time if $\rho_t$ falls outside of the 95\% confidence interval calculated from the randomly sampled distribution.
+
+To perform this test, we can use the ``independence`` module:
 
 .. code-block:: python
 
    from unseen import independence
 
-   mean_correlations, null_correlation_bounds = independence.run_tests(cafe_da_bc)
-
-
-For each initialisation time/month,
-``run_tests`` calculates the mean correlation between all the ensemble members (for each lead time)
-as well as the bounds on zero correlation based on random sampling.
-
-.. code-block:: python
-    
-   print(mean_correlations)   
-
-
-.. code-block:: none
-
-   {5: <xarray.DataArray (lead_time: 11)>
- dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
- Coordinates:
-   * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10,
- 11: <xarray.DataArray (lead_time: 11)>
- dask.array<mean_agg-aggregate, shape=(11,), dtype=float64, chunksize=(11,), chunktype=numpy.ndarray>
- Coordinates:
-   * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10} 
-
-
-The mean correlations and null correlation bounds can then be plotted:
-
-.. code-block:: python
-
+   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])      
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
-       'wheatbelt_independence.png'
+       'wheatbelt_independence_CanESM5.png'
    )
 
 
-.. image:: wheatbelt_independence.png
+.. image:: wheatbelt_independence_CanESM5.png
    :width: 450
 
 
-(Lead time 0 and 10 aren't present in the plot because they didn't contain data for the full year.)
-
-In this case we only want to retain lead time 3 onwards.
-At this point we shouldn't use ``cafe_ds['pr'].sel({'lead_time': slice(3, None)}`` to remove the unwanted lead times
-(for some of the array operations performed in the bias correction the data needs to retain its original shape),
-but we can set unwanted values to NaN.
+Consistent with the stability analysis,
+it's clear that the first three lead times aren't independent.
+We can remove the early lead times from our dataset as follows:
 
 .. code-block:: python
 
-   cafe_da_indep = cafe_ds['pr'].where(cafe_ds['lead_time'] > 2)
+    model_da_indep = model_ds['pr'].where(model_ds['lead_time'] > 2)
+    model_da_indep.dropna('lead_time')
 
 
 Bias correction
 ^^^^^^^^^^^^^^^
 
-In order to bias correct the (independent) model data,
-we can use the ``bias_correction`` module:
+The final step in the model evaluation is to assess fidelity -
+how well the model simulates the metric of interest (see below).
+If the model fails the fidelity test/s,
+it is common to bias correct the data
+and then re-test to see whether it might be appropriate to use
+bias corrected data for the likelihood analysis.
+The most common bias correction method used in the UNSEEN literature to overcome model bias
+in extreme precipitation is simple multiplicative mean scaling
+(additive mean scaling tends to be used for temperature metrics),
+whereby the model data is multiplied by the ratio of the average observed and modeled values.
+
+To do this, we can use the ``bias_correction`` module:
 
 .. code-block:: python
 
-   from unseen import bias_correction
+    from unseen import bias_correction
 
-   bias = bias_correction.get_bias(
-       cafe_da_indep,
-       agcd_ds['pr'],
-       'additive',
-       time_rounding='A',
-       time_period=['2004-01-01', '2019-12-31']
-   )
-   
-   print(bias)
+    correction_method = 'multiplicative'
+
+    bias = bias_correction.get_bias(
+        model_da_indep,
+        agcd_ds['pr'],
+        correction_method,
+        time_rounding='A',
+        time_period=['1961-01-01', '2017-12-31']
+    )
+
+    model_da_bc = bias_correction.remove_bias(model_da_indep, bias, correction_method)
+
+
+We can plot both the raw and bias corrected model data against the observed
+to see the effect of the bias correction.
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure(figsize=[10, 6])
+    model_da_indep.plot.hist(
+        bins=50, density=True, label='MODEL', alpha=0.7
+    )
+    model_da_bc.plot.hist(
+        bins=50, density=True, label='MODEL BIAS CORRECTED', facecolor='darkblue', alpha=0.7
+    )
+    agcd_ds['pr'].plot.hist(
+        bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7
+    )
+    plt.xlabel('annual precipitation (mm)')
+    plt.ylabel('probability')
+    plt.title(f'Average precipitation across the Australian wheatbelt')
+    plt.legend()
+    plt.show()
+
+
+.. image:: wheatbelt_precip_histogram_CanESM5.png
+   :width: 700
+
+
+Fidelity testing
+^^^^^^^^^^^^^^^
+
+The most common fidelity test used in the UNSEEN literature is the so-called bootstrap or moments test,
+whereby the model data is bootstrapped into a large number of (e.g. 1,000) series of equal length to the observed timeseries
+and the empirical moments of each series (mean, standard deviation, skewness and kurtosis) are calculated.
+If the moments of the observed timeseries fall within the 95% confidence intervals for the statistics derived from the bootstrapped series,
+the model is considered to have passed the test.
+In addition to these four basic empirical moments, some authors also calculate the shape, location and scale parameters
+from a Generalised Extreme Value (GEV) distribution fit (using maximum likelihood estimation of the distribution parameters) to the data.
+
+To perform the moments test, we can use the ``moments`` module:
+
+.. code-block:: python
+
+    from unseen import moments
+
+    moments.create_plot(
+        model_da_indep,
+        agcd_ds['pr'],
+        da_bc_fcst=model_da_bc,
+        outfile='wheatbelt_moments_CanESM5.png',
+    )
+
+
+.. image:: wheatbelt_moments_CanESM5.png
+   :width: 700
+
+
+In order to avoid issues associated with multiple testing,
+other authors prefer a single test score comparing the modeled and observed data.
+The Kolmogorov–Smirnov test and Anderson-Darling test have been used to assess
+how likely it is that the observed and model samples were drawn from the same (but unknown) probability distribution.
+A test p-value of greater than 0.05 is typically taken to indicate that the null hypothesis
+(that the two samples are from the same population) cannot be rejected,
+meaning the model data is sufficiently similar to observations to be used in likelihood analysis.
+
+To perform these similarity tests for both the raw and bias corrected model data,
+we can use the ``similarity`` module:
+
+.. code-block:: python
+
+    from unseen import similarity
+
+    similarity_ds = similarity.similarity_tests(model_da_indep, agcd_ds, 'pr')
+    print('KS score:', similarity_ds['ks_statistic'].values)
+    print('KS p-value:', similarity_ds['ks_pval'].values)
+    print('AD score:', similarity_ds['ad_statistic'].values)
+    print('AD p-value:', similarity_ds['ad_pval'].values)
 
 
 .. code-block:: none
 
-   <xarray.DataArray 'pr' (month: 2, lead_time: 11)>
-   array([[         nan,          nan,          nan, -79.73348325,
-           -66.94647375, -51.25970312, -54.93298978, -46.39792357,
-           -44.19195586, -46.706165  ,          nan],
-          [         nan,          nan,          nan, -65.09246704,
-           -73.51923507, -52.91778398, -45.92252261, -44.3704739 ,
-           -41.02545657, -47.19070081,          nan]])
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * month      (month) int64 5 11
-   Attributes:
-       cell_methods:            time: mean
-       interp_method:           conserve_order1
-       long_name:               Total precipitation rate
-       time_avg_info:           average_T1,average_T2,average_DT
-       units:                   mm d-1
-       climatological_period:   ['2004-01-01', '2019-12-31']
-       bias_correction_method:  additive
-       bias_correction_period:  2004-01-01-2019-12-31
+    KS score: 0.28393546
+    KS p-value: 3.9190886e-09
+    AD score: 24.95854
+    AD p-value: 0.001
 
-
-In this case we're using the additive (as opposed to multiplicative) bias correction method.
-The bias represents the difference between model (CAFE) and observed (AGCD) climatology over the period 2004-2019. 
-The first initialisation date is 1995, the last initialisation date is 2020, and each forecast is run for 10 years.
-Those 10 year windows actually span 11 calendar years but the first and last year are incomplete,
-so we end up with 9 annual rainfall values per forecast, the last 7 of which are independent samples.
-This means each year over the 2004-2023 period is sampled the same number of times (7 times).
-The AGCD data spans 1900-2019, so the common period is 2004-2019.
-
-A separate bias is calculated for each lead time/year.
 
 .. code-block:: python
 
-   cafe_da_bc = bias_correction.remove_bias(cafe_da_indep, bias, 'additive')
-   cafe_da_bc = cafe_da_bc.compute()
-   print(cafe_da_bc)
+    similarity_bc_ds = similarity.similarity_tests(model_da_bc, agcd_ds, 'pr')
+    print('KS score:', similarity_bc_ds['ks_statistic'].values)
+    print('KS p-value:', similarity_bc_ds['ks_pval'].values)
+    print('AD score:', similarity_bc_ds['ad_statistic'].values)
+    print('AD p-value:', similarity_bc_ds['ad_pval'].values)
 
 
 .. code-block:: none
 
-   <xarray.DataArray 'pr' (init_date: 52, lead_time: 11, ensemble: 96)>
-   array(...)
-   Coordinates:
-     * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10
-     * ensemble   (ensemble) int64 1 2 3 4 5 6 7 8 9 ... 88 89 90 91 92 93 94 95 96
-     * init_date  (init_date) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-       time       (lead_time, init_date) object 1995-05-01 12:00:00 ... 2030-11-...
-   Attributes:
-       cell_methods:            time: mean
-       interp_method:           conserve_order1
-       long_name:               Total precipitation rate
-       time_avg_info:           average_T1,average_T2,average_DT
-       units:                   mm d-1
-       bias_correction_method:  additive
-       bias_correction_period:  2004-01-01-2019-12-31 
+    KS score: 0.08060395
+    KS p-value: 0.38978085
+    AD score: 0.45249355
+    AD p-value: 0.21647933
 
 
-Similarity testing
-^^^^^^^^^^^^^^^^^^
-
-Before conducting the UNSEEN analysis,
-the last thing we need to do is determine whether the observed
-and (bias corrected, indepdenent) model data have a similar statistical distribution.
-
-We can check visually,
-
-.. code-block:: python
-
-   import matplotlib.pyplot as plt
-
-   fig = plt.figure(figsize=[10, 6])
-
-   cafe_da_indep.plot.hist(bins=50, density=True, label='CAFE', alpha=0.7)
-   cafe_da_bc.plot.hist(bins=50, density=True, label='CAFE BIAS CORRECTED', facecolor='darkblue', alpha=0.7)
-   agcd_ds['pr'].plot.hist(bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7)
-
-   plt.xlabel('annual precipitation (mm)')
-   plt.ylabel('probability')
-   plt.title(f'Average precipitation across the Australian wheatbelt')
-   plt.legend()
-   plt.show()
-
-
-.. image:: wheatbelt_precip_histogram.png
-   :width: 450
-
-
-and/or conduct an appropriate statistical test using the ``similarity`` module.
-
-.. code-block:: python
-
-   from unseen import similarity
-
-   similarity_ds = similarity.univariate_ks_test(cafe_da_bc, agcd_ds, 'pr')
-   print(similarity_ds)
-
-
-.. code-block:: none
-
-   <xarray.Dataset>
-   Dimensions:    (lead_time: 7)
-   Coordinates:
-     * lead_time  (lead_time) int64 3 4 5 6 7 8 9
-   Data variables:
-       ks         (lead_time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
-       pval       (lead_time) float64 dask.array<chunksize=(1,), meta=np.ndarray>
-
-
-.. code-block:: python
-
-   print(similarity_ds['pval'].values)
-
-.. code-block:: none
-
-   [6.25815783e-04 4.22842520e-04 2.35883442e-05 1.61185358e-05
-    1.64659543e-05 2.02715531e-05 2.26184062e-05]
-
-
-The univariate Kolmogorov-Smirnov (KS) test is used to compare the distributions of two datasets.
-The null hypothesis is that the two dataset values are from the same continuous distribution.
-The alternative hypothesis is that these two datasets are from different continuous distributions.
-In this case p-values less than 0.05 (a commonly used significance threshold) point to null hypothesis being rejected.
-In other words,
-the test suggests that the AGCD and bias corrected independent AGCD data are from different distributions.
+The raw model data fails both tests (p-value < 0.05),
+whereas the bias corrected data passes both (p-value > 0.05).
 
 
 Results
@@ -444,7 +465,7 @@ Results
 Once we've got to the point where our data is procesed
 and we are satisified that the observational and (independent, bias corrected) model data
 have similar enough statistical distributions,
-the ``general_utils`` module has a number of functions to help to express our unpreecedented event
+the unseen software has a number of functions to help to express our unpreecedented event
 (in this case the 2019 annual rainfall total over the Australian wheatbelt)
 in the context of our large ensemble.
 
@@ -452,77 +473,58 @@ Once we've stacked our model data so it's one dimensional,
 
 .. code-block:: python
 
-   cafe_da_indep_stacked = cafe_da_indep.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
-   print(cafe_da_indep_stacked)
+   model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+   print(model_da_indep_stacked)
 
 
 .. code-block:: none
 
-   <xarray.DataArray 'pr' (sample: 34944)>
-   array([444.60986567, 689.77274747, 402.1668014 , ..., 388.06818872,
-          523.24595738, 452.023927  ])
-   Coordinates:
-       time       (sample) object 1998-05-01 12:00:00 ... 2029-11-01 12:00:00
-     * sample     (sample) MultiIndex
-     - ensemble   (sample) int64 1 1 1 1 1 1 1 1 1 1 ... 96 96 96 96 96 96 96 96 96
-     - init_date  (sample) object 1995-05-01 00:00:00 ... 2020-11-01 00:00:00
-     - lead_time  (sample) int64 3 4 5 6 7 8 9 3 4 5 6 7 ... 6 7 8 9 3 4 5 6 7 8 9
-   Attributes:
-       cell_methods:   time: mean
-       interp_method:  conserve_order1
-       long_name:      Total precipitation rate
-       time_avg_info:  average_T1,average_T2,average_DT
-       units:          mm d-1
-
-
-we can plot an exceedance curve
-(or in this case a deceedance curve since we are interested in rainfall events below the 2019 value).  
+    <xarray.DataArray 'pr' (sample: 7980)>
+    array([515.47577, 432.40683, 321.6442 , ..., 365.48837, 728.4908 ,
+           543.5099 ], dtype=float32)
+    Coordinates:
+        time       (sample) object 1964-01-01 12:00:00 ... 2026-01-01 12:00:00
+      * sample     (sample) object MultiIndex
+      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 ... 19 19 19 19 19 19 19 19 19
+      * init_date  (sample) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
+      * lead_time  (sample) int64 3 4 5 6 7 8 9 3 4 5 6 7 ... 6 7 8 9 3 4 5 6 7 8 9
+    Attributes:
+        units:                   mm d-1
+        standard_name:           lwe_precipitation_rate
+        bias_correction_method:  multiplicative
+        bias_correction_period:  1961-01-01-2017-12-31
+ 
 
 .. code-block:: python
 
-   from unseen import general_utils
-
-   sorted_data, deceedance = general_utils.exceedance_curve(cafe_da_indep_stacked.data, deceedance=True)
-
-   pr2019 = agcd_ds['pr'].data.min()
-   print(pr2019)
+    stability.plot_return(model_da_bc_stacked, 'gev', outfile='return_curve_CanESM5.png')
 
 
-.. code-block:: none
-   
-   258.7729632499339
+.. image:: return_curve_CanESM5.png
+   :width: 700
 
 
 .. code-block:: python
 
-   fig = plt.figure(figsize=[8, 6])
-   ax = fig.add_subplot()
-   ax.plot(sorted_data, deceedance)
-   ax.invert_xaxis()
-   ax.set_title(f'Average precipitation across the wheatbelt')
-   ax.set_ylabel('likelihood of deceedance (%)')
-   ax.set_xlabel('annual precipitation (mm)')
-   ax.axvline(pr2019, color='0.5', linestyle='--')
-   plt.show()
+    from unseen import general_utils
 
-
-.. image:: deceedance_curve.png
-   :width: 450
-
-
-We can also generate common event statistics such as a percentile or return period.
-
-.. code-block:: python
-
-   percentile, return_period = general_utils.event_in_context(cafe_da_indep_stacked.data, pr2019, 'below')
-
-   print(f'{percentile:.2f}% percentile')
-   print(f'{return_period:.0f} year return period')
+    pr2019 = agcd_ds['pr'].data.min()
+    print(pr2019)
+    
+    n_events_bc, n_population_bc, return_period_bc, percentile_bc = general_utils.event_in_context(
+        model_da_bc_stacked.values,
+        pr2019,
+        'below',
+    )
+    print('BIAS CORRECTED DATA')
+    print(f'{n_events_bc} events in {n_population_bc} samples')
+    print(f'{percentile_bc:.2f}% percentile')
+    print(f'{return_period_bc:.0f} year return period')
 
 
 .. code-block:: none
 
-   1.78% percentile
-   56 year return period
-
-     
+    BIAS CORRECTED DATA
+    19 events in 7980 samples
+    0.24% percentile
+    420 year return period

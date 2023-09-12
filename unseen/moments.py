@@ -275,7 +275,7 @@ def _main():
 
     if args.bias_file:
         ds_bc_fcst = fileio.open_dataset(args.bias_file)
-        da_bc_fcst = ds_bc_fcst[var]
+        da_bc_fcst = ds_bc_fcst[args.var]
         if args.min_lead is not None:
             da_bc_fcst = da_bc_fcst.where(ds_bc_fcst[args.lead_dim] >= args.min_lead)
     else:

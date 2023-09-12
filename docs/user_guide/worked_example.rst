@@ -416,13 +416,14 @@ A test p-value of greater than 0.05 is typically taken to indicate that the null
 (that the two samples are from the same population) cannot be rejected,
 meaning the model data is sufficiently similar to observations to be used in likelihood analysis.
 
-To perform these similarity tests, we can use the ``similarity`` module:
+To perform these similarity tests for both the raw and bias corrected model data,
+we can use the ``similarity`` module:
 
 .. code-block:: python
 
     from unseen import similarity
 
-    similarity_ds = similarity.similarity_tests(model_da_bc, agcd_ds, 'pr')
+    similarity_ds = similarity.similarity_tests(model_da_indep, agcd_ds, 'pr')
     print('KS score:', similarity_ds['ks_statistic'].values)
     print('KS p-value:', similarity_ds['ks_pval'].values)
     print('AD score:', similarity_ds['ad_statistic'].values)
@@ -431,10 +432,31 @@ To perform these similarity tests, we can use the ``similarity`` module:
 
 .. code-block:: none
 
-    KS score: 0.1046641
-    KS p-value: 0.13088146
-    AD score: 2.3708122
-    AD p-value: 0.034534406
+    KS score: 0.28393546
+    KS p-value: 3.9190886e-09
+    AD score: 24.95854
+    AD p-value: 0.001
+
+
+.. code-block:: python
+
+    similarity_bc_ds = similarity.similarity_tests(model_da_bc, agcd_ds, 'pr')
+    print('KS score:', similarity_bc_ds['ks_statistic'].values)
+    print('KS p-value:', similarity_bc_ds['ks_pval'].values)
+    print('AD score:', similarity_bc_ds['ad_statistic'].values)
+    print('AD p-value:', similarity_bc_ds['ad_pval'].values)
+
+
+.. code-block:: none
+
+    KS score: 0.08060395
+    KS p-value: 0.38978085
+    AD score: 0.45249355
+    AD p-value: 0.21647933
+
+
+The raw model data fails both tests (p-value < 0.05),
+whereas the bias corrected data passes both (p-value > 0.05).
 
 
 Results
@@ -458,8 +480,8 @@ Once we've stacked our model data so it's one dimensional,
 .. code-block:: none
 
     <xarray.DataArray 'pr' (sample: 7980)>
-    array([519.9104 , 426.1649 , 301.16626, ..., 350.6456 , 760.3037 ,
-           551.5477 ], dtype=float32)
+    array([515.47577, 432.40683, 321.6442 , ..., 365.48837, 728.4908 ,
+           543.5099 ], dtype=float32)
     Coordinates:
         time       (sample) object 1964-01-01 12:00:00 ... 2026-01-01 12:00:00
       * sample     (sample) object MultiIndex
@@ -469,7 +491,7 @@ Once we've stacked our model data so it's one dimensional,
     Attributes:
         units:                   mm d-1
         standard_name:           lwe_precipitation_rate
-        bias_correction_method:  additive
+        bias_correction_method:  multiplicative
         bias_correction_period:  1961-01-01-2017-12-31
  
 
@@ -503,6 +525,6 @@ Once we've stacked our model data so it's one dimensional,
 .. code-block:: none
 
     BIAS CORRECTED DATA
-    83 events in 7980 samples
-    1.04% percentile
-    96 year return period
+    19 events in 7980 samples
+    0.24% percentile
+    420 year return period

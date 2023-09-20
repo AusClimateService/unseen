@@ -7,13 +7,21 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import genextreme as gev
+import matplotlib as mpl
 
 from . import fileio
 from . import indices
 from . import time_utils
 
 
-def plot_dist_by_lead(ax, sample_da, metric, lead_dim="lead_time"):
+mpl.rcParams['axes.titlesize'] = 'xx-large' 
+mpl.rcParams['xtick.labelsize'] = 'x-large'
+mpl.rcParams['ytick.labelsize'] = 'x-large'
+mpl.rcParams['legend.fontsize'] = 'large'
+axis_label_size = 'large'
+
+
+def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     """Plot distribution curves for each lead time.
 
     Parameters
@@ -24,6 +32,8 @@ def plot_dist_by_lead(ax, sample_da, metric, lead_dim="lead_time"):
         Stacked forecast array with a sample dimension
     metric : str
         Metric name for plot title
+    units : str, optional
+        units for plot axis labels
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in sample_da
     """
@@ -41,14 +51,16 @@ def plot_dist_by_lead(ax, sample_da, metric, lead_dim="lead_time"):
             ax=ax,
             color=color,
             label=f"lead time: {lead} year ({n_values} samples)",
+            linewidth=2.0,
         )
     ax.grid(True)
     ax.set_title(f"(a) {metric} distribution by lead time")
-    ax.set_xlabel(sample_da.attrs["units"])
+    units_label = units if units else sample_da.attrs["units"]
+    ax.set_xlabel(units_label, fontsize=axis_label_size)
     ax.legend()
 
 
-def plot_dist_by_time(ax, sample_da, metric, start_years):
+def plot_dist_by_time(ax, sample_da, metric, start_years, units=None):
     """Plot distribution curves for each time slice (e.g. decade).
 
     Parameters
@@ -61,6 +73,8 @@ def plot_dist_by_time(ax, sample_da, metric, start_years):
         Metric name for plot title
     start_years : list
         Equally spaced list of start years
+    units : str, optional
+        units for plot axis labels
     """
 
     step = start_years[1] - start_years[0] - 1
@@ -79,10 +93,12 @@ def plot_dist_by_time(ax, sample_da, metric, start_years):
             ax=ax,
             color=color,
             label=f"{start_year}-{end_year} ({n_values} samples)",
+            linewidth=2.0,
         )
     ax.grid(True)
     ax.set_title(f"(c) {metric} distribution by year")
-    ax.set_xlabel(sample_da.attrs["units"])
+    units_label = units if units else sample_da.attrs["units"]
+    ax.set_xlabel(units_label, fontsize=axis_label_size)
     ax.legend()
 
 
@@ -129,7 +145,7 @@ def plot_return(data, method, outfile=None):
     ax.plot(return_periods, return_values)
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
-    ax.set_ylabel(data.attrs["units"])
+    ax.set_ylabel(data.attrs["units"], )
     ax.grid()
     if outfile:
         plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
@@ -139,7 +155,7 @@ def plot_return(data, method, outfile=None):
 
 
 def plot_return_by_lead(
-    ax, sample_da, metric, method, uncertainty=False, ymax=None, lead_dim="lead_time"
+    ax, sample_da, metric, method, uncertainty=False, units=None, ymax=None, lead_dim="lead_time"
 ):
     """Plot return period curves for each lead time.
 
@@ -155,6 +171,8 @@ def plot_return_by_lead(
         Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
+    units : str, optional
+        units for plot axis labels
     ymax : float, optional
         ymax for return curve plot
     lead_dim: str, default 'lead_time'
@@ -170,7 +188,7 @@ def plot_return_by_lead(
         n_values = len(selection_da)
         label = f"lead time {lead} ({n_values} samples)"
         color = next(colors)
-        ax.plot(return_periods, return_values, label=label, color=color)
+        ax.plot(return_periods, return_values, label=label, color=color, linewidth=2.0)
 
     if uncertainty:
         random_return_values = []
@@ -187,20 +205,21 @@ def plot_return_by_lead(
             lower_ci,
             label="95% confidence interval",
             color="0.5",
-            alpha=0.1,
+            alpha=0.3,
         )
 
     ax.grid(True)
     ax.set_title(f"(b) {metric} return period by lead time")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)")
-    ax.set_ylabel(sample_da.attrs["units"])
+    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    units_label = units if units else sample_da.attrs["units"]
+    ax.set_ylabel(units_label, fontsize=axis_label_size)
     ax.legend()
     ax.set_ylim((50, ymax))
 
 
 def plot_return_by_time(
-    ax, sample_da, metric, start_years, method, uncertainty=False, ymax=None
+    ax, sample_da, metric, start_years, method, uncertainty=False, units=None, ymax=None
 ):
     """Plot return period curves for each time slice (e.g. decade).
 
@@ -218,6 +237,8 @@ def plot_return_by_time(
         Method for producing return period curve
     uncertainty: bool, default False
         Plot 95% confidence interval
+    units : str, optional
+        units for plot axis labels
     ymax : float, optional
         ymax for return curve plot
     """
@@ -234,7 +255,7 @@ def plot_return_by_time(
         n_years = len(selection_da)
         label = f"{start_year}-{end_year} ({n_years} samples)"
         color = next(colors)
-        ax.plot(return_periods, return_values, label=label, color=color)
+        ax.plot(return_periods, return_values, label=label, color=color, linewidth=2.0)
 
     if uncertainty:
         random_return_values = []
@@ -251,14 +272,15 @@ def plot_return_by_time(
             lower_ci,
             label="95% confidence interval",
             color="0.5",
-            alpha=0.2,
+            alpha=0.3,
         )
 
     ax.grid(True)
     ax.set_title(f"(d) {metric} return period by year")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)")
-    ax.set_ylabel(sample_da.attrs["units"])
+    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    units_label = units if units else sample_da.attrs["units"]
+    ax.set_ylabel(units_label, fontsize=axis_label_size)
     ax.set_ylim((50, ymax))
     ax.legend()
 
@@ -270,6 +292,7 @@ def create_plot(
     outfile=None,
     uncertainty=False,
     ymax=None,
+    units=None,
     return_method="empirical",
     ensemble_dim="ensemble",
     init_dim="init_date",
@@ -291,6 +314,8 @@ def create_plot(
         Plot the 95% confidence interval
     ymax : float, optional
         ymax for return curve plots
+    units : str, optional
+        units for plot axis labels
     return_method : {'empirical', 'gev'}, default empirial
         Method for fitting the return period curve
     ensemble_dim : str, default ensemble
@@ -310,7 +335,7 @@ def create_plot(
     ax3 = fig.add_subplot(223)
     ax4 = fig.add_subplot(224)
 
-    plot_dist_by_lead(ax1, da_fcst_stacked, metric, lead_dim=lead_dim)
+    plot_dist_by_lead(ax1, da_fcst_stacked, metric, units=units, lead_dim=lead_dim)
     plot_return_by_lead(
         ax2,
         da_fcst_stacked,
@@ -318,15 +343,17 @@ def create_plot(
         return_method,
         uncertainty=uncertainty,
         ymax=ymax,
+        units=units,
         lead_dim=lead_dim,
     )
-    plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years)
+    plot_dist_by_time(ax3, da_fcst_stacked, metric, start_years, units=units)
     plot_return_by_time(
         ax4,
         da_fcst_stacked,
         metric,
         start_years,
         return_method,
+        units=units,
         uncertainty=uncertainty,
         ymax=ymax,
     )
@@ -394,6 +421,12 @@ def _parse_command_line():
         default="lead_time",
         help="Name of lead time dimension",
     )
+    parser.add_argument(
+        "--units",
+        type=str,
+        default=None,
+        help="Units label for the plot axes",
+    )
     args = parser.parse_args()
 
     return args
@@ -415,6 +448,7 @@ def _main():
         return_method=args.return_method,
         uncertainty=args.uncertainty,
         ymax=args.ymax,
+        units=args.units,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,

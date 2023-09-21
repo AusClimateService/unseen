@@ -315,7 +315,6 @@ def _main():
         da_obs,
         da_bc_fcst=da_bc_fcst,
         outfile=args.outfile,
-        min_lead=args.min_lead,
         units=args.units,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,

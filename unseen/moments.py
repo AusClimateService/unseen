@@ -35,7 +35,7 @@ def calc_moments(sample_da, gev_estimates=[]):
         sample_da, user_estimates=gev_estimates
     )
     moments["GEV shape"] = gev_shape
-    moments["GEV loc"] = gev_loc
+    moments["GEV location"] = gev_loc
     moments["GEV scale"] = gev_scale
 
     return moments
@@ -116,7 +116,7 @@ def create_plot(
         bc_bootstrap_values = {}
         bc_bootstrap_lower_ci = {}
         bc_bootstrap_upper_ci = {}
-    moments = ["mean", "standard deviation", "skew", "kurtosis", "GEV shape", "GEV loc", "GEV scale"]
+    moments = ["mean", "standard deviation", "skew", "kurtosis", "GEV shape", "GEV location", "GEV scale"]
     for moment in moments:
         bootstrap_values[moment] = []
         bootstrap_lower_ci[moment] = []
@@ -130,7 +130,7 @@ def create_plot(
         random_sample = np.random.choice(da_fcst_stacked, sample_size)
         sample_moments = calc_moments(
             random_sample,
-            gev_estimates=[moments_fcst["GEV loc"], moments_fcst["GEV scale"]],
+            gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
         )
         for moment in moments:
             bootstrap_values[moment].append(sample_moments[moment])
@@ -139,7 +139,7 @@ def create_plot(
             bc_random_sample = np.random.choice(da_bc_fcst_stacked, sample_size)
             bc_sample_moments = calc_moments(
                 bc_random_sample,
-                gev_estimates=[moments_fcst["GEV loc"], moments_fcst["GEV scale"]],
+                gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
             )
             for moment in moments:
                 bc_bootstrap_values[moment].append(bc_sample_moments[moment])
@@ -164,7 +164,7 @@ def create_plot(
         "GEV scale": "scale parameter",
         "GEV location": "location parameter"
     }
-    fig = plt.figure(figsize=[15, 20])
+    fig = plt.figure(figsize=[15, 22])
     for plotnum, moment in enumerate(moments):
         ax = fig.add_subplot(4, 2, plotnum + 1)
         ax.hist(

@@ -14,11 +14,11 @@ from . import indices
 from . import time_utils
 
 
-mpl.rcParams['axes.titlesize'] = 'xx-large' 
-mpl.rcParams['xtick.labelsize'] = 'x-large'
-mpl.rcParams['ytick.labelsize'] = 'x-large'
-mpl.rcParams['legend.fontsize'] = 'large'
-axis_label_size = 'large'
+mpl.rcParams["axes.titlesize"] = "xx-large"
+mpl.rcParams["xtick.labelsize"] = "x-large"
+mpl.rcParams["ytick.labelsize"] = "x-large"
+mpl.rcParams["legend.fontsize"] = "large"
+axis_label_size = "large"
 
 
 def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
@@ -145,7 +145,7 @@ def plot_return(data, method, outfile=None):
     ax.plot(return_periods, return_values)
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
-    ax.set_ylabel(data.attrs["units"], )
+    ax.set_ylabel(data.attrs["units"])
     ax.grid()
     if outfile:
         plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
@@ -155,7 +155,14 @@ def plot_return(data, method, outfile=None):
 
 
 def plot_return_by_lead(
-    ax, sample_da, metric, method, uncertainty=False, units=None, ymax=None, lead_dim="lead_time"
+    ax,
+    sample_da,
+    metric,
+    method,
+    uncertainty=False,
+    units=None,
+    ymax=None,
+    lead_dim="lead_time",
 ):
     """Plot return period curves for each lead time.
 

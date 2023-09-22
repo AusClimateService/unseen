@@ -116,7 +116,15 @@ def create_plot(
         bc_bootstrap_values = {}
         bc_bootstrap_lower_ci = {}
         bc_bootstrap_upper_ci = {}
-    moments = ["mean", "standard deviation", "skew", "kurtosis", "GEV shape", "GEV location", "GEV scale"]
+    moments = [
+        "mean",
+        "standard deviation",
+        "skew",
+        "kurtosis",
+        "GEV shape",
+        "GEV location",
+        "GEV scale",
+    ]
     for moment in moments:
         bootstrap_values[moment] = []
         bootstrap_lower_ci[moment] = []
@@ -162,7 +170,7 @@ def create_plot(
         "kurtosis": "kurtosis",
         "GEV shape": "shape parameter",
         "GEV scale": "scale parameter",
-        "GEV location": "location parameter"
+        "GEV location": "location parameter",
     }
     fig = plt.figure(figsize=[15, 22])
     for plotnum, moment in enumerate(moments):

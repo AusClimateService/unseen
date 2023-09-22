@@ -28,14 +28,14 @@ def calc_moments(sample_da, gev_estimates=[]):
 
     moments = {}
     moments["mean"] = float(np.mean(sample_da))
-    moments["std"] = float(np.std(sample_da))
+    moments["standard deviation"] = float(np.std(sample_da))
     moments["skew"] = float(scipy.stats.skew(sample_da))
     moments["kurtosis"] = float(scipy.stats.kurtosis(sample_da))
     gev_shape, gev_loc, gev_scale = indices.fit_gev(
         sample_da, user_estimates=gev_estimates
     )
     moments["GEV shape"] = gev_shape
-    moments["GEV loc"] = gev_loc
+    moments["GEV location"] = gev_loc
     moments["GEV scale"] = gev_scale
 
     return moments
@@ -68,6 +68,7 @@ def create_plot(
     da_obs,
     da_bc_fcst=None,
     outfile=None,
+    units=None,
     ensemble_dim="ensemble",
     init_dim="init_date",
     lead_dim="lead_time",
@@ -85,6 +86,8 @@ def create_plot(
         Bias corrected forecast data for metric of interest
     outfile : str, optional
         Path for output image file
+    units : str, optional
+        units for plot axis labels
     ensemble_dim : str, default ensemble
         Name of ensemble member dimension
     init_dim : str, default init_date
@@ -113,7 +116,15 @@ def create_plot(
         bc_bootstrap_values = {}
         bc_bootstrap_lower_ci = {}
         bc_bootstrap_upper_ci = {}
-    moments = ["mean", "std", "skew", "kurtosis", "GEV shape", "GEV loc", "GEV scale"]
+    moments = [
+        "mean",
+        "standard deviation",
+        "skew",
+        "kurtosis",
+        "GEV shape",
+        "GEV location",
+        "GEV scale",
+    ]
     for moment in moments:
         bootstrap_values[moment] = []
         bootstrap_lower_ci[moment] = []
@@ -127,7 +138,7 @@ def create_plot(
         random_sample = np.random.choice(da_fcst_stacked, sample_size)
         sample_moments = calc_moments(
             random_sample,
-            gev_estimates=[moments_fcst["GEV loc"], moments_fcst["GEV scale"]],
+            gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
         )
         for moment in moments:
             bootstrap_values[moment].append(sample_moments[moment])
@@ -136,7 +147,7 @@ def create_plot(
             bc_random_sample = np.random.choice(da_bc_fcst_stacked, sample_size)
             bc_sample_moments = calc_moments(
                 bc_random_sample,
-                gev_estimates=[moments_fcst["GEV loc"], moments_fcst["GEV scale"]],
+                gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
             )
             for moment in moments:
                 bc_bootstrap_values[moment].append(bc_sample_moments[moment])
@@ -151,7 +162,17 @@ def create_plot(
             bc_bootstrap_upper_ci[moment] = bc_upper_ci
 
     letters = "abcdefg"
-    fig = plt.figure(figsize=[15, 20])
+    units_label = units if units else da_fcst.attrs["units"]
+    units = {
+        "mean": f"mean ({units_label})",
+        "standard deviation": f"standard deviation ({units_label})",
+        "skew": "skew",
+        "kurtosis": "kurtosis",
+        "GEV shape": "shape parameter",
+        "GEV scale": "scale parameter",
+        "GEV location": "location parameter",
+    }
+    fig = plt.figure(figsize=[15, 22])
     for plotnum, moment in enumerate(moments):
         ax = fig.add_subplot(4, 2, plotnum + 1)
         ax.hist(
@@ -191,6 +212,7 @@ def create_plot(
                 linewidth=3.0,
             )
         ax.set_ylabel("count")
+        ax.set_xlabel(units[moment])
         letter = letters[plotnum]
         ax.set_title(f"({letter}) {moment}")
         if letter == "a":
@@ -255,6 +277,12 @@ def _parse_command_line():
         default=None,
         help="Minimum lead time",
     )
+    parser.add_argument(
+        "--units",
+        type=str,
+        default=None,
+        help="Units label for the plot axes",
+    )
     args = parser.parse_args()
 
     return args
@@ -295,7 +323,7 @@ def _main():
         da_obs,
         da_bc_fcst=da_bc_fcst,
         outfile=args.outfile,
-        min_lead=args.min_lead,
+        units=args.units,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,

@@ -173,15 +173,17 @@ def fit_gev(data, user_estimates=[], generate_estimates=False):
 
 def return_period(data, event):
     """Get return period for given event by fitting a GEV"""
-    
+
     shape, loc, scale = fit_gev(data, generate_estimates=True)
     probability = gev.sf(event, shape, loc=loc, scale=scale)
-    return_period = 1. / probability
-    
+    return_period = 1.0 / probability
+
     return return_period
 
 
-def gev_return_curve(data, event_value, bootstrap_method='non-parametric', n_bootstraps=1000):
+def gev_return_curve(
+    data, event_value, bootstrap_method="non-parametric", n_bootstraps=1000
+):
     """Return x and y data for a GEV return period curve.
 
     Parameters
@@ -190,52 +192,65 @@ def gev_return_curve(data, event_value, bootstrap_method='non-parametric', n_boo
     event_value : float
         Magnitude of event of interest
     bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
-    n_bootstraps : int, default 1000 
+    n_bootstraps : int, default 1000
 
     """
 
     # GEV fit to data
     shape, loc, scale = fit_gev(data, generate_estimates=True)
-    
+
     curve_return_periods = np.logspace(0, 4, num=10000)
     curve_probabilities = 1.0 / curve_return_periods
     curve_values = gev.isf(curve_probabilities, shape, loc, scale)
-    
+
     event_probability = gev.sf(event_value, shape, loc=loc, scale=scale)
-    event_return_period = 1. / event_probability
-    
+    event_return_period = 1.0 / event_probability
+
     # Bootstrapping for confidence interval
     boot_values = curve_values
     boot_event_return_periods = []
     for i in range(n_bootstraps):
-        if bootstrap_method == 'parametric':
+        if bootstrap_method == "parametric":
             boot_data = gev.rvs(shape, loc=loc, scale=scale, size=len(data))
-        elif bootstrap_method == 'non-parametric':
+        elif bootstrap_method == "non-parametric":
             boot_data = np.random.choice(data, size=data.shape, replace=True)
         boot_shape, boot_loc, boot_scale = fit_gev(boot_data, generate_estimates=True)
 
         boot_value = gev.isf(curve_probabilities, boot_shape, boot_loc, boot_scale)
         boot_values = np.vstack((boot_values, boot_value))
-        
-        boot_event_probability = gev.sf(event_value, boot_shape, loc=boot_loc, scale=boot_scale)
-        boot_event_return_period = 1. / boot_event_probability
+
+        boot_event_probability = gev.sf(
+            event_value, boot_shape, loc=boot_loc, scale=boot_scale
+        )
+        boot_event_return_period = 1.0 / boot_event_probability
         boot_event_return_periods.append(boot_event_return_period)
 
     curve_values_lower_ci = np.quantile(boot_values, 0.025, axis=0)
     curve_values_upper_ci = np.quantile(boot_values, 0.975, axis=0)
-    curve_data = curve_return_periods, curve_values, curve_values_lower_ci, curve_values_upper_ci
-    
+    curve_data = (
+        curve_return_periods,
+        curve_values,
+        curve_values_lower_ci,
+        curve_values_upper_ci,
+    )
+
     boot_event_return_periods = np.array(boot_event_return_periods)
-    boot_event_return_periods = boot_event_return_periods[np.isfinite(boot_event_return_periods)]
+    boot_event_return_periods = boot_event_return_periods[
+        np.isfinite(boot_event_return_periods)
+    ]
     event_return_period_lower_ci = np.quantile(boot_event_return_periods, 0.025)
     event_return_period_upper_ci = np.quantile(boot_event_return_periods, 0.975)
-    event_data = event_return_period, event_return_period_lower_ci, event_return_period_upper_ci
-    
+    event_data = (
+        event_return_period,
+        event_return_period_lower_ci,
+        event_return_period_upper_ci,
+    )
+
     return curve_data, event_data
 
 
 def plot_gev_return_curve(
-    ax, data, event_value, bootstrap_method='parametric', n_bootstraps=1000, ylabel=None
+    ax, data, event_value, bootstrap_method="parametric", n_bootstraps=1000, ylabel=None
 ):
     """Plot a single return period curve.
 
@@ -250,47 +265,55 @@ def plot_gev_return_curve(
         bootstrap_method=bootstrap_method,
         n_bootstraps=n_bootstraps,
     )
-    curve_return_periods, curve_values, curve_values_lower_ci, curve_values_upper_ci = curve_data
-    event_return_period, event_return_period_lower_ci, event_return_period_upper_ci = event_data
-    
-    ax.plot(
+    (
         curve_return_periods,
         curve_values,
-        color='tab:blue',
-        label='GEV fit to data'
+        curve_values_lower_ci,
+        curve_values_upper_ci,
+    ) = curve_data
+    (
+        event_return_period,
+        event_return_period_lower_ci,
+        event_return_period_upper_ci,
+    ) = event_data
+
+    ax.plot(
+        curve_return_periods, curve_values, color="tab:blue", label="GEV fit to data"
     )
     ax.fill_between(
         curve_return_periods,
         curve_values_lower_ci,
         curve_values_upper_ci,
-        color='tab:blue',
+        color="tab:blue",
         alpha=0.2,
-        label='95% CI on GEV fit'
+        label="95% CI on GEV fit",
     )
     ax.plot(
         [event_return_period_lower_ci, event_return_period_upper_ci],
         [event_value] * 2,
-        color='0.5',
-        marker='|',
-        linestyle=':',
-        label='95% CI for record event',
+        color="0.5",
+        marker="|",
+        linestyle=":",
+        label="95% CI for record event",
     )
-    print(f'{event_return_period:.0f} year return period')
-    print(f'95% CI: {event_return_period_lower_ci:.0f}-{event_return_period_upper_ci:.0f} years')
+    print(f"{event_return_period:.0f} year return period")
+    print(
+        f"95% CI: {event_return_period_lower_ci:.0f}-{event_return_period_upper_ci:.0f} years"
+    )
     empirical_return_values = np.sort(data, axis=None)[::-1]
     empirical_return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
     ax.scatter(
         empirical_return_periods,
         empirical_return_values,
-        color='tab:blue',
+        color="tab:blue",
         alpha=0.5,
-        label='empirical data'        
+        label="empirical data",
     )
-    
+
     handles, labels = ax.get_legend_handles_labels()
     handles = [handles[3], handles[0], handles[1], handles[2]]
     labels = [labels[3], labels[0], labels[1], labels[2]]
-    ax.legend(handles, labels, loc='upper left')
+    ax.legend(handles, labels, loc="upper left")
     ax.set_xscale("log")
     ax.set_xlabel("return period (years)")
     if ylabel:
@@ -298,5 +321,3 @@ def plot_gev_return_curve(
     ylim = ax.get_ylim()
     ax.set_ylim([50, ylim[-1]])
     ax.grid()
-
-

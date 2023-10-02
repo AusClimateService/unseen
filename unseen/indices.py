@@ -128,4 +128,3 @@ def calc_wind_speed(ds, u_name="uas", v_name="vas"):
     wsp = xr.ufuncs.sqrt(ds[u_name] ** 2 + ds[v_name] ** 2)
 
     return wsp
-

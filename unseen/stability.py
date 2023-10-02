@@ -10,7 +10,7 @@ from scipy.stats import genextreme as gev
 import matplotlib as mpl
 
 from . import fileio
-from . import indices
+from . import general_utils
 from . import time_utils
 
 
@@ -123,35 +123,10 @@ def return_curve(data, method, params=[]):
         if params:
             shape, loc, scale = params
         else:
-            shape, loc, scale = indices.fit_gev(data, generate_estimates=True)
+            shape, loc, scale = general_utils.fit_gev(data, generate_estimates=True)
         return_values = gev.isf(probabilities, shape, loc, scale)
 
     return return_periods, return_values
-
-
-def plot_return(data, method, outfile=None):
-    """Plot a single return period curve.
-
-    Parameters
-    ----------
-    data : xarray DataArray
-    method : {'gev', 'empirical'}
-        Fit a GEV or not to data
-    """
-
-    fig = plt.figure(figsize=[8, 6])
-    ax = fig.add_subplot()
-    return_periods, return_values = return_curve(data, method)
-    ax.plot(return_periods, return_values)
-    ax.set_xscale("log")
-    ax.set_xlabel("return period (years)")
-    ax.set_ylabel(data.attrs["units"])
-    ax.grid()
-    if outfile:
-        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
-        print(outfile)
-    else:
-        plt.show()
 
 
 def plot_return_by_lead(

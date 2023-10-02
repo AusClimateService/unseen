@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import scipy
 
 from . import fileio
-from . import indices
+from . import general_utils
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +31,7 @@ def calc_moments(sample_da, gev_estimates=[]):
     moments["standard deviation"] = float(np.std(sample_da))
     moments["skew"] = float(scipy.stats.skew(sample_da))
     moments["kurtosis"] = float(scipy.stats.kurtosis(sample_da))
-    gev_shape, gev_loc, gev_scale = indices.fit_gev(
+    gev_shape, gev_loc, gev_scale = general_utils.fit_gev(
         sample_da, user_estimates=gev_estimates
     )
     moments["GEV shape"] = gev_shape

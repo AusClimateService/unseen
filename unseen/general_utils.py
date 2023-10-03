@@ -355,6 +355,9 @@ def plot_gev_return_curve(
     ax.set_xlabel("return period (years)")
     if ylabel:
         ax.set_ylabel(ylabel)
-    ylim = ax.get_ylim()
-    ax.set_ylim([50, ylim[-1]])
+    if ymax:
+        ax.set_ylim([50, ymax])
+    else:
+        ylim = ax.get_ylim()
+        ax.set_ylim([50, ylim[-1]])
     ax.grid()

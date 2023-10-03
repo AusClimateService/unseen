@@ -250,13 +250,34 @@ def gev_return_curve(
 
 
 def plot_gev_return_curve(
-    ax, data, event_value, bootstrap_method="parametric", n_bootstraps=1000, ylabel=None
+    ax,
+    data,
+    event_value,
+    direction="exceedance",
+    bootstrap_method="parametric",
+    n_bootstraps=1000,
+    ylabel=None,
+    ymax=None,
+    text=False,
 ):
     """Plot a single return period curve.
 
     Parameters
     ----------
+    ax : matplotlib plot axis
     data : xarray DataArray
+    event_value : float
+        Magnitude of the event of interest
+    direction : {'exceedance', 'deceedance'}, default 'exceedance'
+        Plot exceedance or deceedance probabilities
+    bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
+    n_bootstraps : int, default 1000
+    ylabel : str, optional
+        Text for y axis label
+    ymax : float, optional
+        Maximum value for the y-axis
+    text : bool, default False
+       Write the return period (and 95% CI) on the plot
     """
 
     curve_data, event_data = gev_return_curve(
@@ -277,6 +298,10 @@ def plot_gev_return_curve(
         event_return_period_upper_ci,
     ) = event_data
 
+    if direction == "deceedance":
+        deceedance_probabilities = 1.0 - (1.0 / curve_return_periods)
+        curve_return_periods = 1.0 / deceedance_probabilities 
+
     ax.plot(
         curve_return_periods, curve_values, color="tab:blue", label="GEV fit to data"
     )
@@ -296,10 +321,6 @@ def plot_gev_return_curve(
         linestyle=":",
         label="95% CI for record event",
     )
-    print(f"{event_return_period:.0f} year return period")
-    print(
-        f"95% CI: {event_return_period_lower_ci:.0f}-{event_return_period_upper_ci:.0f} years"
-    )
     empirical_return_values = np.sort(data, axis=None)[::-1]
     empirical_return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
     ax.scatter(
@@ -309,6 +330,22 @@ def plot_gev_return_curve(
         alpha=0.5,
         label="empirical data",
     )
+    rp = f"{event_return_period:.0f}"
+    rp_lower = f"{event_return_period_lower_ci:.0f}"
+    rp_upper = f"{event_return_period_upper_ci:.0f}"
+    if text:
+        ax.text(
+            0.98,
+            0.05,
+            f"{rp} ({rp_lower}-{rp_upper}) years",
+            transform=ax.transAxes,
+            color="black",
+            horizontalalignment="right",
+            fontsize="large",
+        )
+    else:
+        print(f"{rp} year return period")
+        print(f"95% CI: {rp_lower}-{rp_upper} years")
 
     handles, labels = ax.get_legend_handles_labels()
     handles = [handles[3], handles[0], handles[1], handles[2]]

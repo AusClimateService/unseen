@@ -196,8 +196,8 @@ def plot_return_by_lead(
     ax.set_xlabel("return period (years)", fontsize=axis_label_size)
     units_label = units if units else sample_da.attrs["units"]
     ax.set_ylabel(units_label, fontsize=axis_label_size)
-    ax.legend()
     ax.set_ylim((50, ymax))
+    ax.legend(loc="upper left")
 
 
 def plot_return_by_time(
@@ -264,7 +264,7 @@ def plot_return_by_time(
     units_label = units if units else sample_da.attrs["units"]
     ax.set_ylabel(units_label, fontsize=axis_label_size)
     ax.set_ylim((50, ymax))
-    ax.legend()
+    ax.legend(loc="upper left")
 
 
 def create_plot(

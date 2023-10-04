@@ -182,7 +182,11 @@ def return_period(data, event):
 
 
 def gev_return_curve(
-    data, event_value, bootstrap_method="non-parametric", n_bootstraps=1000
+    data,
+    event_value,
+    bootstrap_method="non-parametric",
+    n_bootstraps=1000,
+    max_return_period=4,
 ):
     """Return x and y data for a GEV return period curve.
 
@@ -193,13 +197,14 @@ def gev_return_curve(
         Magnitude of event of interest
     bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
     n_bootstraps : int, default 1000
-
+    max_return_period : float, default 4
+        The maximum return period is 10^{max_return_period}
     """
 
     # GEV fit to data
     shape, loc, scale = fit_gev(data, generate_estimates=True)
 
-    curve_return_periods = np.logspace(0, 4, num=10000)
+    curve_return_periods = np.logspace(0, max_return_period, num=10000)
     curve_probabilities = 1.0 / curve_return_periods
     curve_values = gev.isf(curve_probabilities, shape, loc, scale)
 
@@ -256,8 +261,9 @@ def plot_gev_return_curve(
     direction="exceedance",
     bootstrap_method="parametric",
     n_bootstraps=1000,
+    max_return_period=4,
     ylabel=None,
-    ymax=None,
+    ylim=None,
     text=False,
 ):
     """Plot a single return period curve.
@@ -272,19 +278,28 @@ def plot_gev_return_curve(
         Plot exceedance or deceedance probabilities
     bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
     n_bootstraps : int, default 1000
+    max_return_period : float, default 4
+        The maximum return period is 10^{max_return_period}
     ylabel : str, optional
         Text for y axis label
-    ymax : float, optional
-        Maximum value for the y-axis
+    ylim : float, optional
+        Limits for y-axis
     text : bool, default False
        Write the return period (and 95% CI) on the plot
     """
+
+    if direction == "deceedance":
+        ValueError("Deceedance functionality not implemented yet")
+#    if direction == "deceedance":
+#        data = data * -1
+#        event_value = event_value * -1
 
     curve_data, event_data = gev_return_curve(
         data,
         event_value,
         bootstrap_method=bootstrap_method,
         n_bootstraps=n_bootstraps,
+        max_return_period=max_return_period,
     )
     (
         curve_return_periods,
@@ -297,10 +312,6 @@ def plot_gev_return_curve(
         event_return_period_lower_ci,
         event_return_period_upper_ci,
     ) = event_data
-
-    if direction == "deceedance":
-        deceedance_probabilities = 1.0 - (1.0 / curve_return_periods)
-        curve_return_periods = 1.0 / deceedance_probabilities 
 
     ax.plot(
         curve_return_periods, curve_values, color="tab:blue", label="GEV fit to data"
@@ -355,9 +366,6 @@ def plot_gev_return_curve(
     ax.set_xlabel("return period (years)")
     if ylabel:
         ax.set_ylabel(ylabel)
-    if ymax:
-        ax.set_ylim([50, ymax])
-    else:
-        ylim = ax.get_ylim()
-        ax.set_ylim([50, ylim[-1]])
+    if ylim:
+        ax.set_ylim(ylim)
     ax.grid()

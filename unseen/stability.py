@@ -7,18 +7,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import genextreme as gev
-import matplotlib as mpl
 
 from . import fileio
 from . import general_utils
 from . import time_utils
-
-
-mpl.rcParams["axes.titlesize"] = "xx-large"
-mpl.rcParams["xtick.labelsize"] = "x-large"
-mpl.rcParams["ytick.labelsize"] = "x-large"
-mpl.rcParams["legend.fontsize"] = "large"
-axis_label_size = "large"
 
 
 def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
@@ -56,7 +48,7 @@ def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     ax.grid(True)
     ax.set_title(f"(a) {metric} distribution by lead time")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label, fontsize=axis_label_size)
+    ax.set_xlabel(units_label)
     ax.legend()
 
 
@@ -98,7 +90,7 @@ def plot_dist_by_time(ax, sample_da, metric, start_years, units=None):
     ax.grid(True)
     ax.set_title(f"(c) {metric} distribution by year")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label, fontsize=axis_label_size)
+    ax.set_xlabel(units_label)
     ax.legend()
 
 
@@ -193,9 +185,9 @@ def plot_return_by_lead(
     ax.grid(True)
     ax.set_title(f"(b) {metric} return period by lead time")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label, fontsize=axis_label_size)
+    ax.set_ylabel(units_label)
     ax.set_ylim((50, ymax))
     ax.legend(loc="upper left")
 
@@ -260,9 +252,9 @@ def plot_return_by_time(
     ax.grid(True)
     ax.set_title(f"(d) {metric} return period by year")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label, fontsize=axis_label_size)
+    ax.set_ylabel(units_label)
     ax.set_ylim((50, ymax))
     ax.legend(loc="upper left")
 

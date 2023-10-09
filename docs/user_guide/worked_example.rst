@@ -1,14 +1,16 @@
 Worked examples
 ===============
 
-Wheatbelt rainfall
+Hobart extreme rainfall
 ------------------
 
-The year 2019 was the driest on record for the Australian wheatbelt.
-So dry, in fact, that wheat was imported into the country for the first time since 2006.
+During April of 1960,
+a multi-day rainfall event caused severe flooding in Hobart
+(see the [Tasmanian flood history](http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969)
+page for details). 
 
 In this worked example,
-we'll put this record dry year in context by applying the UNSEEN approach to
+we'll put this record rainfall event in context by applying the UNSEEN approach to
 an observational dataset (AGCD)
 and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
 
@@ -21,47 +23,57 @@ We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/60096007
 
     import glob
 
-    agcd_files = glob.glob('/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_*.nc')
+    agcd_files = glob.glob('/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_*.nc')
     agcd_files.sort()
     print(agcd_files)
 
 
 .. code-block:: none
 
-    ['/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1900.nc',
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1901.nc',
+    ['/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_1900.nc',
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_1901.nc'
      ...
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_2021.nc',
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_2022.nc']
 
 
 The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset
-and apply simple temporal and spatial aggregation:
+and apply simple temporal and spatial aggregation.
+
+We can use it extract the Hobart grid point from the AGCD data files
+and apply the necessary temporal aggregation to calculate the commonly used Rx5day metric
+(the highest annual 5-day rainfall total). 
 
 .. code-block:: python
 
     from unseen import fileio
 
     agcd_ds = fileio.open_dataset(
-        agcd_file,
+        agcd_files,
         variables=['pr'],
-        shapefile='wheatbelt.zip',
-        spatial_agg='mean',
+        point_selection=[-42.9, 147.3],
+        rolling_sum_window=5,
         time_freq='A-DEC',
-        time_agg='sum',
-        input_freq='M',
-        metadata_file='../../config/dataset_agcd_monthly.yml',
-        complete_time_agg_periods=True
+        time_agg='max',
+        time_agg_dates=True,
+        input_freq='D',
+        metadata_file='../../config/dataset_agcd_daily.yml',
+        units={'pr': 'mm day-1'},
     )
 
 
-In addition to opening the AGCD file,
-we've asked the function to:
+In addition to opening the AGCD files,
+we've used the following keyword arguments:
 
--  Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`
--  Select the precipitation variable from the Dataset
--  Calculate the spatial mean across the wheatbelt (as defined in a shapefile)
--  Convert the monthly timescale data to an annual sum and only retain years where data for all months are available 
+-  `metadata_file`: Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`.
+-  `variables`: Select the precipitation variable from the Dataset.
+-  `point_selection`: Select the grid point nearest to Hobart (42.9 South, 147.3 East).
+-  `rolling_sun_window`, `time_freq`, `time_agg`: Calculate the Rx5day index.
+-  `time_agg_dates`: Record the date of the final day of each Rx5day event.
+
+The docstring for the `fileio.open_dataset` function has the details for many other options,
+including the use of shapefiles and lat/lon box coordinates for more sophisticated spatial
+selection and aggregation.
 
 .. code-block:: python
 
@@ -71,25 +83,26 @@ we've asked the function to:
 .. code-block:: none
 
     <xarray.Dataset>
-    Dimensions:  (time: 123)
+    Dimensions:     (time: 123)
     Coordinates:
-      * time     (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
+      * time        (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
     Data variables:
-        pr       (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+        pr          (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+        event_time  (time) <U28 '1900-04-17' '1901-04-25' ... '2022-05-08'
     Attributes: (12/33)
         geospatial_lat_min:        -44.525
         geospatial_lat_max:        -9.975
         geospatial_lon_min:        111.975
         geospatial_lon_max:        156.275
-        time_coverage_start:       1900-01-01T00:00:00
-        date_created:              2020-08-27T21:49:15.867624
+        time_coverage_start:       1899-12-31T09:00:00
+        date_created:              2017-01-17T22:13:51.976225
         ...                        ...
         licence:                   Data Licence: The grid data files in this AGCD...
         description:               This AGCD data is a snapshot of the operationa...
-        date_issued:               2023-05-21 22:51:24
+        date_issued:               2023-05-19 06:19:17
         attribution:               Data should be cited as : Australian Bureau of...
         copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
-        history:            
+        history:             
 
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
@@ -107,10 +120,11 @@ otherwise the dask task graph can get out of control.
    years = agcd_ds['time'].dt.year.values
    agcd_df = pd.DataFrame(index=years)
    agcd_df['pr'] = agcd_ds['pr'].values
+   agcd_df['event_time'] = agcd_ds['event_time'].values
 
    agcd_df['pr'].plot.bar(figsize=[20, 9], width=0.8)
-   plt.ylabel('annual precipitation (mm)')
-   plt.title(f'Annual mean precipitation over the Australian wheatbelt')
+   plt.ylabel('Rx5day (mm)')
+   plt.title('Hobart')
    plt.grid(axis='y')
    plt.show()
 
@@ -121,27 +135,55 @@ otherwise the dask task graph can get out of control.
 
 .. code-block:: python
 
-   ranked_years = agcd_df['pr'].sort_values()
-   print(ranked_years.head(n=10))
+    ranked_years = agcd_df.sort_values(by='pr', ascending=False)
+    print(ranked_years.head(n=10))
 
 
 .. code-block:: none
 
-   2019    258.772963
-   2002    331.651974
-   1902    334.037246
-   1944    341.258801
-   1994    341.414517
-   1957    344.510548
-   1940    353.472467
-   2006    357.692126
-   1982    373.436263
-   1919    377.921436
-   Name: pr, dtype: float64
+                  pr  event_time
+    1960  233.678711  1960-04-24
+    1954  218.961914  1954-06-08
+    1957  168.168945  1957-09-19
+    1993  160.882812  1993-12-30
+    2018  153.111328  2018-05-14
+    2011  139.841797  2011-04-15
+    1995  139.805664  1995-12-22
+    1935  138.672852  1935-04-19
+    1941  133.274414  1941-12-08
+    1919  131.631836  1919-03-09
 
 
-Analysis of the AGCD data shows that 2019 was indeed an unprecented dry year with an average annual rainfall
-over the wheatbelt of only 259mm. 
+.. code-block:: python
+
+    rx5day_max = ranked_years.iloc[0]['pr']
+
+
+Analysis of the AGCD data shows that 20-24 April 1960 was indeed unprecented 5-day rainfall
+total for Hobart with 234mm of rain falling.
+
+We can fit a Generalised Extreme Value (GEV) distribution to the data
+to get an estimate of the likelihood of the 1960 event.
+
+.. code-block:: python
+
+    from scipy.stats import genextreme as gev
+    from unseen import general_utils
+
+    agcd_shape, agcd_loc, agcd_scale = general_utils.fit_gev(agcd_ds['pr'].values)
+    
+    event_probability = gev.sf(rx5day_max, agcd_shape, loc=agcd_loc, scale=agcd_scale)
+    event_return_period = 1. / event_probability
+    event_percentile = (1 - event_probability) * 100
+
+    print(f'{event_return_period:.0f} year return period')
+    print(f'{event_percentile:.2f}% percentile\n')
+
+
+.. code-block:: none
+
+    297 year return period
+    99.66% percentile
 
 
 Model data
@@ -178,22 +220,20 @@ For example:
 
 .. code-block:: python
 
-   cafe_ds = fileio.open_mfforecast(
-       'CanESM5_dcppA-hindcast_pr_files.txt',
-       n_ensemble_files=20,
-       variables=['pr'],
-       lat_bnds=[-44, -11],
-       lon_bnds=[113, 154],
-       shapefile='wheatbelt.zip',
-       spatial_agg='mean',
-       time_freq='A-DEC',
-       time_agg='sum',
-       input_freq='D',
-       reset_times=True,
-       complete_time_agg_periods=True,
-       units={'pr': 'mm day-1'},
-       units_timing='middle'
-   )
+    model_ds = fileio.open_mfforecast(
+        'CanESM5_dcppA-hindcast_pr_files.txt',
+        n_ensemble_files=20,
+        variables=['pr'],
+        point_selection=[-42.9, 147.3],
+        rolling_sum_window=5,
+        time_freq='A-DEC',
+        time_agg='max',
+        time_agg_dates=True,
+        input_freq='D',
+        units={'pr': 'mm day-1'},
+        reset_times=True,
+        complete_time_agg_periods=True,
+    )
 
 
 We've used similar keyword arguments as for the AGCD data
@@ -201,9 +241,8 @@ We've used similar keyword arguments as for the AGCD data
 with a couple of additions:
 
 -  The ``n_ensemble_members`` argument helps the function sort the contents of the input file list 
--  Selecting a box region (using the ``lat_bnds`` and ``lon_bnds`` arguments) around your shapefile region can help reduce the memory required to work with the shapefile
 -  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
--  The ``units`` option allows you to convert the units of particular variables. You can choose (using the ``units_timing`` option) for the conversion to happen at the start (before spatial and temporal operations), middle (after the spatial but before the temporal operations) or end.
+-  The ``complete_time_agg_periods`` argument makes sure that incomplete calendar years (e.g. the first year for a forecast that starts in November) aren't included 
 
 .. code-block:: python
 
@@ -237,10 +276,13 @@ with a couple of additions:
         cmor_version:                3.4.0
 
 
+If the ``open_mffdataset`` command takes too long to run,
+you could a
+
 Stability and stationarity testing
 ^^^^^^^^^^^^^^^^^^^^
 
-Now that we have our annual rainfall data for the wheatbelt region,
+Now that we have our Rx5day model data for Hobart,
 we need to check whether the dataset is stable (no drift/trend with lead time)
 and stationary (no trend with time).
 
@@ -252,24 +294,18 @@ To do this, we can use the ``stability`` module:
 
     stability.create_plot(
         model_ds['pr'],
-        'annual mean rainfall',
+        'Rx5day',
         [1960, 1970, 1980, 1990, 2000, 2010],
-        outfile='wheatbelt_stability_CanESM5.png',
         uncertainty=True,
         return_method='empirical',
         ymax=None,
     )
 
 
-.. image:: wheatbelt_stability_CanESM5.png
+.. image:: stability_CanESM5.png
    :width: 800
 
-In this case, it looks like the there's model drift in the first few lead times
-before the simulations settle down (confirmed also in the indpendence analysis; see below).
-There is also some evidence of a trend with time in the data,
-so we might decide to remove earlier forecast years (e.g. start at 1980 instead of 1960)
-from our analysis or detrend the data
-(detrending functionality isn't currently available in the UNSEEN software).
+In this case, it looks like 
 
 
 Independence testing
@@ -300,11 +336,11 @@ To perform this test, we can use the ``independence`` module:
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
-       'wheatbelt_independence_CanESM5.png'
+       'independence_CanESM5.png'
    )
 
 
-.. image:: wheatbelt_independence_CanESM5.png
+.. image:: independence_CanESM5.png
    :width: 450
 
 

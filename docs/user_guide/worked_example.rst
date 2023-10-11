@@ -6,7 +6,7 @@ Hobart extreme rainfall
 
 During April of 1960,
 a multi-day rainfall event caused severe flooding in Hobart
-(see the `_Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
+(see the `Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
 page for details). 
 
 In this worked example,
@@ -188,7 +188,7 @@ to get an estimate of the likelihood of the 1960 event.
 Model data
 ^^^^^^^^^^
 
-The HadGEM3-GC31-MM submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
+The HadGEM3-GC31-MM submission to DCPP consists of multiple forecast files - twelve files (one for each year) for each initialisation date and ensemble member.
 We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast``
 and it will sort and process them into a single xarray dataset.
 We just need to order the files in the list by initialisation date and then ensemble member.

@@ -7,10 +7,18 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import genextreme as gev
+import matplotlib as mpl
 
 from . import fileio
 from . import general_utils
 from . import time_utils
+
+
+mpl.rcParams["axes.titlesize"] = "xx-large"
+mpl.rcParams["xtick.labelsize"] = "x-large"
+mpl.rcParams["ytick.labelsize"] = "x-large"
+mpl.rcParams["legend.fontsize"] = "large"
+axis_label_size = "large"
 
 
 def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
@@ -48,7 +56,7 @@ def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     ax.grid(True)
     ax.set_title(f"(a) {metric} distribution by lead time")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label)
+    ax.set_xlabel(units_label, fontsize=axis_label_size)
     ax.legend()
 
 
@@ -90,11 +98,11 @@ def plot_dist_by_time(ax, sample_da, metric, start_years, units=None):
     ax.grid(True)
     ax.set_title(f"(c) {metric} distribution by year")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label)
+    ax.set_xlabel(units_label, fontsize=axis_label_size)
     ax.legend()
 
 
-def return_curve(data, method, params=[]):
+def return_curve(data, method, params=[], **kwargs):
     """Return x and y data for a return period curve.
 
     Parameters
@@ -104,6 +112,8 @@ def return_curve(data, method, params=[]):
         Fit a GEV or not to data
     params : list, default None
         shape, location and scale parameters (calculated if None)
+    kwargs : dict, optional
+        kwargs passed to general_utils.fit_gev (N.B. used to use generate_estimates=True)
     """
 
     if method == "empirical":
@@ -115,7 +125,7 @@ def return_curve(data, method, params=[]):
         if params:
             shape, loc, scale = params
         else:
-            shape, loc, scale = general_utils.fit_gev(data, generate_estimates=True)
+            shape, loc, scale = general_utils.fit_gev(data, **kwargs)
         return_values = gev.isf(probabilities, shape, loc, scale)
 
     return return_periods, return_values
@@ -128,7 +138,7 @@ def plot_return_by_lead(
     method,
     uncertainty=False,
     units=None,
-    ylim=None,
+    ymax=None,
     lead_dim="lead_time",
 ):
     """Plot return period curves for each lead time.
@@ -147,8 +157,8 @@ def plot_return_by_lead(
         Plot 95% confidence interval
     units : str, optional
         units for plot axis labels
-    ylim : float, optional
-        y axis limits for return curve plots [min, max]
+    ymax : float, optional
+        ymax for return curve plot
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in sample_da
     """
@@ -185,16 +195,15 @@ def plot_return_by_lead(
     ax.grid(True)
     ax.set_title(f"(b) {metric} return period by lead time")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)")
+    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label)
-    if ylim:
-        ax.set_ylim(ylim)
-    ax.legend(loc="upper left")
+    ax.set_ylabel(units_label, fontsize=axis_label_size)
+    ax.legend()
+    ax.set_ylim((50, ymax))
 
 
 def plot_return_by_time(
-    ax, sample_da, metric, start_years, method, uncertainty=False, units=None, ylim=None
+    ax, sample_da, metric, start_years, method, uncertainty=False, units=None, ymax=None
 ):
     """Plot return period curves for each time slice (e.g. decade).
 
@@ -214,8 +223,8 @@ def plot_return_by_time(
         Plot 95% confidence interval
     units : str, optional
         units for plot axis labels
-    ylim : float, optional
-        ylim for return curve plot
+    ymax : float, optional
+        ymax for return curve plot
     """
 
     step = start_years[1] - start_years[0] - 1
@@ -253,12 +262,11 @@ def plot_return_by_time(
     ax.grid(True)
     ax.set_title(f"(d) {metric} return period by year")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)")
+    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label)
-    if ylim:
-        ax.set_ylim(ylim)
-    ax.legend(loc="upper left")
+    ax.set_ylabel(units_label, fontsize=axis_label_size)
+    ax.set_ylim((50, ymax))
+    ax.legend()
 
 
 def create_plot(
@@ -267,7 +275,7 @@ def create_plot(
     start_years,
     outfile=None,
     uncertainty=False,
-    ylim=None,
+    ymax=None,
     units=None,
     return_method="empirical",
     ensemble_dim="ensemble",
@@ -288,8 +296,8 @@ def create_plot(
         Path for output image file
     uncertainty: bool, default False
         Plot the 95% confidence interval
-    ylim : float, optional
-        y axis limits for return curve plots [min, max]
+    ymax : float, optional
+        ymax for return curve plots
     units : str, optional
         units for plot axis labels
     return_method : {'empirical', 'gev'}, default empirial
@@ -318,7 +326,7 @@ def create_plot(
         metric,
         return_method,
         uncertainty=uncertainty,
-        ylim=ylim,
+        ymax=ymax,
         units=units,
         lead_dim=lead_dim,
     )
@@ -331,7 +339,7 @@ def create_plot(
         return_method,
         units=units,
         uncertainty=uncertainty,
-        ylim=ylim,
+        ymax=ymax,
     )
 
     if outfile:
@@ -367,11 +375,10 @@ def _parse_command_line():
         help="Plot the 95 percent confidence interval [default: False]",
     )
     parser.add_argument(
-        "--ylim",
+        "--ymax",
         type=float,
-        nargs=2,
         default=None,
-        help="y axis limits for return curve plots [min, max]",
+        help="ymax for return curve plots",
     )
     parser.add_argument(
         "--return_method",
@@ -424,7 +431,7 @@ def _main():
         outfile=args.outfile,
         return_method=args.return_method,
         uncertainty=args.uncertainty,
-        ylim=args.ylim,
+        ymax=args.ymax,
         units=args.units,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,

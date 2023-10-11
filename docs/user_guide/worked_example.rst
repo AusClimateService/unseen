@@ -1,16 +1,17 @@
 Worked examples
 ===============
 
-Wheatbelt rainfall
+Hobart extreme rainfall
 ------------------
 
-The year 2019 was the driest on record for the Australian wheatbelt.
-So dry, in fact, that wheat was imported into the country for the first time since 2006.
+During April of 1960,
+a multi-day rainfall event caused severe flooding in Hobart
+(see the `Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
+page for details). 
 
 In this worked example,
-we'll put this record dry year in context by applying the UNSEEN approach to
-an observational dataset (AGCD)
-and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
+we'll estimate the likelihood of this record rainfall event by applying the UNSEEN approach to
+a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
 
 Observational data
 ^^^^^^^^^^^^^^^^^^
@@ -21,47 +22,57 @@ We can use the `AGCD data available on NCI <https://dx.doi.org/10.25914/60096007
 
     import glob
 
-    agcd_files = glob.glob('/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_*.nc')
+    agcd_files = glob.glob('/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_*.nc')
     agcd_files.sort()
     print(agcd_files)
 
 
 .. code-block:: none
 
-    ['/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1900.nc',
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_1901.nc',
+    ['/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_1900.nc',
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_1901.nc'
      ...
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2021.nc',
-     '/g/data/zv2/agcd/v2-0-1/precip/total/r005/01month/agcd_v2-0-1_precip_total_r005_monthly_2022.nc']
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_2021.nc',
+     '/g/data/zv2/agcd/v1-0-1/precip/total/r005/01day/agcd_v1-0-1_precip_total_r005_daily_2022.nc']
 
 
 The ``fileio.open_dataset`` function can be used to open a data file/s as an xarray Dataset
-and apply simple temporal and spatial aggregation:
+and apply simple temporal and spatial aggregation.
+
+We can use it extract the Hobart grid point from the AGCD data files
+and apply the necessary temporal aggregation to calculate the commonly used Rx5day metric
+(the highest annual 5-day rainfall total). 
 
 .. code-block:: python
 
     from unseen import fileio
 
     agcd_ds = fileio.open_dataset(
-        agcd_file,
+        agcd_files,
         variables=['pr'],
-        shapefile='wheatbelt.zip',
-        spatial_agg='mean',
+        point_selection=[-42.9, 147.3],
+        rolling_sum_window=5,
         time_freq='A-DEC',
-        time_agg='sum',
-        input_freq='M',
-        metadata_file='../../config/dataset_agcd_monthly.yml',
-        complete_time_agg_periods=True
+        time_agg='max',
+        time_agg_dates=True,
+        input_freq='D',
+        metadata_file='../../config/dataset_agcd_daily.yml',
+        units={'pr': 'mm day-1'},
     )
 
 
-In addition to opening the AGCD file,
-we've asked the function to:
+In addition to opening the AGCD files,
+we've used the following keyword arguments:
 
--  Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`
--  Select the precipitation variable from the Dataset
--  Calculate the spatial mean across the wheatbelt (as defined in a shapefile)
--  Convert the monthly timescale data to an annual sum and only retain years where data for all months are available 
+-  ``metadata_file``: Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`.
+-  ``variables``: Select the precipitation variable from the Dataset.
+-  ``point_selection``: Select the grid point nearest to Hobart (42.9 South, 147.3 East).
+-  ``rolling_sun_window``, ``time_freq``, ``time_agg``: Calculate the Rx5day index.
+-  ``time_agg_dates``: Record the date of the final day of each Rx5day event.
+
+The docstring for the ``fileio.open_dataset`` function has the details for many other options,
+including the use of shapefiles and lat/lon box coordinates for more sophisticated spatial
+selection and aggregation.
 
 .. code-block:: python
 
@@ -71,25 +82,26 @@ we've asked the function to:
 .. code-block:: none
 
     <xarray.Dataset>
-    Dimensions:  (time: 123)
+    Dimensions:     (time: 123)
     Coordinates:
-      * time     (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
+      * time        (time) object 1900-12-31 00:00:00 ... 2022-12-31 00:00:00
     Data variables:
-        pr       (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+        pr          (time) float32 dask.array<chunksize=(1,), meta=np.ndarray>
+        event_time  (time) <U28 '1900-04-17' '1901-04-25' ... '2022-05-08'
     Attributes: (12/33)
         geospatial_lat_min:        -44.525
         geospatial_lat_max:        -9.975
         geospatial_lon_min:        111.975
         geospatial_lon_max:        156.275
-        time_coverage_start:       1900-01-01T00:00:00
-        date_created:              2020-08-27T21:49:15.867624
+        time_coverage_start:       1899-12-31T09:00:00
+        date_created:              2017-01-17T22:13:51.976225
         ...                        ...
         licence:                   Data Licence: The grid data files in this AGCD...
         description:               This AGCD data is a snapshot of the operationa...
-        date_issued:               2023-05-21 22:51:24
+        date_issued:               2023-05-19 06:19:17
         attribution:               Data should be cited as : Australian Bureau of...
         copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
-        history:            
+        history:             
 
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
@@ -107,10 +119,11 @@ otherwise the dask task graph can get out of control.
    years = agcd_ds['time'].dt.year.values
    agcd_df = pd.DataFrame(index=years)
    agcd_df['pr'] = agcd_ds['pr'].values
+   agcd_df['event_time'] = agcd_ds['event_time'].values
 
    agcd_df['pr'].plot.bar(figsize=[20, 9], width=0.8)
-   plt.ylabel('annual precipitation (mm)')
-   plt.title(f'Annual mean precipitation over the Australian wheatbelt')
+   plt.ylabel('Rx5day (mm)')
+   plt.title('Hobart')
    plt.grid(axis='y')
    plt.show()
 
@@ -121,33 +134,61 @@ otherwise the dask task graph can get out of control.
 
 .. code-block:: python
 
-   ranked_years = agcd_df['pr'].sort_values()
-   print(ranked_years.head(n=10))
+    ranked_years = agcd_df.sort_values(by='pr', ascending=False)
+    print(ranked_years.head(n=10))
 
 
 .. code-block:: none
 
-   2019    258.772963
-   2002    331.651974
-   1902    334.037246
-   1944    341.258801
-   1994    341.414517
-   1957    344.510548
-   1940    353.472467
-   2006    357.692126
-   1982    373.436263
-   1919    377.921436
-   Name: pr, dtype: float64
+                  pr  event_time
+    1960  233.678711  1960-04-24
+    1954  218.961914  1954-06-08
+    1957  168.168945  1957-09-19
+    1993  160.882812  1993-12-30
+    2018  153.111328  2018-05-14
+    2011  139.841797  2011-04-15
+    1995  139.805664  1995-12-22
+    1935  138.672852  1935-04-19
+    1941  133.274414  1941-12-08
+    1919  131.631836  1919-03-09
 
 
-Analysis of the AGCD data shows that 2019 was indeed an unprecented dry year with an average annual rainfall
-over the wheatbelt of only 259mm. 
+.. code-block:: python
+
+    rx5day_max = ranked_years.iloc[0]['pr']
+
+
+Analysis of the AGCD data shows that 20-24 April 1960 was indeed unprecented 5-day rainfall
+total for Hobart with 234mm of rain falling.
+
+We can fit a Generalised Extreme Value (GEV) distribution to the data
+to get an estimate of the likelihood of the 1960 event.
+
+.. code-block:: python
+
+    from scipy.stats import genextreme as gev
+    from unseen import general_utils
+
+    agcd_shape, agcd_loc, agcd_scale = general_utils.fit_gev(agcd_ds['pr'].values)
+    
+    event_probability = gev.sf(rx5day_max, agcd_shape, loc=agcd_loc, scale=agcd_scale)
+    event_return_period = 1. / event_probability
+    event_percentile = (1 - event_probability) * 100
+
+    print(f'{event_return_period:.0f} year return period')
+    print(f'{event_percentile:.2f}% percentile\n')
+
+
+.. code-block:: none
+
+    297 year return period
+    99.66% percentile
 
 
 Model data
 ^^^^^^^^^^
 
-The CanESM5 submission to DCPP consists of multiple forecast files - one for each initialisation date and ensemble member.
+The HadGEM3-GC31-MM submission to DCPP consists of multiple forecast files - twelve files (one for each year) for each initialisation date and ensemble member.
 We can pass a text file listing all the input forecast files to ``fileio.open_mfforecast``
 and it will sort and process them into a single xarray dataset.
 We just need to order the files in the list by initialisation date and then ensemble member.
@@ -155,55 +196,44 @@ For example:
 
 .. code-block:: none
 
-    cat CanESM5_dcppA-hindcast_pr_files.txt
+    cat HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt
 
 
 .. code-block:: none    
 
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r1i1p2f1_gn_19610101-19701231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r2i1p2f1_gn_19610101-19701231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r3i1p2f1_gn_19610101-19701231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s1960-r1i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-r1i1p1f2_gn_19601101-19601230.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s1960-r1i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-r1i1p1f2_gn_19610101-19611230.nc
     ...
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r18i1p2f1_gn_19610101-19701231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r19i1p2f1_gn_19610101-19701231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1960-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1960-r20i1p2f1_gn_19610101-19701231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r1i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r1i1p2f1_gn_19620101-19711231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r2i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r2i1p2f1_gn_19620101-19711231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s1961-r3i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s1961-r3i1p2f1_gn_19620101-19711231.nc
-    ...
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r18i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r18i1p2f1_gn_20170101-20261231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r19i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r19i1p2f1_gn_20170101-20261231.nc
-    /g/data/oi10/replicas/CMIP6/DCPP/CCCma/CanESM5/dcppA-hindcast/s2016-r20i1p2f1/day/pr/gn/v20190429/pr_day_CanESM5_dcppA-hindcast_s2016-r20i1p2f1_gn_20170101-20261231.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s2018-r10i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s2018-r10i1p1f2_gn_20280101-20281230.nc
+    /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s2018-r10i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s2018-r10i1p1f2_gn_20290101-20290330.nc
 
 
 .. code-block:: python
 
-   cafe_ds = fileio.open_mfforecast(
-       'CanESM5_dcppA-hindcast_pr_files.txt',
-       n_ensemble_files=20,
-       variables=['pr'],
-       lat_bnds=[-44, -11],
-       lon_bnds=[113, 154],
-       shapefile='wheatbelt.zip',
-       spatial_agg='mean',
-       time_freq='A-DEC',
-       time_agg='sum',
-       input_freq='D',
-       reset_times=True,
-       complete_time_agg_periods=True,
-       units={'pr': 'mm day-1'},
-       units_timing='middle'
-   )
+    model_ds = fileio.open_mfforecast(
+        'HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt',
+        n_ensemble_files=10,
+        n_time_files=12,
+        variables=['pr'],
+        point_selection=[-42.9, 147.3],
+        rolling_sum_window=5,
+        time_freq='A-DEC',
+        time_agg='max',
+        time_agg_dates=True,
+        input_freq='D',
+        units={'pr': 'mm day-1'},
+        reset_times=True,
+        complete_time_agg_periods=True,
+    )
 
 
 We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
 with a couple of additions:
 
--  The ``n_ensemble_members`` argument helps the function sort the contents of the input file list 
--  Selecting a box region (using the ``lat_bnds`` and ``lon_bnds`` arguments) around your shapefile region can help reduce the memory required to work with the shapefile
+-  The ``n_ensemble_members`` and ``n_time_files`` arguments help the function sort the contents of the input file list 
 -  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
--  The ``units`` option allows you to convert the units of particular variables. You can choose (using the ``units_timing`` option) for the conversion to happen at the start (before spatial and temporal operations), middle (after the spatial but before the temporal operations) or end.
+-  The ``complete_time_agg_periods`` argument makes sure that incomplete calendar years (e.g. the first year for a forecast that starts in November) aren't included 
 
 .. code-block:: python
 
@@ -213,34 +243,42 @@ with a couple of additions:
 .. code-block:: none
 
     <xarray.Dataset>
-    Dimensions:    (init_date: 57, ensemble: 20, lead_time: 10)
+    Dimensions:    (ensemble: 10, init_date: 59, lead_time: 12)
     Coordinates:
-      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9
-      * ensemble   (ensemble) int64 0 1 2 3 4 5 6 7 8 ... 11 12 13 14 15 16 17 18 19
-      * init_date  (init_date) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
-        time       (lead_time, init_date) object 1961-01-01 12:00:00 ... 2026-01-...
+      * ensemble   (ensemble) int64 0 1 2 3 4 5 6 7 8 9
+      * init_date  (init_date) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
+      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10 11
+        time       (lead_time, init_date) object 1960-11-01 12:00:00 ... 2029-11-...
     Data variables:
-        pr         (init_date, ensemble, lead_time) float32 dask.array<chunksize=(1, 1, 1), meta=np.ndarray>
-    Attributes: (12/53)
-        CCCma_model_hash:            Unknown
-        CCCma_parent_runid:          d2a-asm-e01
-        CCCma_pycmor_hash:           13db8596c37129e414cad7ae31f2927ca8f5dd39
-        CCCma_runid:                 d2a196101e01
-        Conventions:                 CF-1.7 CMIP-6.2
-        YMDH_branch_time_in_child:   1961:01:01:00
-        ...                          ...
-        tracking_id:                 hdl:21.14100/f220e01c-1214-4625-be6a-c0475c2...
-        variable_id:                 pr
-        variant_label:               r1i1p2f1
-        version:                     v20190429
-        license:                     CMIP6 model data produced by The Government ...
-        cmor_version:                3.4.0
+        pr         (init_date, ensemble, lead_time) float32 nan 41.2 ... 14.04 nan
+    Attributes: (12/43)
+        Conventions:            CF-1.7 CMIP-6.2
+        activity_id:            DCPP
+        branch_method:          no parent
+        branch_time_in_child:   0.0
+        branch_time_in_parent:  0.0
+        cmor_version:           3.4.0
+        ...                     ...
+        table_info:             Creation Date:(13 December 2018) MD5:f0588f7f55b5...
+        title:                  HadGEM3-GC31-MM output prepared for CMIP6
+        tracking_id:            hdl:21.14100/3163965c-a593-4abd-9b2a-9ee755aef228
+        variable_id:            pr
+        variable_name:          pr
+        variant_label:          r1i1p1f2
+
+
+If the ``open_mffdataset`` command takes too long to run,
+you could also run it at the command line and submit to the job queue.
+
+.. code-block:: none
+
+    $ fileio HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt Rx5day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-2018_gn_hobart.zarr.zip --n_ensemble_files 10 --variables pr --time_freq A-DEC --time_agg max --input_freq D --point_selection -42.9 147.3 --reset_times --complete_time_agg_periods --units pr=mm day-1 --forecast -v --n_time_files 12
 
 
 Stability and stationarity testing
 ^^^^^^^^^^^^^^^^^^^^
 
-Now that we have our annual rainfall data for the wheatbelt region,
+Now that we have our Rx5day model data for Hobart,
 we need to check whether the dataset is stable (no drift/trend with lead time)
 and stationary (no trend with time).
 
@@ -252,24 +290,20 @@ To do this, we can use the ``stability`` module:
 
     stability.create_plot(
         model_ds['pr'],
-        'annual mean rainfall',
+        'Rx5day',
         [1960, 1970, 1980, 1990, 2000, 2010],
-        outfile='wheatbelt_stability_CanESM5.png',
         uncertainty=True,
-        return_method='empirical',
-        ymax=None,
+        return_method='gev',
+        units='Rx5day (mm)',
+        ylim=(0, 250),
     )
 
 
-.. image:: wheatbelt_stability_CanESM5.png
+.. image:: stability.png
    :width: 800
 
-In this case, it looks like the there's model drift in the first few lead times
-before the simulations settle down (confirmed also in the indpendence analysis; see below).
-There is also some evidence of a trend with time in the data,
-so we might decide to remove earlier forecast years (e.g. start at 1980 instead of 1960)
-from our analysis or detrend the data
-(detrending functionality isn't currently available in the UNSEEN software).
+
+In this case, it looks like there isn't any model drift and trend over time.
 
 
 Independence testing
@@ -277,13 +311,13 @@ Independence testing
 
 Next, we want to determine the lead time at which the ensemble members can be considered independent.
 To do this, we can test whether the correlation between ensemble members at a given lead time is sufficiently close to zero.
-At each lead time, the CanESM5 submission to DCPP provides 20 (members), 57-year timeseries of annual mean rainfall
-(spanning, e.g., 1961-2017 at 1-year lead, or 1965–2021 at 5-year lead).
+At each lead time, the HadGEM3-GC31-MM submission to DCPP provides 10 (members), 59-year timeseries of annual mean rainfall
+(spanning, e.g., 1961-2019 at 1-year lead, or 1965–2021 at 5-year lead).
 We define our test statistic, $\rho_t$,
-for each lead time as the mean Spearman correlation in time between all combinations of the 20 ensemble members
-(of which there are 190: member 1 with 2, member 1 with 3 etc).
+for each lead time as the mean Spearman correlation in time between all combinations of the 10 ensemble members
+(of which there are 45: member 1 with 2, member 1 with 3 etc).
 Significance of $\rho_t$ is estimated using a permutation test,
-whereby 10,000 sets of 20 times 57 points are randomly drawn from the complete model dataset
+whereby 10,000 sets of 10 times 59 points are randomly drawn from the complete model dataset
 to produce 10,000 estimates of the mean Spearman correlation.
 Because these estimates are constructed from randomly drawn data,
 they represent the distribution of mean correlation values for uncorrelated data (i.e., the null distribution).
@@ -300,21 +334,20 @@ To perform this test, we can use the ``independence`` module:
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
-       'wheatbelt_independence_CanESM5.png'
+       'independence.png'
    )
 
 
-.. image:: wheatbelt_independence_CanESM5.png
+.. image:: independence.png
    :width: 450
 
 
 Consistent with the stability analysis,
-it's clear that the first three lead times aren't independent.
-We can remove the early lead times from our dataset as follows:
+it's clear that all lead times are independent.
 
 .. code-block:: python
 
-    model_da_indep = model_ds['pr'].where(model_ds['lead_time'] > 2)
+    model_da_indep = model_ds['pr'].where(model_ds['lead_time'] > 0)
     model_da_indep.dropna('lead_time')
 
 
@@ -345,7 +378,7 @@ To do this, we can use the ``bias_correction`` module:
         agcd_ds['pr'],
         correction_method,
         time_rounding='A',
-        time_period=['1961-01-01', '2017-12-31']
+        time_period=['1961-01-01', '2018-12-31']
     )
 
     model_da_bc = bias_correction.remove_bias(model_da_indep, bias, correction_method)
@@ -358,24 +391,29 @@ to see the effect of the bias correction.
 
     import matplotlib.pyplot as plt
 
-    fig = plt.figure(figsize=[10, 6])
-    model_da_indep.plot.hist(
-        bins=50, density=True, label='MODEL', alpha=0.7
-    )
-    model_da_bc.plot.hist(
-        bins=50, density=True, label='MODEL BIAS CORRECTED', facecolor='darkblue', alpha=0.7
-    )
-    agcd_ds['pr'].plot.hist(
-        bins=50, density=True, label='AGCD', facecolor='green', alpha=0.7
-    )
-    plt.xlabel('annual precipitation (mm)')
+    model_da_indep.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:blue')
+    model_raw_shape, model_raw_loc, model_raw_scale = general_utils.fit_gev(model_da_indep.values, generate_estimates=True)
+    model_raw_pdf = gev.pdf(xvals, model_raw_shape, model_raw_loc, model_raw_scale)
+    plt.plot(xvals, model_raw_pdf, color='tab:blue', linewidth=4.0, label='model')
+
+    model_da_bc.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:orange')
+    model_bc_shape, model_bc_loc, model_bc_scale = general_utils.fit_gev(model_da_bc.values, generate_estimates=True)
+    model_bc_pdf = gev.pdf(xvals, model_bc_shape, model_bc_loc, model_bc_scale)
+    plt.plot(xvals, model_bc_pdf, color='tab:orange', linewidth=4.0, label='model (corrected)')
+
+    agcd_ds['pr'].plot.hist(ax=ax, bins=50, density=True, facecolor='tab:gray', alpha=0.7)
+    plt.plot(xvals, agcd_pdf, color='tab:gray', linewidth=4.0, label='observations')
+
+    plt.xlabel('Rx5day (mm)')
     plt.ylabel('probability')
-    plt.title(f'Average precipitation across the Australian wheatbelt')
+    plt.title('Hobart')
+    plt.xlim(0, 250)
     plt.legend()
+    plt.grid()
     plt.show()
 
 
-.. image:: wheatbelt_precip_histogram_CanESM5.png
+.. image:: distribution.png
    :width: 700
 
 
@@ -400,11 +438,10 @@ To perform the moments test, we can use the ``moments`` module:
         model_da_indep,
         agcd_ds['pr'],
         da_bc_fcst=model_da_bc,
-        outfile='wheatbelt_moments_CanESM5.png',
     )
 
 
-.. image:: wheatbelt_moments_CanESM5.png
+.. image:: moments.png
    :width: 700
 
 
@@ -432,9 +469,9 @@ we can use the ``similarity`` module:
 
 .. code-block:: none
 
-    KS score: 0.28393546
-    KS p-value: 3.9190886e-09
-    AD score: 24.95854
+    KS score: 0.6598098
+    KS p-value: 0.0
+    AD score: 235.39091
     AD p-value: 0.001
 
 
@@ -449,10 +486,10 @@ we can use the ``similarity`` module:
 
 .. code-block:: none
 
-    KS score: 0.08060395
-    KS p-value: 0.38978085
-    AD score: 0.45249355
-    AD p-value: 0.21647933
+    KS score: 0.0795494
+    KS p-value: 0.40908137
+    AD score: -0.29753023
+    AD p-value: 0.25
 
 
 The raw model data fails both tests (p-value < 0.05),
@@ -466,7 +503,6 @@ Once we've got to the point where our data is procesed
 and we are satisified that the observational and (independent, bias corrected) model data
 have similar enough statistical distributions,
 the unseen software has a number of functions to help to express our unpreecedented event
-(in this case the 2019 annual rainfall total over the Australian wheatbelt)
 in the context of our large ensemble.
 
 Once we've stacked our model data so it's one dimensional,
@@ -479,52 +515,44 @@ Once we've stacked our model data so it's one dimensional,
 
 .. code-block:: none
 
-    <xarray.DataArray 'pr' (sample: 7980)>
-    array([515.47577, 432.40683, 321.6442 , ..., 365.48837, 728.4908 ,
-           543.5099 ], dtype=float32)
+    <xarray.DataArray 'pr' (sample: 5900)>
+    array([ 84.050224,  81.98476 ,  46.54293 , ...,  68.81363 , 129.38924 ,
+            28.640915], dtype=float32)
     Coordinates:
-        time       (sample) object 1964-01-01 12:00:00 ... 2026-01-01 12:00:00
+        time       (sample) object 1961-11-01 12:00:00 ... 2028-11-01 12:00:00
       * sample     (sample) object MultiIndex
-      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 ... 19 19 19 19 19 19 19 19 19
-      * init_date  (sample) object 1961-01-01 00:00:00 ... 2017-01-01 00:00:00
-      * lead_time  (sample) int64 3 4 5 6 7 8 9 3 4 5 6 7 ... 6 7 8 9 3 4 5 6 7 8 9
+      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 0 0 ... 9 9 9 9 9 9 9 9 9 9 9
+      * init_date  (sample) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
+      * lead_time  (sample) int64 1 2 3 4 5 6 7 8 9 10 1 ... 10 1 2 3 4 5 6 7 8 9 10
     Attributes:
-        units:                   mm d-1
         standard_name:           lwe_precipitation_rate
+        units:                   mm d-1
         bias_correction_method:  multiplicative
-        bias_correction_period:  1961-01-01-2017-12-31
+        bias_correction_period:  1970-01-01-2018-12-30
  
 
 .. code-block:: python
 
-    stability.plot_return(model_da_bc_stacked, 'gev', outfile='return_curve_CanESM5.png')
-
-
-.. image:: return_curve_CanESM5.png
-   :width: 700
-
-
-.. code-block:: python
-
-    from unseen import general_utils
-
-    pr2019 = agcd_ds['pr'].data.min()
-    print(pr2019)
-    
-    n_events_bc, n_population_bc, return_period_bc, percentile_bc = general_utils.event_in_context(
-        model_da_bc_stacked.values,
-        pr2019,
-        'below',
+    fig = plt.figure(figsize=[6, 4])
+    ax = fig.add_subplot()
+    general_utils.plot_gev_return_curve(
+        ax,
+        model_da_bc_stacked,
+        rx5day_max,
+        n_bootstraps=1000,
+        direction="exceedance",
+        ylabel='Rx5day (mm)',
+        ylim=(0, 400),
     )
-    print('BIAS CORRECTED DATA')
-    print(f'{n_events_bc} events in {n_population_bc} samples')
-    print(f'{percentile_bc:.2f}% percentile')
-    print(f'{return_period_bc:.0f} year return period')
+    plt.show()
 
 
 .. code-block:: none
 
-    BIAS CORRECTED DATA
-    19 events in 7980 samples
-    0.24% percentile
-    420 year return period
+    220 year return period
+    95% CI: 177-280 years
+
+
+.. image:: return_curve.png
+   :width: 700
+

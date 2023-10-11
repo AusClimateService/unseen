@@ -290,7 +290,11 @@ def return_period(data, event, **kwargs):
 
 
 def gev_return_curve(
-    data, event_value, bootstrap_method="non-parametric", n_bootstraps=1000
+    data,
+    event_value,
+    bootstrap_method="non-parametric",
+    n_bootstraps=1000,
+    max_return_period=4,
 ):
     """Return x and y data for a GEV return period curve.
 
@@ -301,13 +305,14 @@ def gev_return_curve(
         Magnitude of event of interest
     bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
     n_bootstraps : int, default 1000
-
+    max_return_period : float, default 4
+        The maximum return period is 10^{max_return_period}
     """
 
     # GEV fit to data
     shape, loc, scale = fit_gev(data, generate_estimates=True)
 
-    curve_return_periods = np.logspace(0, 4, num=10000)
+    curve_return_periods = np.logspace(0, max_return_period, num=10000)
     curve_probabilities = 1.0 / curve_return_periods
     curve_values = gev.isf(curve_probabilities, shape, loc, scale)
 
@@ -358,20 +363,48 @@ def gev_return_curve(
 
 
 def plot_gev_return_curve(
-    ax, data, event_value, bootstrap_method="parametric", n_bootstraps=1000, ylabel=None
+    ax,
+    data,
+    event_value,
+    direction="exceedance",
+    bootstrap_method="parametric",
+    n_bootstraps=1000,
+    max_return_period=4,
+    ylabel=None,
+    ylim=None,
+    text=False,
 ):
     """Plot a single return period curve.
 
     Parameters
     ----------
+    ax : matplotlib plot axis
     data : xarray DataArray
+    event_value : float
+        Magnitude of the event of interest
+    direction : {'exceedance', 'deceedance'}, default 'exceedance'
+        Plot exceedance or deceedance probabilities
+    bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
+    n_bootstraps : int, default 1000
+    max_return_period : float, default 4
+        The maximum return period is 10^{max_return_period}
+    ylabel : str, optional
+        Text for y axis label
+    ylim : float, optional
+        Limits for y-axis
+    text : bool, default False
+       Write the return period (and 95% CI) on the plot
     """
+
+    if direction == "deceedance":
+        ValueError("Deceedance functionality not implemented yet")
 
     curve_data, event_data = gev_return_curve(
         data,
         event_value,
         bootstrap_method=bootstrap_method,
         n_bootstraps=n_bootstraps,
+        max_return_period=max_return_period,
     )
     (
         curve_return_periods,
@@ -404,10 +437,6 @@ def plot_gev_return_curve(
         linestyle=":",
         label="95% CI for record event",
     )
-    print(f"{event_return_period:.0f} year return period")
-    print(
-        f"95% CI: {event_return_period_lower_ci:.0f}-{event_return_period_upper_ci:.0f} years"
-    )
     empirical_return_values = np.sort(data, axis=None)[::-1]
     empirical_return_periods = len(data) / np.arange(1.0, len(data) + 1.0)
     ax.scatter(
@@ -417,6 +446,22 @@ def plot_gev_return_curve(
         alpha=0.5,
         label="empirical data",
     )
+    rp = f"{event_return_period:.0f}"
+    rp_lower = f"{event_return_period_lower_ci:.0f}"
+    rp_upper = f"{event_return_period_upper_ci:.0f}"
+    if text:
+        ax.text(
+            0.98,
+            0.05,
+            f"{rp} ({rp_lower}-{rp_upper}) years",
+            transform=ax.transAxes,
+            color="black",
+            horizontalalignment="right",
+            fontsize="large",
+        )
+    else:
+        print(f"{rp} year return period")
+        print(f"95% CI: {rp_lower}-{rp_upper} years")
 
     handles, labels = ax.get_legend_handles_labels()
     handles = [handles[3], handles[0], handles[1], handles[2]]
@@ -426,6 +471,6 @@ def plot_gev_return_curve(
     ax.set_xlabel("return period (years)")
     if ylabel:
         ax.set_ylabel(ylabel)
-    ylim = ax.get_ylim()
-    ax.set_ylim([50, ylim[-1]])
+    if ylim:
+        ax.set_ylim(ylim)
     ax.grid()

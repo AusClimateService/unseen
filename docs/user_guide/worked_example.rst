@@ -6,13 +6,12 @@ Hobart extreme rainfall
 
 During April of 1960,
 a multi-day rainfall event caused severe flooding in Hobart
-(see the [Tasmanian flood history](http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969)
+(see the `_Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
 page for details). 
 
 In this worked example,
-we'll put this record rainfall event in context by applying the UNSEEN approach to
-an observational dataset (AGCD)
-and a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
+we'll estimate the likelihood of this record rainfall event by applying the UNSEEN approach to
+a large forecast ensemble from the Decadal Climate Prediction Project (DCPP).
 
 Observational data
 ^^^^^^^^^^^^^^^^^^
@@ -65,13 +64,13 @@ and apply the necessary temporal aggregation to calculate the commonly used Rx5d
 In addition to opening the AGCD files,
 we've used the following keyword arguments:
 
--  `metadata_file`: Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`.
--  `variables`: Select the precipitation variable from the Dataset.
--  `point_selection`: Select the grid point nearest to Hobart (42.9 South, 147.3 East).
--  `rolling_sun_window`, `time_freq`, `time_agg`: Calculate the Rx5day index.
--  `time_agg_dates`: Record the date of the final day of each Rx5day event.
+-  ``metadata_file``: Edit the metadata of the data file / xarray Dataset according to the details in a :doc:`configuration file <configuration_files>`.
+-  ``variables``: Select the precipitation variable from the Dataset.
+-  ``point_selection``: Select the grid point nearest to Hobart (42.9 South, 147.3 East).
+-  ``rolling_sun_window``, ``time_freq``, ``time_agg``: Calculate the Rx5day index.
+-  ``time_agg_dates``: Record the date of the final day of each Rx5day event.
 
-The docstring for the `fileio.open_dataset` function has the details for many other options,
+The docstring for the ``fileio.open_dataset`` function has the details for many other options,
 including the use of shapefiles and lat/lon box coordinates for more sophisticated spatial
 selection and aggregation.
 
@@ -293,7 +292,6 @@ To do this, we can use the ``stability`` module:
         model_ds['pr'],
         'Rx5day',
         [1960, 1970, 1980, 1990, 2000, 2010],
-        outfile='stability.png',
         uncertainty=True,
         return_method='gev',
         units='Rx5day (mm)',

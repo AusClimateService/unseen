@@ -290,9 +290,6 @@ def plot_gev_return_curve(
 
     if direction == "deceedance":
         ValueError("Deceedance functionality not implemented yet")
-#    if direction == "deceedance":
-#        data = data * -1
-#        event_value = event_value * -1
 
     curve_data, event_data = gev_return_curve(
         data,

@@ -2,7 +2,7 @@ name: unseen-test
 channels:
   - conda-forge
 dependencies:
-  - python=3.9
+  - python
   - geopandas
   - regionmask
   - xarray

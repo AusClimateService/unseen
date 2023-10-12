@@ -5,6 +5,7 @@ import xarray as xr
 import dask
 import dask.array as dsa
 
+# Import all modules to test that dependencies are installed
 import unseen.array_handling
 import unseen.bias_correction
 import unseen.bootstrap
@@ -18,6 +19,22 @@ import unseen.similarity
 import unseen.spatial_selection
 import unseen.stability
 import unseen.time_utils
+
+
+# To avoid linting errors need to use all imported modules
+unseen.array_handling.__name__
+unseen.bias_correction.__name__
+unseen.bootstrap.__name__
+unseen.dask_setup.__name__
+unseen.fileio.__name__
+unseen.general_utils.__name__
+unseen.independence.__name__
+unseen.indices.__name__
+unseen.moments.__name__
+unseen.similarity.__name__
+unseen.spatial_selection.__name__
+unseen.stability.__name__
+unseen.time_utils.__name__
 
 
 def pytest_configure():

@@ -10,6 +10,10 @@ dependencies:
   - numpy
   - pytest
   - cftime
+  - gitpython
+  - cmdline_provenance
+  - xclim
+  - dask-jobqueue
   - pip
   - pip:
     - codecov

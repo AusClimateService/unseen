@@ -18,3 +18,4 @@ dependencies:
   - pip:
     - codecov
     - pytest-cov
+    - xskillscore

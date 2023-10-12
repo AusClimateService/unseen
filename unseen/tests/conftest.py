@@ -2,9 +2,22 @@ import pytest
 
 import numpy as np
 import xarray as xr
-
 import dask
 import dask.array as dsa
+
+import unseen.array_handling
+import unseen.bias_correction
+import unseen.bootstrap
+import unseen.dask_setup
+import unseen.fileio
+import unseen.general_utils
+import unseen.independence
+import unseen.indices
+import unseen.moments
+import unseen.similarity
+import unseen.spatial_selection
+import unseen.stability
+import unseen.time_utils
 
 
 def pytest_configure():

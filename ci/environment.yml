@@ -13,9 +13,12 @@ dependencies:
   - gitpython
   - cmdline_provenance
   - xclim
+  - xskillscore
+  - zarr
+  - netcdf4
   - dask-jobqueue
   - pip
   - pip:
     - codecov
     - pytest-cov
-    - xskillscore
+    - xstatstests

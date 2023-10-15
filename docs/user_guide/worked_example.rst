@@ -272,7 +272,7 @@ you could also run it at the command line and submit to the job queue.
 
 .. code-block:: none
 
-    $ fileio HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt Rx5day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-2018_gn_hobart.zarr.zip --n_ensemble_files 10 --variables pr --time_freq A-DEC --time_agg max --input_freq D --point_selection -42.9 147.3 --reset_times --complete_time_agg_periods --units pr=mm day-1 --forecast -v --n_time_files 12
+    $ fileio HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt Rx5day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-2018_gn_hobart.zarr.zip --n_ensemble_files 10 --variables pr --rolling_sum_window 5 --time_freq A-DEC --time_agg max --input_freq D --point_selection -42.9 147.3 --reset_times --complete_time_agg_periods --units pr=mm day-1 --forecast -v --n_time_files 12
 
 
 Stability and stationarity testing
@@ -295,7 +295,7 @@ To do this, we can use the ``stability`` module:
         uncertainty=True,
         return_method='gev',
         units='Rx5day (mm)',
-        ylim=(0, 250),
+        ylim=(0, 450),
     )
 
 
@@ -469,9 +469,9 @@ we can use the ``similarity`` module:
 
 .. code-block:: none
 
-    KS score: 0.6598098
-    KS p-value: 0.0
-    AD score: 235.39091
+    KS score: 0.2797175
+    KS p-value: 7.914835e-09
+    AD score: 29.255798
     AD p-value: 0.001
 
 
@@ -486,9 +486,9 @@ we can use the ``similarity`` module:
 
 .. code-block:: none
 
-    KS score: 0.0795494
-    KS p-value: 0.40908137
-    AD score: -0.29753023
+    KS score: 0.07429516
+    KS p-value: 0.49535686
+    AD score: -0.15807883
     AD p-value: 0.25
 
 
@@ -516,8 +516,8 @@ Once we've stacked our model data so it's one dimensional,
 .. code-block:: none
 
     <xarray.DataArray 'pr' (sample: 5900)>
-    array([ 84.050224,  81.98476 ,  46.54293 , ...,  68.81363 , 129.38924 ,
-            28.640915], dtype=float32)
+    array([124.84209 ,  73.138466,  62.510113, ...,  57.245464, 121.23235 ,
+            34.655647], dtype=float32)
     Coordinates:
         time       (sample) object 1961-11-01 12:00:00 ... 2028-11-01 12:00:00
       * sample     (sample) object MultiIndex
@@ -549,8 +549,8 @@ Once we've stacked our model data so it's one dimensional,
 
 .. code-block:: none
 
-    220 year return period
-    95% CI: 177-280 years
+    235 year return period
+    95% CI: 188-304 years
 
 
 .. image:: return_curve.png

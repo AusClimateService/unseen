@@ -5,15 +5,10 @@ import re
 
 import numpy as np
 from scipy.optimize import minimize
-import scipy.stats
-from scipy.stats import rv_continuous
-from scipy.stats import genextreme as gev
+from scipy.stats import genextreme, rv_continuous
 from scipy.stats._constants import _LOGXMAX
 from scipy.stats._distn_infrastructure import _sum_finite
-import xarray as xr
-#import xclim
-
-
+import xclim
 
 
 class store_dict(argparse.Action):
@@ -153,14 +148,14 @@ class ns_genextreme_gen(rv_continuous):
         """Return estimates of shape, location and scale parameters using genextreme."""
         if user_estimates:
             shape, loc, scale = user_estimates
-            shape, loc, scale = gev.fit(data, shape, loc=loc, scale=scale)
+            shape, loc, scale = genextreme.fit(data, shape, loc=loc, scale=scale)
 
         elif generate_estimates:
             # Generate initial estimates using a data subset (useful for large datasets).
-            shape, loc, scale = gev.fit(data[::2])
-            shape, loc, scale = gev.fit(data, shape, loc=loc, scale=scale)
+            shape, loc, scale = genextreme.fit(data[::2])
+            shape, loc, scale = genextreme.fit(data, shape, loc=loc, scale=scale)
         else:
-            shape, loc, scale = gev.fit(data)
+            shape, loc, scale = genextreme.fit(data)
         return shape, loc, scale
 
     def nllf(self, theta, data, times):
@@ -185,7 +180,6 @@ class ns_genextreme_gen(rv_continuous):
         total : float
             The sum of the penalised negative likelihood function.
         """
-
         if len(theta) == 5:
             # Non-stationary GEV parameters.
             shape, loc0, loc1, scale0, scale1 = theta
@@ -207,8 +201,13 @@ class ns_genextreme_gen(rv_continuous):
             # NLLF at points where the data is supported by the distribution parameters.
             # (N.B. the NLLF is not finite when the shape is nonzero and Z is negative
             # because the PDF is zero (log(0)=inf) outside of these bounds).
-            f = np.where(Z > 0, (np.log(scale) + (1 + 1 / shape) * np.ma.log(Z) +
-                                 np.ma.power(Z, -1 / shape)), np.inf)
+            f = np.where(
+                Z > 0,
+                np.log(scale)
+                + (1 + 1 / shape) * np.ma.log(Z)
+                + np.ma.power(Z, -1 / shape),
+                np.inf,
+            )
 
         f = np.where(scale > 0, f, np.inf)  # Scale parameter must be positive.
 
@@ -219,8 +218,16 @@ class ns_genextreme_gen(rv_continuous):
         total = total + n_bad * _LOGXMAX * 100
         return total
 
-    def fit(self, data, user_estimates=[], loc1=0, scale1=0, generate_estimates=False,
-            stationary=True, method='Nelder-Mead'):
+    def fit(
+        self,
+        data,
+        user_estimates=[],
+        loc1=0,
+        scale1=0,
+        generate_estimates=False,
+        stationary=True,
+        method="Nelder-Mead",
+    ):
         """Return estimates of data distribution parameters and their trend (if applicable).
 
         For stationary data, estimates the shape, location and scale parameters using
@@ -257,7 +264,9 @@ class ns_genextreme_gen(rv_continuous):
         """
 
         # Use genextremes to get stationary distribution parameters.
-        shape, loc, scale = self.fit_stationary(data, user_estimates, generate_estimates)
+        shape, loc, scale = self.fit_stationary(
+            data, user_estimates, generate_estimates
+        )
 
         if stationary:
             theta = shape, loc, scale
@@ -266,12 +275,12 @@ class ns_genextreme_gen(rv_continuous):
             theta_i = shape, loc, loc1, scale, scale1
 
             # Optimisation bounds (scale parameter must be non-negative).
-            bounds = [(None, None), (None, None), (None, None),
-                      (0, None), (None, None)]
+            bounds = [(None, None), (None, None), (None, None), (0, None), (None, None)]
 
             # Minimise the negative log-likelihood function to get optimal theta.
-            res = minimize(self.nllf, theta_i, args=(data, times),
-                           method=method, bounds=bounds)
+            res = minimize(
+                self.nllf, theta_i, args=(data, times), method=method, bounds=bounds
+            )
             theta = res.x
 
         return theta
@@ -284,7 +293,9 @@ def return_period(data, event, **kwargs):
     """Get return period for given event by fitting a GEV."""
 
     shape, loc, scale = fit_gev(data, **kwargs)
-    return_period = gev.isf(event, shape, loc=loc, scale=scale)  # 1.0 / probability
+    return_period = genextreme.isf(
+        event, shape, loc=loc, scale=scale
+    )  # 1.0 / probability
 
     return return_period
 
@@ -314,9 +325,9 @@ def gev_return_curve(
 
     curve_return_periods = np.logspace(0, max_return_period, num=10000)
     curve_probabilities = 1.0 / curve_return_periods
-    curve_values = gev.isf(curve_probabilities, shape, loc, scale)
+    curve_values = genextreme.isf(curve_probabilities, shape, loc, scale)
 
-    event_probability = gev.sf(event_value, shape, loc=loc, scale=scale)
+    event_probability = genextreme.sf(event_value, shape, loc=loc, scale=scale)
     event_return_period = 1.0 / event_probability
 
     # Bootstrapping for confidence interval
@@ -324,15 +335,17 @@ def gev_return_curve(
     boot_event_return_periods = []
     for i in range(n_bootstraps):
         if bootstrap_method == "parametric":
-            boot_data = gev.rvs(shape, loc=loc, scale=scale, size=len(data))
+            boot_data = genextreme.rvs(shape, loc=loc, scale=scale, size=len(data))
         elif bootstrap_method == "non-parametric":
             boot_data = np.random.choice(data, size=data.shape, replace=True)
         boot_shape, boot_loc, boot_scale = fit_gev(boot_data, generate_estimates=True)
 
-        boot_value = gev.isf(curve_probabilities, boot_shape, boot_loc, boot_scale)
+        boot_value = genextreme.isf(
+            curve_probabilities, boot_shape, boot_loc, boot_scale
+        )
         boot_values = np.vstack((boot_values, boot_value))
 
-        boot_event_probability = gev.sf(
+        boot_event_probability = genextreme.sf(
             event_value, boot_shape, loc=boot_loc, scale=boot_scale
         )
         boot_event_return_period = 1.0 / boot_event_probability

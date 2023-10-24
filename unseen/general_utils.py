@@ -6,6 +6,7 @@ import re
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import rv_continuous, genextreme, goodness_of_fit
+from xarray import apply_ufunc
 import xclim
 
 
@@ -267,7 +268,7 @@ class ns_genextreme_gen(rv_continuous):
         total = total + n_bad * np.log(np.finfo(float).max) * 100
         return total
 
-    def fit(
+    def _fit(
         self,
         data,
         user_estimates=None,
@@ -289,7 +290,7 @@ class ns_genextreme_gen(rv_continuous):
         Parameters
         ----------
         data : xarray.dataArray
-            Data as a function of a covariate
+            Data as a function of a covariate (assumed to be on axis=-1).
         user estimates: list, default None
             Initial estimates of the shape, loc and scale parameters
         loc1, scale1 : float, default 0
@@ -321,6 +322,11 @@ class ns_genextreme_gen(rv_continuous):
         fit_gev = ns_genextreme_gen().fit
         shape, loc, scale = fit_gev(data, stationary=True)
         shape, loc, loc1, scale, scale1 = fit_gev(data, stationary=False)
+
+        data_2d = xr.concat([data, data + x * 1e-2], 'lat')
+        theta = fit_gev(data_2d, stationary=False)
+        print(theta.dims)
+        ('lat', 'theta')
         '''
         """
         kwargs = locals()
@@ -352,6 +358,31 @@ class ns_genextreme_gen(rv_continuous):
         if check_fit:
             kwargs.pop("self")
             theta = self._check_fit(theta, **kwargs)
+        return np.array(theta)
+
+    def fit(self, data, **kwargs):
+        """xarray.apply_ufunc wrapper for ns_genextreme_gen._fit."""
+        time_dim = data.dims[-1]  # Assumes the time/covariate is on the last axis.
+
+        # Expected output of theta (3 parameters unless stationary=False is specified).
+        n = 3 if kwargs.get("stationary", True) else 5
+
+        theta = apply_ufunc(
+            self._fit,
+            data,
+            input_core_dims=[[time_dim]],
+            output_core_dims=[["theta"]],
+            vectorize=True,
+            dask="parallelized",
+            kwargs=kwargs,
+            dask_gufunc_kwargs=dict(
+                output_dtypes=["float64"], output_sizes={"theta": n}
+            ),
+        )
+
+        if len(data.shape) == 1:
+            # If input is a 1D array, return a tuple of scalars instead of a data array.
+            theta = tuple([i.item() for i in theta])
         return theta
 
 

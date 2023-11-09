@@ -2,23 +2,24 @@ name: unseen-test
 channels:
   - conda-forge
 dependencies:
-  - python
-  - geopandas
-  - regionmask
-  - xarray
-  - dask-core
-  - numpy
-  - pytest
   - cftime
-  - gitpython
   - cmdline_provenance
+  - dask-core
+  - dask-jobqueue
+  - geopandas
+  - gitpython
+  - netcdf4
+  - numpy
+  - pip
+  - pytest
+  - python
+  - regionmask
+  - scipy>=1.10.0
+  - seaborn
+  - xarray
   - xclim
   - xskillscore
-  - seaborn
   - zarr
-  - netcdf4
-  - dask-jobqueue
-  - pip
   - pip:
     - codecov
     - pytest-cov

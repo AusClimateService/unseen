@@ -13,7 +13,9 @@ np.random.seed(1)
 
 def example_da_gev_1d():
     """An example 1D GEV DataArray and its distribution parameters."""
-    time = np.arange("2000-01-01", "2005-01-01", dtype=np.datetime64)
+    time = np.arange(
+        "2000-01-01", "2005-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
+    )
 
     # Generate shape, location and scale parameters.
     shape = np.random.uniform()
@@ -35,7 +37,9 @@ def example_da_gev_1d_dask():
 
 def example_da_gev_3d():
     """An example 3D GEV DataArray and its distribution parameters."""
-    time = np.arange("2000-01-01", "2005-01-01", dtype=np.datetime64)
+    time = np.arange(
+        "2000-01-01", "2005-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
+    )
     lats = np.arange(0, 2)
     lons = np.arange(0, 2)
     shape = (len(lats), len(lons))

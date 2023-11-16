@@ -162,11 +162,12 @@ def check_gev_fit(data, theta, time_dim="time"):
     """
 
     def _goodness_of_fit(data, theta):
+        assert len(theta) in [3, 5]
         if len(theta) == 3:
             # Stationary parameters
             shape, loc, scale = theta
             test_data = data
-        else:
+        elif len(theta) == 5:
             # Non-stationary parameters (test middle 20% of data).
             # N.B. the non stationary parameters vary with the data distribution as a
             # function of the covariate, so we test a subset of data at a specific point.
@@ -193,10 +194,9 @@ def check_gev_fit(data, theta, time_dim="time"):
         data,
         theta,
         input_core_dims=[[time_dim], ["theta"]],
-        output_core_dims=[[]],
         vectorize=True,
-        dask="allowed",
-        dask_gufunc_kwargs=dict(output_dtypes="float64", meta=(float)),
+        dask="parallelized",
+        dask_gufunc_kwargs=dict(meta=(np.ndarray(1, float),)),
     )
     return pvalue
 
@@ -432,7 +432,7 @@ def fit_gev(
             input_core_dims=[[time_dim]],
             output_core_dims=[["theta"]],
             vectorize=True,
-            dask="allowed",
+            dask="parallelized",
             kwargs=kwargs,
             output_dtypes=["float64"],
             dask_gufunc_kwargs=dict(output_sizes={"theta": n}),

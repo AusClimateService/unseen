@@ -8,16 +8,16 @@ from unseen.general_utils import fit_gev, check_gev_fit
 
 rtol = 0.3  # relative tolerance
 alpha = 0.05
-np.random.seed(1)
 
 
 def example_da_gev_1d():
     """An example 1D GEV DataArray and its distribution parameters."""
     time = np.arange(
-        "2000-01-01", "2005-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
+        "2000-01-01", "2003-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
     )
 
     # Generate shape, location and scale parameters.
+    np.random.seed(0)
     shape = np.random.uniform()
     loc = np.random.uniform(-10, 10)
     scale = np.random.uniform(0.1, 10)
@@ -38,12 +38,13 @@ def example_da_gev_1d_dask():
 def example_da_gev_3d():
     """An example 3D GEV DataArray and its distribution parameters."""
     time = np.arange(
-        "2000-01-01", "2005-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
+        "2000-01-01", "2003-01-01", np.timedelta64(1, "D"), dtype="datetime64[ns]"
     )
     lats = np.arange(0, 2)
     lons = np.arange(0, 2)
     shape = (len(lats), len(lons))
 
+    np.random.seed(0)
     c = np.random.rand(*shape)
     loc = np.random.rand(*shape) + np.random.randint(-10, 10, shape)
     scale = np.random.rand(*shape)
@@ -71,10 +72,6 @@ def add_example_gev_trend(data):
     trend = np.arange(data.time.size) / data.time.size
     trend = xr.DataArray(trend, coords={"time": data.time})
     return data + trend
-
-
-data, theta_i = example_da_gev_3d()
-theta = fit_gev(data, stationary=True, check_fit=False)
 
 
 def test_fit_gev_1d():
@@ -110,7 +107,7 @@ def test_fit_gev_3d_dask():
 
 
 def test_fit_ns_gev_1d():
-    """Run stationary fit using 1D array & check results."""
+    """Run non-stationary fit using 1D array & check results."""
     data, _ = example_da_gev_1d()
     data = add_example_gev_trend(data)
 
@@ -124,7 +121,7 @@ def test_fit_ns_gev_1d():
 
 
 def test_fit_ns_gev_1d_dask():
-    """Run stationary fit using 1D dask array & check results."""
+    """Run non-stationary fit using 1D dask array & check results."""
     data, _ = example_da_gev_1d_dask()
 
     # Add a positive linear trend.
@@ -138,7 +135,7 @@ def test_fit_ns_gev_1d_dask():
 
 
 def test_fit_ns_gev_3d():
-    """Run stationary fit using 3D array & check results."""
+    """Run non-stationary fit using 3D array & check results."""
     data, _ = example_da_gev_3d()
 
     # Add a positive linear trend.
@@ -152,7 +149,7 @@ def test_fit_ns_gev_3d():
 
 
 def test_fit_ns_gev_3d_dask():
-    """Run stationary fit using 3D dask array & check results."""
+    """Run non-stationary fit using 3D dask array & check results."""
     data, _ = example_da_gev_3d_dask()
 
     # Add a positive linear trend.

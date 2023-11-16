@@ -182,7 +182,9 @@ def check_gev_fit(data, theta, time_dim="time"):
             scale = scale + scale1 * t
 
         res = goodness_of_fit(
-            genextreme, test_data, known_params=dict(c=shape, loc=loc, scale=scale)
+            genextreme,
+            test_data,
+            known_params=dict(c=shape, loc=loc, scale=scale),
         )
         return res.pvalue
 
@@ -394,14 +396,27 @@ def fit_gev(
             theta_i = -shape, loc, loc1, scale, scale1
 
             # Optimisation bounds (scale parameter must be non-negative).
-            bounds = [(None, None), (None, None), (None, None), (0, None), (None, None)]
+            bounds = [
+                (None, None),
+                (None, None),
+                (None, None),
+                (0, None),
+                (None, None),
+            ]
 
             # Minimise the negative log-likelihood function to get optimal theta.
-            res = minimize(nllf, theta_i, args=(data, x), method=method, bounds=bounds)
+            res = minimize(
+                nllf,
+                theta_i,
+                args=(data, x),
+                method=method,
+                bounds=bounds,
+            )
             theta = res.x
 
             # Restore 'shape' sign for consistency with scipy.stats results.
             theta[0] *= -1
+        theta = np.array([i for i in theta], dtype="float64")
         return theta
 
     def fit(data, **kwargs):
@@ -450,7 +465,7 @@ def fit_gev(
 
     # Return a tuple of scalars instead of a 1D data array
     if len(data.shape) == 1:
-        theta = tuple([i.item() for i in theta])
+        theta = np.array([i for i in theta], dtype="float64")
     return theta
 
 
@@ -597,7 +612,10 @@ def plot_gev_return_curve(
     ) = event_data
 
     ax.plot(
-        curve_return_periods, curve_values, color="tab:blue", label="GEV fit to data"
+        curve_return_periods,
+        curve_values,
+        color="tab:blue",
+        label="GEV fit to data",
     )
     ax.fill_between(
         curve_return_periods,

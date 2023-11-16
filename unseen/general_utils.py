@@ -391,7 +391,6 @@ def fit_gev(
         if stationary:
             theta = shape, loc, scale
         else:
-
             # Initial parameter guesses.
             theta_i = -shape, loc, loc1, scale, scale1
 

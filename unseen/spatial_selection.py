@@ -393,7 +393,7 @@ def _nan_to_bool(mask):
         Data array of True (where floats were) and False (where NaNs were) values
     """
 
-    assert type(mask) == xr.core.dataarray.DataArray
+    assert isinstance(mask, xr.core.dataarray.DataArray)
     if mask.values.dtype != "bool":
         mask = xr.where(mask.notnull(), True, False)
 

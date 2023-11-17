@@ -5,7 +5,8 @@ import re
 
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import rv_continuous, genextreme, goodness_of_fit
+from scipy.stats import genextreme, goodness_of_fit
+from xarray import apply_ufunc
 import xclim
 
 
@@ -139,18 +140,34 @@ def event_in_context(data, threshold, direction):
     return n_events, n_population, return_period, percentile
 
 
-class ns_genextreme_gen(rv_continuous):
-    """Extreme value distributions (stationary or non-stationary)."""
+def check_gev_fit(data, theta, time_dim="time"):
+    """Test stationary distribution goodness of fit.
 
-    def _check_fit(self, theta, **kwargs):
-        """Test goodness of fit and (if applicable) retry fit by generating an initial estimate."""
-        data = kwargs.pop("data")
+    Parameters
+    ----------
+    data, x: array-like
+        Data and covariate to fit.
+    theta : tuple of floats
+        Shape, location and scale parameters.
 
+    Returns
+    -------
+    pvalue : scipy.stats._fit.GoodnessOfFitResult.pvalue
+        Goodness of fit pvalue.
+
+    Notes
+    -----
+    - For non-stationary distributions, the stationary fit is only
+    compared to a subset of data near the middle of the timeseries.
+    """
+
+    def _goodness_of_fit(data, theta):
+        assert len(theta) in [3, 5]
         if len(theta) == 3:
             # Stationary parameters
             shape, loc, scale = theta
             test_data = data
-        else:
+        elif len(theta) == 5:
             # Non-stationary parameters (test middle 20% of data).
             # N.B. the non stationary parameters vary with the data distribution as a
             # function of the covariate, so we test a subset of data at a specific point.
@@ -159,29 +176,109 @@ class ns_genextreme_gen(rv_continuous):
             dt = n // 10  # 10% of datapoints to test for goodness of fit.
 
             # Subset data around midpoint.
-            test_data = data.isel({data.dims[-1]: slice(max(0, t - dt), t + dt)})
+            test_data = data[t - dt : t + dt]
 
             shape, loc, loc1, scale, scale1 = theta
             loc = loc + loc1 * t
             scale = scale + scale1 * t
 
         res = goodness_of_fit(
-            genextreme, test_data, known_params=dict(c=shape, loc=loc, scale=scale)
+            genextreme,
+            test_data,
+            known_params=dict(c=shape, loc=loc, scale=scale),
         )
+        return res.pvalue
 
-        # Accept the null distribution of the AD test.
-        success = True if res.pvalue > 0.01 else False
-        if not success:
-            if not kwargs["generate_estimates"]:
-                print("Data fit failed. Retrying with 'generate_estimates=True'.")
-                kwargs["generate_estimates"] = True
-                theta = self.fit(data, **kwargs)
-            else:
-                print("Data fit failed.")
-        return theta
+    pvalue = apply_ufunc(
+        _goodness_of_fit,
+        data,
+        theta,
+        input_core_dims=[[time_dim], ["theta"]],
+        vectorize=True,
+        dask="parallelized",
+        dask_gufunc_kwargs=dict(meta=(np.ndarray(1, float),)),
+    )
+    return pvalue
 
-    def fit_stationary(self, data, user_estimates, generate_estimates):
-        """Return estimates of shape, location and scale parameters using genextreme."""
+
+def fit_gev(
+    data,
+    user_estimates=None,
+    loc1=0,
+    scale1=0,
+    x=None,
+    time_dim="time",
+    stationary=True,
+    check_fit=False,
+    alpha=0.05,
+    generate_estimates=False,
+    method="Nelder-Mead",
+):
+    """Estimate parameters for stationary or non-stationary data distributions.
+
+    Parameters
+    ----------
+    data : xarray.dataArray
+        Data to fit.
+    user estimates: list, default None
+        Initial estimates of the shape, loc and scale parameters
+    loc1, scale1 : float, default 0
+        Initial estimates of the location and scale trend parameters
+    x : array-like, default None (assumes linear)
+        A non-stationary covariate (e.g., x=np.arange(data.time.size))
+    time_dim : str, default 'time'
+        Name of time dimension in 'data'
+    stationary : bool, default True
+        Fit as a stationary GEV using scipy.stats.genextremes.fit
+    check_fit : bool, default False
+        Test goodness of fit and attempt retry
+    alpha : float, default 0.05
+        Goodness of fit p-value threshold
+    generate_estimates : bool, default False
+        Generate initial parameter guesses using a data subset
+    method : str, default 'Nelder-Mead'
+        Method used for scipy.optimize.minimize
+
+    Returns
+    -------
+    theta : tuple
+        Shape, location and scale parameters (and loc1, scale1 if applicable)
+
+    Notes
+    -----
+    - For stationary data the shape, location and scale parameters are
+    estimated using scipy.stats.genextremes.fit().
+    - For non-stationary data, the linear location and scale trend
+    parameters are estimated using a penalised negative log-likelihood
+    function with initial estimates based on the stationary fit.
+    - The distribution fit is considered 'good' if the p-value is above
+    the 99th percent level (i.e.,  accept the null hypothesis).
+    - If the parameters fail the goodness of fit test, it will attempt
+    to fit the data again by generating an initial guess - if that
+    hasn't already been tried.
+
+    Example
+    -------
+    '''
+    import xarray as xr
+    n = 1000
+    m = 1e-3
+    x = np.arange(n)
+    rvs = genextreme.rvs(-0.05, loc=3.2, scale=0.5, size=n, random_state=0)
+    data = xr.DataArray(rvs + x * m, coords={'time': x})
+    data.plot()
+
+    shape, loc, scale = fit_gev(data, stationary=True)
+    shape, loc, loc1, scale, scale1 = fit_gev(data, stationary=False)
+
+    data_2d = xr.concat([data, data + x * 1e-2], 'lat')
+    theta = fit_gev(data_2d, stationary=False, check_fit=True)
+    '''
+    """
+    kwargs = locals()  # Function inputs
+
+    def fit_stationary_gev(data, user_estimates, generate_estimates):
+        """Estimate stationary shape, location and scale parameters."""
         if user_estimates:
             shape, loc, scale = user_estimates
             shape, loc, scale = genextreme.fit(data, shape, loc=loc, scale=scale)
@@ -194,40 +291,52 @@ class ns_genextreme_gen(rv_continuous):
             shape, loc, scale = genextreme.fit(data)
         return shape, loc, scale
 
-    def _sum_finite(self, x):
-        """Sum finite values and count the number of nonfinite values in a 1D array.
+    def penalised_sum(x):
+        """Sum finite values in a 1D array and add nonfinite penalties.
 
         This is a utility function used when evaluating the negative
-        loglikelihood for a distribution and an array of samples. Stolen from
+        loglikelihood for a distribution and an array of samples.
+        Adapted/stolen from:
         https://github.com/scipy/scipy/blob/v1.11.3/scipy/stats/_distn_infrastructure.py
         """
         finite_x = np.isfinite(x)
         bad_count = finite_x.size - np.count_nonzero(finite_x)
-        return np.sum(x[finite_x]), bad_count
 
-    def nllf(self, theta, data, x):
-        """Penalised negative log-likelihood of GEV probability density function.
+        total = np.sum(x[finite_x])
+        penalty = bad_count * np.log(np.finfo(float).max) * 100
 
-        A modified version of scipy.stats.genextremes.fit for fitting extreme value
-        distribution parameters, in which the location and scale parameters can vary
-        linearly with a covariate.
-        A large, finite penalty (rather than infinite negative log-likelihood)
-        is applied for observations beyond the support of the distribution.
-        Suitable for stationary or non stationary distributions. The non-stationary
-        parameters are returned if the input 'theta' incudes the varying
-        location and scale parameters.
+        return total + penalty
+
+    def nllf(theta, data, x):
+        """Penalised negative log-likelihood function.
 
         Parameters
         ----------
         theta : tuple of floats
-            Shape, location and scale parameters (shape, loc0, loc1, scale0, scale1).
+            Distribution parameters (can be stationary or non-stationary)
+            or
         data, x: array-like
-            Data and covariate to fit.
+            Data to fit and covariate (e.g., timesteps).
 
         Returns
         -------
         total : float
-            The penalised negative likelihood function summed over all values of x.
+            The penalised NLLF summed over all values of x.
+
+        Notes
+        -----
+        - A modified version of scipy.stats.genextremes.fit for fitting
+        extreme value distribution parameters, in which the location and
+        scale parameters can vary linearly with a covariate.
+        - Suitable for stationary or non-stationary distributions:
+            - theta = (shape, loc, scale)
+            - theta = (shape, loc, loc1, scale, scale1)
+        - The non-stationary parameters are returned if the input theta
+        incudes the varying location and scale parameters.
+        - A large finite penalty (instead of infinity) is applied for
+        observations beyond the support of the distribution.
+        - The NLLF is not finite when the shape is nonzero and Z is
+        negative because the PDF is zero (i.e., log(0)=inf)).
         """
         if len(theta) == 5:
             # Non-stationary GEV parameters.
@@ -247,9 +356,7 @@ class ns_genextreme_gen(rv_continuous):
 
         else:
             Z = 1 + shape * s
-            # NLLF at points where the data is supported by the distribution parameters.
-            # (N.B. the NLLF is not finite when the shape is nonzero and Z is negative
-            # because the PDF is zero (log(0)=inf) outside of these bounds).
+            # NLLF where data is supported by the parameters (see notes).
             f = np.where(
                 Z > 0,
                 np.log(scale)
@@ -260,102 +367,105 @@ class ns_genextreme_gen(rv_continuous):
 
         f = np.where(scale > 0, f, np.inf)  # Scale parameter must be positive.
 
-        # Sum function along all axes (where finite) & count infinite elements.
-        total, n_bad = self._sum_finite(f)
-
-        # Add large finite penalty instead of infinity (log of the largest useable float).
-        total = total + n_bad * np.log(np.finfo(float).max) * 100
+        # Sum function along all axes (where finite) & add penalty for each infinite element.
+        total = penalised_sum(f)
         return total
 
-    def fit(
-        self,
+    def _fit(
         data,
-        user_estimates=None,
-        loc1=0,
-        scale1=0,
-        x=None,
-        generate_estimates=False,
-        stationary=True,
-        check_fit=False,
-        method="Nelder-Mead",
+        user_estimates,
+        loc1,
+        scale1,
+        x,
+        time_dim,
+        stationary,
+        check_fit,
+        alpha,
+        generate_estimates,
+        method,
     ):
-        """Return estimates of data distribution parameters.
-
-        For stationary data, estimates the shape, location and scale parameters using
-        scipy.stats.genextremes.fit(). For non-stationary data, also estimates the linear
-        location and scale trend parameters using a penalised negative log-likelihood
-        function with initial estimates based on the stationary fit.
-
-        Parameters
-        ----------
-        data : xarray.dataArray
-            Data as a function of a covariate
-        user estimates: list, default None
-            Initial estimates of the shape, loc and scale parameters
-        loc1, scale1 : float, default 0
-            Initial estimates of the location and scale trend parameters
-        x : array-like, default None (i.e., linear)
-            The covariate (e.g., timesteps)
-        stationary : bool, default True
-            Fit as a stationary GEV using scipy.stats.genextremes.fit
-        check_fit : bool, default False
-            Test goodness of fit and attempt retry
-        method : str, default 'Nelder-Mead'
-            Method used for scipy.optimize.minimize
-
-        Returns
-        -------
-        theta : tuple of floats
-            Shape, location and scale parameters (and loc1, scale1 if applicable)
-
-        Example
-        -------
-        '''
-        n = 1000
-        m = 1e-3
-        x = np.arange(n)
-        rvs = genextreme.rvs(-0.05, loc=3.2, scale=0.5, size=n, random_state=0)
-        data = xr.DataArray(rvs + x * m, coords={'time': x})
-        data.plot()
-
-        fit_gev = ns_genextreme_gen().fit
-        shape, loc, scale = fit_gev(data, stationary=True)
-        shape, loc, loc1, scale, scale1 = fit_gev(data, stationary=False)
-        '''
-        """
-        kwargs = locals()
-
+        """Estimate distribution parameters."""
         # Use genextremes to get stationary distribution parameters.
-        shape, loc, scale = self.fit_stationary(
-            data, user_estimates, generate_estimates
-        )
+        shape, loc, scale = fit_stationary_gev(data, user_estimates, generate_estimates)
 
         if stationary:
             theta = shape, loc, scale
         else:
-            if x is None:
-                x = np.arange(data.shape[-1], dtype=int)
+            # Initial parameter guesses.
             theta_i = -shape, loc, loc1, scale, scale1
 
             # Optimisation bounds (scale parameter must be non-negative).
-            bounds = [(None, None), (None, None), (None, None), (0, None), (None, None)]
+            bounds = [
+                (None, None),
+                (None, None),
+                (None, None),
+                (0, None),
+                (None, None),
+            ]
 
             # Minimise the negative log-likelihood function to get optimal theta.
             res = minimize(
-                self.nllf, theta_i, args=(data, x), method=method, bounds=bounds
+                nllf,
+                theta_i,
+                args=(data, x),
+                method=method,
+                bounds=bounds,
             )
             theta = res.x
 
-            # Flip sign of shape for consistency with scipy.stats results.
+            # Restore 'shape' sign for consistency with scipy.stats results.
             theta[0] *= -1
-
-        if check_fit:
-            kwargs.pop("self")
-            theta = self._check_fit(theta, **kwargs)
+        theta = np.array([i for i in theta], dtype="float64")
         return theta
 
+    def fit(data, **kwargs):
+        """xarray.apply_ufunc wrapper for _fit."""
+        stationary = kwargs["stationary"]
+        time_dim = kwargs["time_dim"]
 
-fit_gev = ns_genextreme_gen().fit
+        # Expected output of theta (3 parameters unless stationary=False is specified).
+        n = 3 if stationary else 5
+
+        theta = apply_ufunc(
+            _fit,
+            data,
+            input_core_dims=[[time_dim]],
+            output_core_dims=[["theta"]],
+            vectorize=True,
+            dask="parallelized",
+            kwargs=kwargs,
+            output_dtypes=["float64"],
+            dask_gufunc_kwargs=dict(output_sizes={"theta": n}),
+        )
+        return theta
+
+    data = kwargs.pop("data")
+
+    # Create covariate array (assuming linear timesteps).
+    if x is None:
+        time_axis = data.dims.index(time_dim)
+        kwargs["x"] = np.arange(data.shape[time_axis], dtype=int)
+        # kwargs["x"] = np.repeat(np.arange(data.init_date.dt.year), n_ensembles)
+
+    theta = fit(data, **kwargs)
+
+    if check_fit:
+        pvalue = check_gev_fit(data, theta, kwargs["time_dim"])
+
+        # Accept the null distribution of the AD test.
+        success = True if np.all(pvalue >= alpha) else False
+        if not success:
+            if not kwargs["generate_estimates"]:
+                print("Data fit failed. Retrying with 'generate_estimates=True'.")
+                kwargs["generate_estimates"] = True  # Also breaks loop
+                theta = fit(data, **kwargs)
+            else:
+                print("Data fit failed.")
+
+    # Return a tuple of scalars instead of a 1D data array
+    if len(data.shape) == 1:
+        theta = np.array([i for i in theta], dtype="float64")
+    return theta
 
 
 def return_period(data, event, **kwargs):
@@ -501,7 +611,10 @@ def plot_gev_return_curve(
     ) = event_data
 
     ax.plot(
-        curve_return_periods, curve_values, color="tab:blue", label="GEV fit to data"
+        curve_return_periods,
+        curve_values,
+        color="tab:blue",
+        label="GEV fit to data",
     )
     ax.fill_between(
         curve_return_periods,

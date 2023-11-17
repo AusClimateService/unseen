@@ -244,7 +244,7 @@ def open_dataset(
         for var, target_units in units.items():
             ds[var] = general_utils.convert_units(ds[var], target_units)
 
-    assert type(ds) == xr.core.dataset.Dataset
+    assert isinstance(ds, xr.core.dataset.Dataset)
     ds = ds.squeeze(drop=True)
 
     return ds
@@ -495,7 +495,7 @@ def _guess_file_format(file_names):
 
     """
 
-    if type(file_names) == list:
+    if isinstance(file_names, list):
         file_name = file_names[0]
     else:
         file_name = file_names

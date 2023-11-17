@@ -43,7 +43,6 @@ def event_in_context(data, threshold, direction):
     return n_events, n_population, return_period, percentile
 
 
-
 def fit_gev(
     data,
     user_estimates=None,

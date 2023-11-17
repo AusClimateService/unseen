@@ -17,7 +17,7 @@ dependencies:
   - scipy>=1.10.0
   - seaborn
   - xarray
-  - xclim
+  - xclim>=0.39.0
   - xskillscore
   - zarr
   - pip:

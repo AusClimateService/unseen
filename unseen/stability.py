@@ -2,15 +2,16 @@
 
 import argparse
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import genextreme
 import seaborn as sns
-import matplotlib.pyplot as plt
-from scipy.stats import genextreme as gev
-import matplotlib as mpl
+
 
 from . import fileio
-from . import general_utils
+from . import eva
 from . import time_utils
 
 
@@ -113,7 +114,7 @@ def return_curve(data, method, params=[], **kwargs):
     params : list, default None
         shape, location and scale parameters (calculated if None)
     kwargs : dict, optional
-        kwargs passed to general_utils.fit_gev (N.B. used to use generate_estimates=True)
+        kwargs passed to eva.fit_gev (N.B. used to use generate_estimates=True)
     """
 
     if method == "empirical":
@@ -125,8 +126,8 @@ def return_curve(data, method, params=[], **kwargs):
         if params:
             shape, loc, scale = params
         else:
-            shape, loc, scale = general_utils.fit_gev(data, **kwargs)
-        return_values = gev.isf(probabilities, shape, loc, scale)
+            shape, loc, scale = eva.fit_gev(data, **kwargs)
+        return_values = genextreme.isf(probabilities, shape, loc, scale)
 
     return return_periods, return_values
 

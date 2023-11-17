@@ -3,12 +3,12 @@
 import argparse
 import logging
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import scipy
 
 from . import fileio
-from . import general_utils
+from . import eva
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +31,7 @@ def calc_moments(sample_da, **kwargs):
     moments["standard deviation"] = float(np.std(sample_da))
     moments["skew"] = float(scipy.stats.skew(sample_da))
     moments["kurtosis"] = float(scipy.stats.kurtosis(sample_da))
-    gev_shape, gev_loc, gev_scale = general_utils.fit_gev(sample_da, **kwargs)
+    gev_shape, gev_loc, gev_scale = eva.fit_gev(sample_da, **kwargs)
     moments["GEV shape"] = gev_shape
     moments["GEV location"] = gev_loc
     moments["GEV scale"] = gev_scale

@@ -4,7 +4,7 @@ import xarray as xr
 import numpy.testing as npt
 from scipy.stats import genextreme
 
-from unseen.general_utils import fit_gev, check_gev_fit
+from unseen.eva import fit_gev, check_gev_fit
 
 rtol = 0.3  # relative tolerance
 alpha = 0.05

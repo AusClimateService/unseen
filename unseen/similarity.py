@@ -1,7 +1,6 @@
 """Funcitons and command line program for similarity testing."""
 
 import argparse
-
 import numpy as np
 import xarray as xr
 import xstatstests
@@ -9,6 +8,7 @@ import xstatstests
 from . import dask_setup
 from . import fileio
 from . import general_utils
+from . import time_utils
 
 
 def ks_test(obs_ds, fcst_ds):
@@ -216,7 +216,7 @@ def _main():
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
-        time_slice = general_utils.date_pair_to_time_slice(args.reference_time_period)
+        time_slice = time_utils.date_pair_to_time_slice(args.reference_time_period)
         ds_obs = ds_obs.sel({args.time_dim: time_slice})
 
     ds_similarity = similarity_tests(

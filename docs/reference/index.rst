@@ -17,6 +17,7 @@ by running ``bias_correction`` at the command line
    unseen.bias_correction
    unseen.bootstrap
    unseen.dask_setup
+   unseen.eva
    unseen.fileio
    unseen.general_utils
    unseen.independence

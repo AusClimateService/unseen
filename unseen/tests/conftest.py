@@ -1,15 +1,16 @@
-import pytest
-
-import numpy as np
-import xarray as xr
 import dask
 import dask.array as dsa
+import numpy as np
+import pytest
+import xarray as xr
+
 
 # Import all modules to test that dependencies are installed
 import unseen.array_handling
 import unseen.bias_correction
 import unseen.bootstrap
 import unseen.dask_setup
+import unseen.eva
 import unseen.fileio
 import unseen.general_utils
 import unseen.independence
@@ -26,6 +27,7 @@ unseen.array_handling.__name__
 unseen.bias_correction.__name__
 unseen.bootstrap.__name__
 unseen.dask_setup.__name__
+unseen.eva.__name__
 unseen.fileio.__name__
 unseen.general_utils.__name__
 unseen.independence.__name__

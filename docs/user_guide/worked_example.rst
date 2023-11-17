@@ -7,7 +7,7 @@ Hobart extreme rainfall
 During April of 1960,
 a multi-day rainfall event caused severe flooding in Hobart
 (see the `Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
-page for details). 
+page for details).
 
 In this worked example,
 we'll estimate the likelihood of this record rainfall event by applying the UNSEEN approach to
@@ -41,7 +41,7 @@ and apply simple temporal and spatial aggregation.
 
 We can use it extract the Hobart grid point from the AGCD data files
 and apply the necessary temporal aggregation to calculate the commonly used Rx5day metric
-(the highest annual 5-day rainfall total). 
+(the highest annual 5-day rainfall total).
 
 .. code-block:: python
 
@@ -101,7 +101,7 @@ selection and aggregation.
         date_issued:               2023-05-19 06:19:17
         attribution:               Data should be cited as : Australian Bureau of...
         copyright:                 (C) Copyright Commonwealth of Australia 2023, ...
-        history:             
+        history:
 
 
 It can be a good idea to compute the Dataset before going too much further with the analysis,
@@ -167,10 +167,10 @@ to get an estimate of the likelihood of the 1960 event.
 .. code-block:: python
 
     from scipy.stats import genextreme as gev
-    from unseen import general_utils
+    from unseen import eva
 
-    agcd_shape, agcd_loc, agcd_scale = general_utils.fit_gev(agcd_ds['pr'].values)
-    
+    agcd_shape, agcd_loc, agcd_scale = eva.fit_gev(agcd_ds['pr'].values)
+
     event_probability = gev.sf(rx5day_max, agcd_shape, loc=agcd_loc, scale=agcd_scale)
     event_return_period = 1. / event_probability
     event_percentile = (1 - event_probability) * 100
@@ -199,7 +199,7 @@ For example:
     cat HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt
 
 
-.. code-block:: none    
+.. code-block:: none
 
     /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s1960-r1i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-r1i1p1f2_gn_19601101-19601230.nc
     /g/data/oi10/replicas/CMIP6/DCPP/MOHC/HadGEM3-GC31-MM/dcppA-hindcast/s1960-r1i1p1f2/day/pr/gn/v20200417/pr_day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-r1i1p1f2_gn_19610101-19611230.nc
@@ -231,14 +231,14 @@ We've used similar keyword arguments as for the AGCD data
 (``open_mfforecast`` uses ``open_dataset`` to open each individual file)
 with a couple of additions:
 
--  The ``n_ensemble_members`` and ``n_time_files`` arguments help the function sort the contents of the input file list 
--  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month 
--  The ``complete_time_agg_periods`` argument makes sure that incomplete calendar years (e.g. the first year for a forecast that starts in November) aren't included 
+-  The ``n_ensemble_members`` and ``n_time_files`` arguments help the function sort the contents of the input file list
+-  The ``reset_times`` option ensures that after resampling (e.g. here we calculate the annual mean from daily data) the month assigned to each time axis value matches the initialisation month
+-  The ``complete_time_agg_periods`` argument makes sure that incomplete calendar years (e.g. the first year for a forecast that starts in November) aren't included
 
 .. code-block:: python
 
    print(model_ds)
-   
+
 
 .. code-block:: none
 
@@ -330,7 +330,7 @@ To perform this test, we can use the ``independence`` module:
 
    from unseen import independence
 
-   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])      
+   mean_correlations, null_correlation_bounds = independence.run_tests(model_ds['pr'])
    independence.create_plot(
        mean_correlations,
        null_correlation_bounds,
@@ -392,12 +392,12 @@ to see the effect of the bias correction.
     import matplotlib.pyplot as plt
 
     model_da_indep.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:blue')
-    model_raw_shape, model_raw_loc, model_raw_scale = general_utils.fit_gev(model_da_indep.values, generate_estimates=True)
+    model_raw_shape, model_raw_loc, model_raw_scale = eva.fit_gev(model_da_indep.values, generate_estimates=True)
     model_raw_pdf = gev.pdf(xvals, model_raw_shape, model_raw_loc, model_raw_scale)
     plt.plot(xvals, model_raw_pdf, color='tab:blue', linewidth=4.0, label='model')
 
     model_da_bc.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:orange')
-    model_bc_shape, model_bc_loc, model_bc_scale = general_utils.fit_gev(model_da_bc.values, generate_estimates=True)
+    model_bc_shape, model_bc_loc, model_bc_scale = eva.fit_gev(model_da_bc.values, generate_estimates=True)
     model_bc_pdf = gev.pdf(xvals, model_bc_shape, model_bc_loc, model_bc_scale)
     plt.plot(xvals, model_bc_pdf, color='tab:orange', linewidth=4.0, label='model (corrected)')
 
@@ -529,13 +529,13 @@ Once we've stacked our model data so it's one dimensional,
         units:                   mm d-1
         bias_correction_method:  multiplicative
         bias_correction_period:  1970-01-01-2018-12-30
- 
+
 
 .. code-block:: python
 
     fig = plt.figure(figsize=[6, 4])
     ax = fig.add_subplot()
-    general_utils.plot_gev_return_curve(
+    eva.plot_gev_return_curve(
         ax,
         model_da_bc_stacked,
         rx5day_max,
@@ -555,4 +555,3 @@ Once we've stacked our model data so it's one dimensional,
 
 .. image:: return_curve.png
    :width: 700
-

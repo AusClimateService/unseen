@@ -101,11 +101,12 @@ def create_plot(
     """
 
     fig, ax = plt.subplots()
+    colors = iter(plt.cm.Set1(np.linspace(0, 1, 9)))
 
     months = list(mean_correlations.keys())
     months.sort()
     for month in months:
-        color = next(ax._get_lines.prop_cycler)["color"]
+        color = next(colors)
         mean_corr = mean_correlations[month].dropna(lead_dim)
         month_abbr = calendar.month_abbr[month]
         mean_corr.plot(
@@ -255,17 +256,21 @@ def _random_mean_ensemble_correlation(
 
     sample_size = n_init_dates * n_ensembles
     ds_random_sample = _random_sample(ds, "sample", sample_size)
+
+    # Combine init_dim and ensemble_dim
     index = pd.MultiIndex.from_product(
         [range(n_init_dates), range(n_ensembles)], names=[init_dim, ensemble_dim]
     )
-    ds_random_sample = ds_random_sample.assign_coords({"sample": index}).unstack()
-    mean_corr = _mean_ensemble_correlation(ds_random_sample, dim=init_dim)
+    index_coords = xr.Coordinates.from_pandas_multiindex(index, "sample")
+    ds_random_sample = ds_random_sample.drop_vars(["sample"])
+    ds_random_sample = ds_random_sample.assign_coords(index_coords).unstack()
 
+    mean_corr = _mean_ensemble_correlation(ds_random_sample, dim=init_dim)
     return mean_corr
 
 
 def _get_null_correlation_bounds(
-    da, init_dim="init_time", lead_dim="lead_dim", ensemble_dim="ensemble"
+    da, init_dim="init_date", lead_dim="lead_time", ensemble_dim="ensemble"
 ):
     """Get the uncertainty bounds on zero correlation.
 
@@ -291,9 +296,9 @@ def _get_null_correlation_bounds(
     Performs bootstrapping via a simple loop.
     """
 
-    n_init_dates = len(da["init_date"])
-    n_ensembles = len(da["ensemble"])
-    da_stacked = da.stack(sample=("init_date", "lead_time", "ensemble"))
+    n_init_dates = len(da[init_dim])
+    n_ensembles = len(da[ensemble_dim])
+    da_stacked = da.stack(sample=(init_dim, lead_dim, ensemble_dim))
 
     null_correlations = []
     n_repeats = 100

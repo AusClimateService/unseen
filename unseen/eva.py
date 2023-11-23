@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import genextreme, goodness_of_fit
+import warnings
 from xarray import apply_ufunc
 
 
@@ -51,7 +52,7 @@ def fit_gev(
     x=None,
     time_dim="time",
     stationary=True,
-    check_fit=False,
+    check_fit=True,
     alpha=0.05,
     generate_estimates=False,
     method="Nelder-Mead",
@@ -284,10 +285,22 @@ def fit_gev(
     data = kwargs.pop("data")
 
     # Create covariate array (assuming linear timesteps).
-    if x is None:
-        time_axis = data.dims.index(time_dim)
-        kwargs["x"] = np.arange(data.shape[time_axis], dtype=int)
-        # kwargs["x"] = np.repeat(np.arange(data.init_date.dt.year), n_ensembles)
+    if not stationary and x is None:
+        if isinstance(data, np.ndarray):
+            x = np.arange(data.shape[-1], dtype=int)
+            if len(data.shape) > 1:
+                warnings.warn("fit_gev assumes the covariate is on axis=-1")
+
+        else:
+            time_axis = data.dims.index(time_dim)
+            if "ensemble" in data.dims:
+                # Repeat time step for each ensemble member.
+                x = np.arange(data.shape[time_axis] // data.ensemble.size, dtype=int)
+                x = np.repeat(x, data.ensemble.size)
+            else:
+                x = np.arange(data.shape[time_axis], dtype=int)
+
+        kwargs["x"] = x
 
     theta = fit(data, **kwargs)
 
@@ -298,11 +311,13 @@ def fit_gev(
         success = True if np.all(pvalue >= alpha) else False
         if not success:
             if not kwargs["generate_estimates"]:
-                print("Data fit failed. Retrying with 'generate_estimates=True'.")
+                warnings.warn(
+                    "Data fit failed. Retrying with 'generate_estimates=True'."
+                )
                 kwargs["generate_estimates"] = True  # Also breaks loop
                 theta = fit(data, **kwargs)
             else:
-                print("Data fit failed.")
+                warnings.warn("Data fit failed.")
 
     # Return a tuple of scalars instead of a 1D data array
     if len(data.shape) == 1:
@@ -371,13 +386,19 @@ def check_gev_fit(data, theta, time_dim="time"):
     return pvalue
 
 
-def return_period(data, event, **kwargs):
+def return_period(data, event, params=None, **kwargs):
     """Get return period for given event by fitting a GEV."""
 
-    shape, loc, scale = fit_gev(data, **kwargs)
-    return_period = genextreme.isf(
-        event, shape, loc=loc, scale=scale
-    )  # 1.0 / probability
+    # GEV fit to data
+    if len(params) != 3 or not kwargs.get("stationary", True):
+        raise NotImplementedError(
+            "Non-stationary GEV parameters must be evaluated at a point first."
+        )
+
+    if params is None:
+        params = fit_gev(data, **kwargs)
+    shape, loc, scale = params
+    return_period = genextreme.isf(event, shape, loc=loc, scale=scale)
 
     return return_period
 
@@ -403,7 +424,7 @@ def gev_return_curve(
     """
 
     # GEV fit to data
-    shape, loc, scale = fit_gev(data, generate_estimates=True)
+    shape, loc, scale = fit_gev(data, generate_estimates=True, stationary=True)
 
     curve_return_periods = np.logspace(0, max_return_period, num=10000)
     curve_probabilities = 1.0 / curve_return_periods

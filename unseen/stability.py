@@ -2,7 +2,6 @@
 
 import argparse
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,13 +12,6 @@ import seaborn as sns
 from . import fileio
 from . import eva
 from . import time_utils
-
-
-mpl.rcParams["axes.titlesize"] = "xx-large"
-mpl.rcParams["xtick.labelsize"] = "x-large"
-mpl.rcParams["ytick.labelsize"] = "x-large"
-mpl.rcParams["legend.fontsize"] = "large"
-axis_label_size = "large"
 
 
 def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
@@ -40,7 +32,7 @@ def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     """
 
     lead_times = np.unique(sample_da[lead_dim].values)
-    colors = iter(plt.cm.BuPu(np.linspace(0.3, 1, len(lead_times))))
+    colors = iter(plt.cm.viridis_r(np.linspace(0, 1, len(lead_times))))
     for lead in lead_times:
         selection_da = sample_da.sel({lead_dim: lead})
         selection_da = selection_da.dropna("sample")
@@ -57,7 +49,7 @@ def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     ax.grid(True)
     ax.set_title(f"(a) {metric} distribution by lead time")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label, fontsize=axis_label_size)
+    ax.set_xlabel(units_label)
     ax.legend()
 
 
@@ -99,7 +91,7 @@ def plot_dist_by_time(ax, sample_da, metric, start_years, units=None):
     ax.grid(True)
     ax.set_title(f"(c) {metric} distribution by year")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_xlabel(units_label, fontsize=axis_label_size)
+    ax.set_xlabel(units_label)
     ax.legend()
 
 
@@ -139,7 +131,7 @@ def plot_return_by_lead(
     method,
     uncertainty=False,
     units=None,
-    ymax=None,
+    ylim=None,
     lead_dim="lead_time",
 ):
     """Plot return period curves for each lead time.
@@ -158,18 +150,20 @@ def plot_return_by_lead(
         Plot 95% confidence interval
     units : str, optional
         units for plot axis labels
-    ymax : float, optional
-        ymax for return curve plot
+    ylim : list, optional
+        y axis limits for return curve [min, max]
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in sample_da
     """
 
     lead_times = np.unique(sample_da["lead_time"].values)
-    colors = iter(plt.cm.BuPu(np.linspace(0.3, 1, len(lead_times))))
+    colors = iter(plt.cm.viridis_r(np.linspace(0, 1, len(lead_times))))
     for lead in lead_times:
         selection_da = sample_da.sel({"lead_time": lead})
         selection_da = selection_da.dropna("sample")
-        return_periods, return_values = return_curve(selection_da, method)
+        return_periods, return_values = return_curve(
+            selection_da, method, time_dim="sample"
+        )
         n_values = len(selection_da)
         label = f"lead time {lead} ({n_values} samples)"
         color = next(colors)
@@ -179,7 +173,9 @@ def plot_return_by_lead(
         random_return_values = []
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_values)
-            return_periods, return_values = return_curve(random_sample, method)
+            return_periods, return_values = return_curve(
+                random_sample, method, time_dim=None
+            )
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)
         upper_ci = np.percentile(random_return_values_stacked, 97.5, axis=0)
@@ -196,15 +192,16 @@ def plot_return_by_lead(
     ax.grid(True)
     ax.set_title(f"(b) {metric} return period by lead time")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label, fontsize=axis_label_size)
+    ax.set_ylabel(units_label)
+    if ylim:
+        ax.set_ylim(ylim)
     ax.legend()
-    ax.set_ylim((50, ymax))
 
 
 def plot_return_by_time(
-    ax, sample_da, metric, start_years, method, uncertainty=False, units=None, ymax=None
+    ax, sample_da, metric, start_years, method, uncertainty=False, units=None, ylim=None
 ):
     """Plot return period curves for each time slice (e.g. decade).
 
@@ -224,8 +221,8 @@ def plot_return_by_time(
         Plot 95% confidence interval
     units : str, optional
         units for plot axis labels
-    ymax : float, optional
-        ymax for return curve plot
+    ylim : tuple, optional
+        y axis limits for return curve [min, max]
     """
 
     step = start_years[1] - start_years[0] - 1
@@ -236,7 +233,9 @@ def plot_return_by_time(
         end_date = f"{end_year}-12-25"
         selection_da = time_utils.select_time_period(sample_da, [start_date, end_date])
         selection_da = selection_da.dropna("sample")
-        return_periods, return_values = return_curve(selection_da, method)
+        return_periods, return_values = return_curve(
+            selection_da, method, time_dim="sample"
+        )
         n_years = len(selection_da)
         label = f"{start_year}-{end_year} ({n_years} samples)"
         color = next(colors)
@@ -246,7 +245,9 @@ def plot_return_by_time(
         random_return_values = []
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_years)
-            return_periods, return_values = return_curve(random_sample, method)
+            return_periods, return_values = return_curve(
+                random_sample, method, time_dim=None
+            )
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)
         upper_ci = np.percentile(random_return_values_stacked, 97.5, axis=0)
@@ -263,10 +264,11 @@ def plot_return_by_time(
     ax.grid(True)
     ax.set_title(f"(d) {metric} return period by year")
     ax.set_xscale("log")
-    ax.set_xlabel("return period (years)", fontsize=axis_label_size)
+    ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
-    ax.set_ylabel(units_label, fontsize=axis_label_size)
-    ax.set_ylim((50, ymax))
+    ax.set_ylabel(units_label)
+    if ylim:
+        ax.set_ylim(ylim)
     ax.legend()
 
 
@@ -276,7 +278,7 @@ def create_plot(
     start_years,
     outfile=None,
     uncertainty=False,
-    ymax=None,
+    ylim=None,
     units=None,
     return_method="empirical",
     ensemble_dim="ensemble",
@@ -297,8 +299,8 @@ def create_plot(
         Path for output image file
     uncertainty: bool, default False
         Plot the 95% confidence interval
-    ymax : float, optional
-        ymax for return curve plots
+    ylim : tuple, optional
+        y axis limits for return curve plots [min, max]
     units : str, optional
         units for plot axis labels
     return_method : {'empirical', 'gev'}, default empirial
@@ -327,7 +329,7 @@ def create_plot(
         metric,
         return_method,
         uncertainty=uncertainty,
-        ymax=ymax,
+        ylim=ylim,
         units=units,
         lead_dim=lead_dim,
     )
@@ -340,7 +342,7 @@ def create_plot(
         return_method,
         units=units,
         uncertainty=uncertainty,
-        ymax=ymax,
+        ylim=ylim,
     )
 
     if outfile:
@@ -376,10 +378,10 @@ def _parse_command_line():
         help="Plot the 95 percent confidence interval [default: False]",
     )
     parser.add_argument(
-        "--ymax",
-        type=float,
+        "--ylim",
+        type=list,
         default=None,
-        help="ymax for return curve plots",
+        help="y axis limits for return curve plots [min, max]",
     )
     parser.add_argument(
         "--return_method",
@@ -432,7 +434,7 @@ def _main():
         outfile=args.outfile,
         return_method=args.return_method,
         uncertainty=args.uncertainty,
-        ymax=args.ymax,
+        ylim=args.ylim,
         units=args.units,
         ensemble_dim=args.ensemble_dim,
         init_dim=args.init_dim,

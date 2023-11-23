@@ -102,7 +102,7 @@ def create_plot(
 
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
-    moments_fcst = calc_moments(da_fcst_stacked)
+    moments_fcst = calc_moments(da_fcst_stacked, time_dim="sample")
 
     if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})
@@ -136,7 +136,11 @@ def create_plot(
         random_sample = np.random.choice(da_fcst_stacked, sample_size)
         sample_moments = calc_moments(
             random_sample,
-            gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
+            user_estimates=[
+                moments_fcst["GEV shape"],
+                moments_fcst["GEV location"],
+                moments_fcst["GEV scale"],
+            ],
         )
         for moment in moments:
             bootstrap_values[moment].append(sample_moments[moment])
@@ -145,7 +149,11 @@ def create_plot(
             bc_random_sample = np.random.choice(da_bc_fcst_stacked, sample_size)
             bc_sample_moments = calc_moments(
                 bc_random_sample,
-                gev_estimates=[moments_fcst["GEV location"], moments_fcst["GEV scale"]],
+                user_estimates=[
+                    moments_fcst["GEV shape"],
+                    moments_fcst["GEV location"],
+                    moments_fcst["GEV scale"],
+                ],
             )
             for moment in moments:
                 bc_bootstrap_values[moment].append(bc_sample_moments[moment])

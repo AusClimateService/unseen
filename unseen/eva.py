@@ -1,5 +1,6 @@
 """Extreme value analysis functions."""
 
+from matplotlib.dates import date2num
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import genextreme, goodness_of_fit
@@ -49,38 +50,35 @@ def fit_gev(
     user_estimates=None,
     loc1=0,
     scale1=0,
-    x=None,
-    time_dim="time",
+    covariate="time",
+    core_dim="time",
     stationary=True,
     check_fit=True,
     alpha=0.05,
     generate_estimates=False,
-    method="Nelder-Mead",
 ):
-    """Estimate parameters for stationary or non-stationary data distributions.
+    """Estimate parameters for stationary or nonstationary data distributions.
 
     Parameters
     ----------
     data : xarray.dataArray
-        Data to fit.
+        Data to fit
     user estimates: list, default None
         Initial estimates of the shape, loc and scale parameters
     loc1, scale1 : float, default 0
         Initial estimates of the location and scale trend parameters
-    x : array-like, default None (assumes linear)
-        A non-stationary covariate (e.g., x=np.arange(data.time.size))
-    time_dim : str, default 'time'
-        Name of time dimension in 'data'
+    covariate : array-like or string, default "time" (required if 'stationary=False')
+        A non-stationary covariate array or coordinate name.
+    core_dim : str, default "time"
+        Name of time/sample dimension in 'data'
     stationary : bool, default True
-        Fit as a stationary GEV using scipy.stats.genextremes.fit
+        Fit as a stationary GEV using 'scipy.stats.genextremes.fit'
     check_fit : bool, default False
         Test goodness of fit and attempt retry
     alpha : float, default 0.05
         Goodness of fit p-value threshold
     generate_estimates : bool, default False
         Generate initial parameter guesses using a data subset
-    method : str, default 'Nelder-Mead'
-        Method used for scipy.optimize.minimize
 
     Returns
     -------
@@ -90,33 +88,21 @@ def fit_gev(
     Notes
     -----
     - For stationary data the shape, location and scale parameters are
-    estimated using scipy.stats.genextremes.fit().
+    estimated using 'scipy.stats.genextremes.fit()'.
     - For non-stationary data, the linear location and scale trend
     parameters are estimated using a penalised negative log-likelihood
     function with initial estimates based on the stationary fit.
-    - The distribution fit is considered 'good' if the p-value is above
-    the 99th percent level (i.e.,  accept the null hypothesis).
+    - The distribution fit is considered good if the p-value is above
+    the 99th percent level (i.e., accept the null hypothesis).
     - If the parameters fail the goodness of fit test, it will attempt
     to fit the data again by generating an initial guess - if that
     hasn't already been tried.
+    - If data is a stacked forecast ensemble, the covariate will need to be
+    stacked in the same way.
 
-    Example
-    -------
-    '''
-    import xarray as xr
-    n = 1000
-    m = 1e-3
-    x = np.arange(n)
-    rvs = genextreme.rvs(-0.05, loc=3.2, scale=0.5, size=n, random_state=0)
-    data = xr.DataArray(rvs + x * m, coords={'time': x})
-    data.plot()
-
-    shape, loc, scale = fit_gev(data, stationary=True)
-    shape, loc, loc1, scale, scale1 = fit_gev(data, stationary=False)
-
-    data_2d = xr.concat([data, data + x * 1e-2], 'lat')
-    theta = fit_gev(data_2d, stationary=False, check_fit=True)
-    '''
+    Todo
+    ----
+    - Test if data is trended before nonstationary fit
     """
     kwargs = locals()  # Function inputs
 
@@ -150,7 +136,7 @@ def fit_gev(
 
         return total + penalty
 
-    def nllf(theta, data, x):
+    def nllf(theta, data, covariate):
         """Penalised negative log-likelihood function.
 
         Parameters
@@ -158,7 +144,7 @@ def fit_gev(
         theta : tuple of floats
             Distribution parameters (can be stationary or non-stationary)
             or
-        data, x: array-like
+        data, covariate: array-like
             Data to fit and covariate (e.g., timesteps).
 
         Returns
@@ -184,8 +170,8 @@ def fit_gev(
         if len(theta) == 5:
             # Non-stationary GEV parameters.
             shape, loc0, loc1, scale0, scale1 = theta
-            loc = loc0 + loc1 * x
-            scale = scale0 + scale1 * x
+            loc = loc0 + loc1 * covariate
+            scale = scale0 + scale1 * covariate
 
         else:
             # Stationary GEV parameters.
@@ -219,13 +205,12 @@ def fit_gev(
         user_estimates,
         loc1,
         scale1,
-        x,
-        time_dim,
+        covariate,
+        core_dim,
         stationary,
         check_fit,
         alpha,
         generate_estimates,
-        method,
     ):
         """Estimate distribution parameters."""
         # Use genextremes to get stationary distribution parameters.
@@ -238,41 +223,55 @@ def fit_gev(
             theta_i = -shape, loc, loc1, scale, scale1
 
             # Optimisation bounds (scale parameter must be non-negative).
-            bounds = [
-                (None, None),
-                (None, None),
-                (None, None),
-                (0, None),
-                (None, None),
-            ]
+            bounds = [(None, None)] * 5
+            bounds[3] = (0, None)
 
             # Minimise the negative log-likelihood function to get optimal theta.
             res = minimize(
                 nllf,
                 theta_i,
-                args=(data, x),
-                method=method,
+                args=(data, covariate),
+                method="Nelder-Mead",
                 bounds=bounds,
             )
             theta = res.x
 
             # Restore 'shape' sign for consistency with scipy.stats results.
             theta[0] *= -1
+
         theta = np.array([i for i in theta], dtype="float64")
+
+        if check_fit:
+            pvalue = check_gev_fit(
+                data, theta, covariate=kwargs["covariate"], core_dim=kwargs["core_dim"]
+            )
+
+            # Accept the null distribution of the AD test.
+            success = True if np.all(pvalue >= alpha) else False
+            if not success:
+                if not kwargs["generate_estimates"]:
+                    warnings.warn(
+                        "Data fit failed. Retrying with 'generate_estimates=True'."
+                    )
+                    kwargs["generate_estimates"] = True  # Also breaks loop
+                    theta = fit(data, **kwargs)
+                else:
+                    warnings.warn("Data fit failed.")
+                    shape, loc, scale
         return theta
 
     def fit(data, **kwargs):
         """xarray.apply_ufunc wrapper for _fit."""
         stationary = kwargs["stationary"]
-        time_dim = kwargs["time_dim"]
+        core_dim = kwargs["core_dim"]
 
-        # Expected output of theta (3 parameters unless stationary=False is specified).
+        # Expected output of theta
         n = 3 if stationary else 5
 
         theta = apply_ufunc(
             _fit,
             data,
-            input_core_dims=[[time_dim]],
+            input_core_dims=[[core_dim]],
             output_core_dims=[["theta"]],
             vectorize=True,
             dask="parallelized",
@@ -284,40 +283,14 @@ def fit_gev(
 
     data = kwargs.pop("data")
 
-    # Create covariate array (assuming linear timesteps).
-    if not stationary and x is None:
-        if isinstance(data, np.ndarray):
-            x = np.arange(data.shape[-1], dtype=int)
-            if len(data.shape) > 1:
-                warnings.warn("fit_gev assumes the covariate is on axis=-1")
-
-        else:
-            time_axis = data.dims.index(time_dim)
-            if "ensemble" in data.dims:
-                # Repeat time step for each ensemble member.
-                x = np.arange(data.shape[time_axis] // data.ensemble.size, dtype=int)
-                x = np.repeat(x, data.ensemble.size)
-            else:
-                x = np.arange(data.shape[time_axis], dtype=int)
-
-        kwargs["x"] = x
+    if not stationary and isinstance(covariate, str):
+        covariate = data[covariate]
+        if covariate.dtype.kind not in set("buifc"):
+            # Convert dates to numbers
+            covariate = date2num(covariate)
+        kwargs["covariate"] = covariate
 
     theta = fit(data, **kwargs)
-
-    if check_fit:
-        pvalue = check_gev_fit(data, theta, kwargs["time_dim"])
-
-        # Accept the null distribution of the AD test.
-        success = True if np.all(pvalue >= alpha) else False
-        if not success:
-            if not kwargs["generate_estimates"]:
-                warnings.warn(
-                    "Data fit failed. Retrying with 'generate_estimates=True'."
-                )
-                kwargs["generate_estimates"] = True  # Also breaks loop
-                theta = fit(data, **kwargs)
-            else:
-                warnings.warn("Data fit failed.")
 
     # Return a tuple of scalars instead of a 1D data array
     if len(data.shape) == 1:
@@ -325,7 +298,7 @@ def fit_gev(
     return theta
 
 
-def check_gev_fit(data, theta, time_dim="time"):
+def check_gev_fit(data, theta, covariate=None, core_dim="time"):
     """Test stationary distribution goodness of fit.
 
     Parameters
@@ -334,6 +307,10 @@ def check_gev_fit(data, theta, time_dim="time"):
         Data and covariate to fit.
     theta : tuple of floats
         Shape, location and scale parameters.
+    covariate : array-like, optional
+        Non-stationary covariate.
+    core_dim : str, default is "time"
+        Data dimension to test over.
 
     Returns
     -------
@@ -342,23 +319,34 @@ def check_gev_fit(data, theta, time_dim="time"):
 
     Notes
     -----
-    - For non-stationary distributions, the stationary fit is only
-    compared to a subset of data near the middle of the timeseries.
+    - The nonstationary parameters vary with the data distribution as a function
+    of the covariate, so we test a subset of data at a specific point.
+    - For nonstationary distributions, the parameters vary as a function of the
+    covariate the stationary fit is only compared to a subset of data near
+    the middle of the timeseries.
+
+    Todo
+    ----
+    - Add goodness of fit and trend significance test for nonstationary parameters
     """
 
-    def _goodness_of_fit(data, theta):
+    def _goodness_of_fit(data, theta, covariate=None):
         assert len(theta) in [3, 5]
         if len(theta) == 3:
             # Stationary parameters
             shape, loc, scale = theta
             test_data = data
+
         elif len(theta) == 5:
             # Non-stationary parameters (test middle 20% of data).
-            # N.B. the non stationary parameters vary with the data distribution as a
-            # function of the covariate, so we test a subset of data at a specific point.
+
             n = data.size
-            t = n // 2  # Index of covariate (i.e., middle timestep in a timeseries)
-            dt = n // 10  # 10% of datapoints to test for goodness of fit.
+            # Index of covariate (i.e., middle timestep in a timeseries)
+            if covariate is None:
+                t = n // 2
+            else:
+                t = int(np.median(np.unique(covariate)))
+            dt = n // 10  # Subset 2*10% of data.
 
             # Subset data around midpoint.
             test_data = data[t - dt : t + dt]
@@ -378,9 +366,10 @@ def check_gev_fit(data, theta, time_dim="time"):
         _goodness_of_fit,
         data,
         theta,
-        input_core_dims=[[time_dim], ["theta"]],
+        input_core_dims=[[core_dim], ["theta"]],
         vectorize=True,
         dask="parallelized",
+        kwargs=dict(covariate=covariate),
         dask_gufunc_kwargs=dict(meta=(np.ndarray(1, float),)),
     )
     return pvalue

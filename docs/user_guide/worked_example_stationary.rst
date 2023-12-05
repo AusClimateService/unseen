@@ -143,7 +143,7 @@ such as the timeseries, seasonality and top 10 events.
 
 
 .. image:: observational_seasonality.png
-   :width: 1000
+   :width: 600
 
 
 .. code-block:: python
@@ -460,7 +460,7 @@ to see the effect of the bias correction.
 
 
 .. image:: distribution.png
-   :width: 700
+   :width: 600
 
 
 Fidelity testing
@@ -585,7 +585,7 @@ and then use the ``process_utils`` module:
 
 
 .. image:: seasonality.png
-   :width: 700
+   :width: 600
 
 
 The meteorology can also be plotted:
@@ -607,7 +607,7 @@ The meteorology can also be plotted:
 
 
 .. image:: meteorology.png
-   :width: 700
+   :width: 600
 
 
 Results
@@ -643,4 +643,4 @@ in the context of our large ensemble.
 
 
 .. image:: return_curve.png
-   :width: 700
+   :width: 600

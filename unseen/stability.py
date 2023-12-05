@@ -8,7 +8,6 @@ import pandas as pd
 from scipy.stats import genextreme
 import seaborn as sns
 
-
 from . import fileio
 from . import eva
 from . import time_utils
@@ -162,7 +161,7 @@ def plot_return_by_lead(
         selection_da = sample_da.sel({"lead_time": lead})
         selection_da = selection_da.dropna("sample")
         return_periods, return_values = return_curve(
-            selection_da, method, time_dim="sample"
+            selection_da, method, core_dim="sample"
         )
         n_values = len(selection_da)
         label = f"lead time {lead} ({n_values} samples)"
@@ -174,7 +173,7 @@ def plot_return_by_lead(
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_values)
             return_periods, return_values = return_curve(
-                random_sample, method, time_dim=None
+                random_sample, method, core_dim=None
             )
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)
@@ -234,7 +233,7 @@ def plot_return_by_time(
         selection_da = time_utils.select_time_period(sample_da, [start_date, end_date])
         selection_da = selection_da.dropna("sample")
         return_periods, return_values = return_curve(
-            selection_da, method, time_dim="sample"
+            selection_da, method, core_dim="sample"
         )
         n_years = len(selection_da)
         label = f"{start_year}-{end_year} ({n_years} samples)"
@@ -246,7 +245,7 @@ def plot_return_by_time(
         for i in range(1000):
             random_sample = np.random.choice(sample_da, n_years)
             return_periods, return_values = return_curve(
-                random_sample, method, time_dim=None
+                random_sample, method, core_dim=None
             )
             random_return_values.append(return_values)
         random_return_values_stacked = np.stack(random_return_values)

@@ -1,5 +1,6 @@
 """Utilities for process-based assessment"""
 
+import glob
 import re
 from collections import Counter
 import calendar
@@ -8,15 +9,19 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt 
 import cartopy.crs as ccrs
+import xarray as xr
 import xclim as xc
+import cmocean
 
 
-def plot_event_seasonality(df):
+def plot_event_seasonality(df, outfile=None):
     """Plot event seasonality
 
     Parameters
     ----------
     df : pandas dataframe
+    outfile : str, optional
+        Path for output image file
     """
 
     event_months = [int(date[5:7]) for date in df['event_time'].values]
@@ -32,6 +37,16 @@ def plot_event_seasonality(df):
     xlabels = [calendar.month_abbr[i] for i in months]
     plt.xticks(months, xlabels)
 
+    if outfile:
+        plt.savefig(
+            outfile,
+            bbox_inches="tight",
+            facecolor="white",
+            dpi=200,
+        )
+    else:
+        plt.show()
+
 
 def _get_run(file_list):
     """Get the model run information from a CMIP6 file path"""
@@ -46,31 +61,29 @@ def _get_run(file_list):
     return run
 
 
-def _get_model_name(file_list):
+def _get_model_name(file_path):
     """Get the model name from an NPCC file path on NCI"""
 
-    with open(file_list) as f:
-        first_file = f.readline()
-
-    return first_file.split('/')[8]
+    return file_path.split('/')[8]
 
 
 def _get_dcpp_da(df_row, infile_list, var, plot_units, time_agg, event_duration, init_year_offset=0):
     """Get DCPP data for an atmospheric circulation plot"""
 
     init_year = int(df_row['init_date'].strftime('%Y')) + init_year_offset
-    ensemble_index = int(df_row['ensemble']) + 1
+    ensemble_index = int(df_row['ensemble'])
     end_date = df_row['event_time']
     start_datetime = datetime.datetime.strptime(end_date, "%Y-%m-%d") - datetime.timedelta(days=event_duration)
     start_date = start_datetime.strftime("%Y-%m-%d")
-    runs = list(map(_get_run, infile_list))
+    with open(infile_list) as f:
+        infiles = f.read().splitlines()
+    runs = list(map(_get_run, infiles))
     ensemble_labels = []
     for run in runs:
         if not run in ensemble_labels:
             ensemble_labels.append(run)
-    target_text = f's{init_date}-{ensmeble_labels[ensemble_index]}'
-#    target_files = list(filter(lambda x: target_text in x, infile_list))
-    model_name = _get_model_name(infile_list)
+    target_text = f's{init_year}-{ensemble_labels[ensemble_index]}'
+    model_name = _get_model_name(infiles[0])
     target_files = glob.glob(f'/g/data/oi10/replicas/CMIP6/DCPP/*/{model_name}/dcppA-hindcast/{target_text}/day/{var}/*/*/*.nc')
     target_files = sorted(target_files)
     ds = xr.open_mfdataset(target_files)
@@ -87,18 +100,23 @@ def _get_dcpp_da(df_row, infile_list, var, plot_units, time_agg, event_duration,
 
 def plot_circulation(
     df,
+    event_var,
     top_n_events,
     event_duration,
     infile_list,
     color_var=None,
     contour_var=None,
-    init_year_offset=0
+    color_levels=None,
+    init_year_offset=0,
+    outfile=None,
 ):
     """Plot the mean circulation for the n most extreme events.
 
     Parameters
     ----------
     df : pandas dataframe
+    event_var : str
+        Variable (df column label)
     top_n_events : int
         Plot the top N events
     event_duration: int
@@ -112,15 +130,28 @@ def plot_circulation(
 
     """
 
-    ranked_events = df.sort_values(by=[var], ascending=False)
+    ranked_events = df.sort_values(by=[event_var], ascending=False)
 
-    fig = plt.figure(figsize=[10, 17])
+    fig = plt.figure(figsize=[10, top_n_events*6])
     map_proj=ccrs.PlateCarree(central_longitude=180)
     plotnum = 1
     for index, event_df_row in ranked_events.head(n=top_n_events).iterrows():
         ax = fig.add_subplot(top_n_events, 1, plotnum, projection=map_proj)
         if color_var:
-            color_time_agg = 'sum' if color_var == 'pr' else 'mean'
+            if color_var == 'pr':
+                label = 'total precipitation (mm)'
+                cmap = cmocean.cm.rain
+                extend = 'max'
+                color_units = 'mm d-1'
+                color_time_agg = 'sum'
+            elif color_var == 'ua300':
+                label = '300hPa zonal wind'
+                cmap='RdBu_r'
+                extend = 'both'
+                color_units = 'm s-1'
+                color_time_agg = 'mean'
+            else:
+                raise ValueError('Invalid color variable')
             color_da, title = _get_dcpp_da(
                 event_df_row,
                 infile_list,
@@ -130,28 +161,29 @@ def plot_circulation(
                 event_duration,
                 init_year_offset=0
             )
-            if color_var == 'pr':
-                levels = [0, 100, 200, 300, 400, 500, 600, 700, 800]
-                label = 'total precipitation (mm)'
-                cmap = cmocean.cm.rain
-                extend = 'max'
-            elif color_var == 'ua300':
-                levels = [-30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30]
-                label = '300hPa zonal wind'
-                cmap='RdBu_r'
-                extend = 'both'
-            else:
-                raise ValueError('Invalid color variable')
             color_da.plot(
                 ax=ax,
                 transform=ccrs.PlateCarree(),
                 cmap=cmap,
-                levels=levels,
+                levels=color_levels,
                 extend=extend,
                 cbar_kwargs={'label': label},
             )
         if contour_var:
-            contour_time_agg = 'sum' if contour_var == 'pr' else 'mean'
+            if contour_var == 'z500':
+                levels = np.arange(5000, 6300, 50)
+                contour_units = 'm'
+                contour_time_agg = 'mean'
+            elif contour_var == 'psl':
+                levels = np.arange(900, 1100, 2.5)
+                contour_units = 'hPa'
+                contour_time_agg = 'mean'
+            elif contour_var == 'ua300':
+                levels = np.arange(15, 60, 5)
+                contour_units = 'm s-1'
+                contour_time_agg = 'mean'
+            else:
+                raise ValueError('Invalid contour variable')
             contour_da, title = _get_dcpp_da(
                 event_df_row,
                 infile_list,
@@ -161,14 +193,6 @@ def plot_circulation(
                 event_duration,
                 init_year_offset=0
             )
-            if contour_var == 'z500':
-                levels = np.arange(5000, 6300, 50)
-            elif contour_var == 'psl':
-                levels = np.arange(900, 1100, 2.5)
-            elif contour_var == 'ua300':
-                levels = np.arange(15, 60, 5)
-            else:
-                raise ValueError('Invalid contour variable')
             lines = contour_da.plot.contour(
                 ax=ax,
                 transform=ccrs.PlateCarree(),
@@ -184,4 +208,14 @@ def plot_circulation(
         else:
             ax.set_title(title)
         plotnum += 1
+
+    if outfile:
+        plt.savefig(
+            outfile,
+            bbox_inches="tight",
+            facecolor="white",
+            dpi=200,
+        )
+    else:
+        plt.show()
 

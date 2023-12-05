@@ -112,14 +112,17 @@ otherwise the dask task graph can get out of control.
    agcd_ds = agcd_ds.compute()
 
 
+Converting the xarray dataset to a pandas data frame,
+
 .. code-block:: python
 
-   import pandas as pd
+   agcd_df = agcd_ds.to_dataframe()
 
-   years = agcd_ds['time'].dt.year.values
-   agcd_df = pd.DataFrame(index=years)
-   agcd_df['pr'] = agcd_ds['pr'].values
-   agcd_df['event_time'] = agcd_ds['event_time'].values
+
+we can then visualise information about the rx5day events
+such as the timeseries, seasonality and top 10 events.
+
+.. code-block:: python
 
    agcd_df['pr'].plot.bar(figsize=[20, 9], width=0.8)
    plt.ylabel('Rx5day (mm)')
@@ -129,6 +132,17 @@ otherwise the dask task graph can get out of control.
 
 
 .. image:: observational_record.png
+   :width: 1000
+
+
+.. code-block:: python
+
+    from unseen import process_utils
+
+    process_utils.plot_event_seasonality(agcd_df)
+
+
+.. image:: observational_seasonality.png
    :width: 1000
 
 
@@ -196,7 +210,7 @@ For example:
 
 .. code-block:: none
 
-    cat HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt
+    cat ./file_lists/HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt
 
 
 .. code-block:: none
@@ -243,14 +257,15 @@ with a couple of additions:
 .. code-block:: none
 
     <xarray.Dataset>
-    Dimensions:    (ensemble: 10, init_date: 59, lead_time: 12)
+    Dimensions:     (ensemble: 10, init_date: 59, lead_time: 12)
     Coordinates:
-      * ensemble   (ensemble) int64 0 1 2 3 4 5 6 7 8 9
-      * init_date  (init_date) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
-      * lead_time  (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10 11
-        time       (lead_time, init_date) object 1960-11-01 12:00:00 ... 2029-11-...
+      * ensemble    (ensemble) int64 0 1 2 3 4 5 6 7 8 9 
+      * init_date   (init_date) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
+      * lead_time   (lead_time) int64 0 1 2 3 4 5 6 7 8 9 10 11
+        time        (lead_time, init_date) object 1960-11-01 12:00:00 ... 2029-11...
     Data variables:
-        pr         (init_date, ensemble, lead_time) float32 nan 41.2 ... 14.04 nan
+        pr          (init_date, ensemble, lead_time) float32 nan 100.9 ... 28.0 nan
+        event_time  (init_date, ensemble, lead_time) <U28 '1960-02-14' ... '2029-...
     Attributes: (12/43)
         Conventions:            CF-1.7 CMIP-6.2
         activity_id:            DCPP
@@ -272,7 +287,7 @@ you could also run it at the command line and submit to the job queue.
 
 .. code-block:: none
 
-    $ fileio HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt Rx5day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-2018_gn_hobart.zarr.zip --n_ensemble_files 10 --variables pr --rolling_sum_window 5 --time_freq A-DEC --time_agg max --input_freq D --point_selection -42.9 147.3 --reset_times --complete_time_agg_periods --units pr=mm day-1 --forecast -v --n_time_files 12
+    $ fileio ./file_lists/HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt Rx5day_HadGEM3-GC31-MM_dcppA-hindcast_s1960-2018_gn_hobart.zarr.zip --n_ensemble_files 10 --n_time_files 12 --variables pr --rolling_sum_window 5 --time_freq A-DEC --time_agg max --input_freq D --point_selection -42.9 147.3 --reset_times --complete_time_agg_periods --time_agg_dates --units pr=mm day-1 --forecast -v 
 
 
 Stability and stationarity testing
@@ -384,20 +399,51 @@ To do this, we can use the ``bias_correction`` module:
     model_da_bc = bias_correction.remove_bias(model_da_indep, bias, correction_method)
 
 
-We can plot both the raw and bias corrected model data against the observed
+Once we've stacked our model data so it's one dimensional,
+
+.. code-block:: python
+
+   model_da_indep_stacked = model_da_indep.stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+   model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+
+   print(model_da_indep_stacked)
+
+
+.. code-block:: none
+
+    <xarray.DataArray 'pr' (sample: 5900)>
+    array([124.84209 ,  73.138466,  62.510113, ...,  57.245464, 121.23235 ,
+            34.655647], dtype=float32)
+    Coordinates:
+        time       (sample) object 1961-11-01 12:00:00 ... 2028-11-01 12:00:00
+      * sample     (sample) object MultiIndex
+      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 0 0 ... 9 9 9 9 9 9 9 9 9 9 9
+      * init_date  (sample) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
+      * lead_time  (sample) int64 1 2 3 4 5 6 7 8 9 10 1 ... 10 1 2 3 4 5 6 7 8 9 10
+    Attributes:
+        standard_name:           lwe_precipitation_rate
+        units:                   mm d-1
+        bias_correction_method:  multiplicative
+        bias_correction_period:  1970-01-01-2018-12-30
+
+
+We can then plot both the raw and bias corrected model data against the observed
 to see the effect of the bias correction.
 
 .. code-block:: python
 
     import matplotlib.pyplot as plt
 
+    model_da_indep_stacked = model_da_indep.stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+    model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
+
     model_da_indep.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:blue')
-    model_raw_shape, model_raw_loc, model_raw_scale = eva.fit_gev(model_da_indep.values, generate_estimates=True)
+    model_raw_shape, model_raw_loc, model_raw_scale = eva.fit_gev(model_da_indep_stacked.values, generate_estimates=True)
     model_raw_pdf = gev.pdf(xvals, model_raw_shape, model_raw_loc, model_raw_scale)
     plt.plot(xvals, model_raw_pdf, color='tab:blue', linewidth=4.0, label='model')
 
     model_da_bc.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:orange')
-    model_bc_shape, model_bc_loc, model_bc_scale = eva.fit_gev(model_da_bc.values, generate_estimates=True)
+    model_bc_shape, model_bc_loc, model_bc_scale = eva.fit_gev(model_da_bc_stacked.values, generate_estimates=True)
     model_bc_pdf = gev.pdf(xvals, model_bc_shape, model_bc_loc, model_bc_scale)
     plt.plot(xvals, model_bc_pdf, color='tab:orange', linewidth=4.0, label='model (corrected)')
 
@@ -496,6 +542,74 @@ The raw model data fails both tests (p-value < 0.05),
 whereas the bias corrected data passes both (p-value > 0.05).
 
 
+Process based assessment
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+It can also be useful to conduct a process-based assessment of the model.
+In other words, does the model capture the key characteristics of the event of interest,
+such as the seasonality and meteorology.
+
+To perform a process based assessment,
+we can convert the data to a pandas data frame:
+
+.. code-block:: python
+
+    model_da_indep_stacked_df = model_da_indep_stacked.to_dataframe()
+    print(model_da_indep_stacked_df)
+
+
+.. code-block:: none
+
+                                        event_time                 time  ensemble            init_date  lead_time          pr
+ensemble init_date           lead_time                                    
+0        1960-11-01 00:00:00 1          1961-02-04  1961-11-01 12:00:00         0  1960-11-01 00:00:00          1  100.882416
+                             2          1962-01-10  1962-11-01 12:00:00         0  1960-11-01 00:00:00          2   59.101746
+                             3          1963-01-22  1963-11-01 12:00:00         0  1960-11-01 00:00:00          3   50.513184 
+                             4          1964-02-27  1964-11-01 12:00:00         0  1960-11-01 00:00:00          4   45.642555
+                             5          1965-12-24  1965-11-01 12:00:00         0  1960-11-01 00:00:00          5   44.234550
+...                                            ...                  ...                                       ...         ...
+9        2018-11-01 00:00:00 6          2024-05-05  2024-11-01 12:00:00         9  2018-11-01 00:00:00          6   57.359093
+                             7          2025-11-13  2025-11-01 12:00:00         9  2018-11-01 00:00:00          7   91.630974
+                             8          2026-08-20  2026-11-01 12:00:00         9  2018-11-01 00:00:00          8   46.258926
+                             9          2027-04-16  2027-11-01 12:00:00         9  2018-11-01 00:00:00          9   97.965462
+                             10         2028-08-14  2028-11-01 12:00:00         9  2018-11-01 00:00:00         10   28.004541
+ 
+
+and then use the ``process_utils`` module:
+
+.. code-block:: python
+
+    from unseen import process_utils
+
+    process_utils.plot_event_seasonality(model_da_indep_stacked_df)
+
+
+.. image:: seasonality.png
+   :width: 700
+
+
+The meteorology can also be plotted:
+
+.. code-block:: python
+
+    process_utils.plot_circulation(
+        model_da_indep_stacked_df,
+        event_var='pr',
+        top_n_events=3,
+        event_duration=5,
+        infile_list='./file_lists/HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt',
+        color_var='pr',
+        contour_var='psl',
+        color_levels=[0, 30, 60, 90, 120, 150, 180, 210],
+        init_year_offset=0,
+        outfile='meteorology.png'
+    )
+
+
+.. image:: meteorology.png
+   :width: 700
+
+
 Results
 ^^^^^^^
 
@@ -504,31 +618,6 @@ and we are satisified that the observational and (independent, bias corrected) m
 have similar enough statistical distributions,
 the unseen software has a number of functions to help to express our unpreecedented event
 in the context of our large ensemble.
-
-Once we've stacked our model data so it's one dimensional,
-
-.. code-block:: python
-
-   model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
-   print(model_da_indep_stacked)
-
-
-.. code-block:: none
-
-    <xarray.DataArray 'pr' (sample: 5900)>
-    array([124.84209 ,  73.138466,  62.510113, ...,  57.245464, 121.23235 ,
-            34.655647], dtype=float32)
-    Coordinates:
-        time       (sample) object 1961-11-01 12:00:00 ... 2028-11-01 12:00:00
-      * sample     (sample) object MultiIndex
-      * ensemble   (sample) int64 0 0 0 0 0 0 0 0 0 0 0 0 ... 9 9 9 9 9 9 9 9 9 9 9
-      * init_date  (sample) object 1960-11-01 00:00:00 ... 2018-11-01 00:00:00
-      * lead_time  (sample) int64 1 2 3 4 5 6 7 8 9 10 1 ... 10 1 2 3 4 5 6 7 8 9 10
-    Attributes:
-        standard_name:           lwe_precipitation_rate
-        units:                   mm d-1
-        bias_correction_method:  multiplicative
-        bias_correction_period:  1970-01-01-2018-12-30
 
 
 .. code-block:: python

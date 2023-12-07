@@ -6,7 +6,7 @@ Hobart extreme rainfall
 
 During April of 1960,
 a multi-day rainfall event caused severe flooding in Hobart
-(see the `Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__)
+(see the `Tasmanian flood history <http://www.bom.gov.au/tas/flood/flood_history/flood_history.shtml#yr1960_1969>`__
 page for details).
 
 In this worked example,

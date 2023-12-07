@@ -67,7 +67,7 @@ def _get_model_name(file_path):
     return file_path.split('/')[8]
 
 
-def _get_dcpp_da(df_row, infile_list, var, plot_units, time_agg, event_duration, init_year_offset=0):
+def _get_dcpp_da(df_row, var, plot_units, time_agg, event_duration, infile_list, init_year_offset=0):
     """Get DCPP data for an atmospheric circulation plot"""
 
     init_year = int(df_row['init_date'].strftime('%Y')) + init_year_offset
@@ -98,12 +98,62 @@ def _get_dcpp_da(df_row, infile_list, var, plot_units, time_agg, event_duration,
     return da_agg, title
 
 
+def _get_cafe_da(df_row, var, plot_units, time_agg, event_duration):
+    """Get CAFE data for an atmospheric circulation plot"""
+
+    init_date = df_row['init_date'].strftime('%Y%m%d')
+    ensemble = df_row['ensemble']
+    end_date = df_row['event_time']
+    start_datetime = datetime.datetime.strptime(end_date, "%Y-%m-%d") - datetime.timedelta(days=event_duration)
+    start_date = start_datetime.strftime("%Y-%m-%d")
+    cafe_vars = {'pr': 'pr', 'psl': 'slp', 'z500': 'h500', 'ua300': 'ucomp'}    
+    cafe_var = cafe_vars[var]
+    ds = fileio.open_dataset(
+        f'/g/data/xv83/dcfp/CAFE-f6/c5-d60-pX-f6-{init_date}/atmos_isobaric_daily.zarr.zip',
+        metadata_file='/home/599/dbi599/unseen/config/dataset_cafe_daily.yml',
+        variables=[cafe_var],
+    )
+    selection = {'ensemble': ensemble, 'time': slice(start_date, end_date)}
+    if var == 'ua300':
+        selection['level'] = 300
+    da = ds.sel(selection)[cafe_var]
+    da = xc.units.convert_units_to(da, plot_units)
+    if time_agg == 'sum':
+        da_agg = da.sum('time', keep_attrs=True)
+    else:
+        da_agg = da.mean('time', keep_attrs=True)
+    title = f'{start_date} to {end_date} (CAFE, c5-d60-pX-f6-{init_date})'
+
+    return da_agg, title
+
+
+def _get_barra_da(df_row, var, plot_units, time_agg, event_duration):
+    """Get BARRA2 data for an atmospheric circulation plot"""
+
+    end_date = df_row['event_time']
+    start_datetime = datetime.datetime.strptime(end_date, "%Y-%m-%d") - datetime.timedelta(days=event_duration)
+    start_date = start_datetime.strftime("%Y-%m-%d") 
+    barra2_dir = '/g/data/yb19/australian-climate-service/release/ACS-BARRA2/output/AUS-11/BOM/ECMWF-ERA5/historical/hres/BOM-BARRA-R2/v1/day'
+    barra2_files = glob.glob(f'{barra2_dir}/{var}/{var}_AUS-11_ECMWF-ERA5_historical_hres_BOM-BARRA-R2_v1_day_*.nc')
+    ds = xr.open_mfdataset(barra2_files)
+    da = ds.sel({'time': slice(start_date, end_date)})[var]
+    da = xc.units.convert_units_to(da, plot_units)
+    if time_agg == 'sum':
+        da_agg = da.sum('time', keep_attrs=True)
+    else:
+        da_agg = da.mean('time', keep_attrs=True)
+    title = f'{start_date} to {end_date} (BARRA2)'
+
+    return da_agg, title
+
+
 def plot_circulation(
     df,
     event_var,
     top_n_events,
     event_duration,
-    infile_list,
+    dataset,
+    infile_list=None,
     color_var=None,
     contour_var=None,
     color_levels=None,
@@ -121,16 +171,30 @@ def plot_circulation(
         Plot the top N events
     event_duration: int
         Duration (in days) of each event (e.g. Rx5day = 5)
-    infile_list : str
+    dataset : {'DCPP', 'CAFE', 'BARRA2'}
+        Dataset to plot
+    infile_list : str, optional (required for DCPP dataset)
         Input file list used to calculate the metric of interest
-    color_var : str, optional
+    color_var : {'pr', 'ua300'}, optional
         Variable for color plot
-    contour_var : str, optional
+    contour_var : {'z500', 'psl', 'ua300'}, optional
         Variable for contour plot
-
+    init_year_offset : optional, default=0
+        Offset for initial year labelling (needed for some DCPP models)
+    outfile : str, optional
+        Path for output file
     """
 
     ranked_events = df.sort_values(by=[event_var], ascending=False)
+    data_func = {
+        'DCPP': _get_dcpp_da,
+        'CAFE': _get_cafe_da,
+        'BARRA2': _get_barra_da,
+    }
+    data_kwargs = {}
+    if dataset == 'DCPP':
+        data_kwargs['init_year_offset'] = init_year_offset
+        data_kwargs['infile_list'] = infile_list
 
     fig = plt.figure(figsize=[10, top_n_events*6])
     map_proj=ccrs.PlateCarree(central_longitude=180)
@@ -152,14 +216,13 @@ def plot_circulation(
                 color_time_agg = 'mean'
             else:
                 raise ValueError('Invalid color variable')
-            color_da, title = _get_dcpp_da(
+            color_da, title = data_func[dataset](
                 event_df_row,
-                infile_list,
                 color_var,
                 color_units,
                 color_time_agg,
                 event_duration,
-                init_year_offset=0
+                **data_kwargs
             )
             color_da.plot(
                 ax=ax,
@@ -184,14 +247,13 @@ def plot_circulation(
                 contour_time_agg = 'mean'
             else:
                 raise ValueError('Invalid contour variable')
-            contour_da, title = _get_dcpp_da(
+            contour_da, title = data_func[dataset](
                 event_df_row,
-                infile_list,
                 contour_var,
                 contour_units,
                 contour_time_agg,
                 event_duration,
-                init_year_offset=0
+                **data_kwargs
             )
             lines = contour_da.plot.contour(
                 ax=ax,

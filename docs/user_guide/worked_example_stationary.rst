@@ -597,6 +597,7 @@ The meteorology can also be plotted:
         event_var='pr',
         top_n_events=3,
         event_duration=5,
+        dataset='DCPP',
         infile_list='./file_lists/HadGEM3-GC31-MM_dcppA-hindcast_pr_files.txt',
         color_var='pr',
         contour_var='psl',

@@ -602,7 +602,6 @@ The meteorology can also be plotted:
         contour_var='psl',
         color_levels=[0, 30, 60, 90, 120, 150, 180, 210],
         init_year_offset=0,
-        outfile='meteorology.png'
     )
 
 

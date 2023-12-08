@@ -350,7 +350,7 @@ def check_gev_fit(data, theta, covariate=None, core_dim="time"):
             dt = n // 10  # Subset 2*10% of data.
 
             # Subset data around midpoint.
-            test_data = data[t - dt: t + dt]
+            test_data = data[t - dt : t + dt]
 
             shape, loc, loc1, scale, scale1 = theta
             loc = loc + loc1 * t

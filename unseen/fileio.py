@@ -253,7 +253,7 @@ def open_dataset(
 def _chunks(lst, n):
     """Split a list into n sub-lists"""
 
-    new_lst = [lst[i: i + n] for i in range(0, len(lst), n)]
+    new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
 
     return new_lst
 

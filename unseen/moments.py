@@ -102,7 +102,7 @@ def create_plot(
 
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
-    moments_fcst = calc_moments(da_fcst_stacked, time_dim="sample")
+    moments_fcst = calc_moments(da_fcst_stacked, core_dim="sample")
 
     if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})

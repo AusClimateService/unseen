@@ -1,10 +1,11 @@
 """Extreme value analysis functions."""
 
+import warnings
+
 from matplotlib.dates import date2num
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import genextreme, goodness_of_fit
-import warnings
 from xarray import apply_ufunc
 
 
@@ -61,8 +62,8 @@ def fit_gev(
 
     Parameters
     ----------
-    data : xarray.dataArray
-        Data to fit
+    data : numpy.ndarray
+        One-dimensional data array to fit
     user estimates: list, default None
         Initial estimates of the shape, loc and scale parameters
     loc1, scale1 : float, default 0

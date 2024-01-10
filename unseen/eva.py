@@ -399,6 +399,7 @@ def gev_return_curve(
     bootstrap_method="non-parametric",
     n_bootstraps=1000,
     max_return_period=4,
+    user_estimates=None,
 ):
     """Return x and y data for a GEV return period curve.
 
@@ -407,14 +408,19 @@ def gev_return_curve(
     data : xarray DataArray
     event_value : float
         Magnitude of event of interest
-    bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
+    bootstrap_method : {'parametric', 'non-parametric'}, default "non-parametric"
     n_bootstraps : int, default 1000
     max_return_period : float, default 4
         The maximum return period is 10^{max_return_period}
+    user_estimates: list, default None
+        Initial estimates of the shape, loc and scale parameters
     """
 
     # GEV fit to data
-    shape, loc, scale = fit_gev(data, generate_estimates=True, stationary=True)
+    if user_estimates:
+        shape, loc, scale = fit_gev(data, user_estimates=user_estimates, stationary=True)
+    else:
+        shape, loc, scale = fit_gev(data, generate_estimates=True, stationary=True)
 
     curve_return_periods = np.logspace(0, max_return_period, num=10000)
     curve_probabilities = 1.0 / curve_return_periods
@@ -479,6 +485,7 @@ def plot_gev_return_curve(
     ylabel=None,
     ylim=None,
     text=False,
+    user_estimates=None,
 ):
     """Plot a single return period curve.
 
@@ -500,6 +507,8 @@ def plot_gev_return_curve(
         Limits for y-axis
     text : bool, default False
        Write the return period (and 95% CI) on the plot
+    user_estimates: list, default None
+        Initial estimates of the shape, loc and scale parameters
     """
 
     if direction == "deceedance":
@@ -511,6 +520,7 @@ def plot_gev_return_curve(
         bootstrap_method=bootstrap_method,
         n_bootstraps=n_bootstraps,
         max_return_period=max_return_period,
+        user_estimates=user_estimates,
     )
     (
         curve_return_periods,

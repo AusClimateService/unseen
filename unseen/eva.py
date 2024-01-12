@@ -1,11 +1,10 @@
 """Extreme value analysis functions."""
 
-import warnings
-
 from matplotlib.dates import date2num
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import genextreme, goodness_of_fit
+from scipy.stats import genextreme, goodness_of_fit, spearmanr
+import warnings
 from xarray import apply_ufunc
 
 
@@ -215,30 +214,38 @@ def fit_gev(
     ):
         """Estimate distribution parameters."""
         # Use genextremes to get stationary distribution parameters.
-        shape, loc, scale = fit_stationary_gev(data, user_estimates, generate_estimates)
+        theta = fit_stationary_gev(data, user_estimates, generate_estimates)
 
-        if stationary:
-            theta = shape, loc, scale
-        else:
-            # Initial parameter guesses.
+        if not stationary:
+            # Use genextremes fit as initial guesses (scipy.stats reverses sign of shape).
+            shape, loc, scale = theta
             theta_i = -shape, loc, loc1, scale, scale1
 
-            # Optimisation bounds (scale parameter must be non-negative).
-            bounds = [(None, None)] * 5
-            bounds[3] = (0, None)
+            # Run data fit if there is a significant monotonic trend.
+            correlation_res = spearmanr(covariate, data)
+            print(correlation_res.pvalue)
 
-            # Minimise the negative log-likelihood function to get optimal theta.
-            res = minimize(
-                nllf,
-                theta_i,
-                args=(data, covariate),
-                method="Nelder-Mead",
-                bounds=bounds,
-            )
-            theta = res.x
+            if correlation_res.pvalue < alpha:
+                # Optimisation bounds (scale parameter must be non-negative).
+                bounds = [(None, None)] * 5
+                bounds[3] = (0, None)
 
-            # Restore 'shape' sign for consistency with scipy.stats results.
-            theta[0] *= -1
+                # Minimise the negative log-likelihood function to get optimal theta.
+                res = minimize(
+                    nllf,
+                    theta_i,
+                    args=(data, covariate),
+                    method="Nelder-Mead",
+                    bounds=bounds,
+                )
+                theta = res.x
+
+                # Reverse shape sign for consistency with scipy.stats results.
+                theta[0] *= -1
+            else:
+                warnings.warn("No trend detected. Returning stationary fit parameters.")
+                # No trend: return genextremes fit with no trend.
+                theta = [shape, loc, 0, scale, 0]
 
         theta = np.array([i for i in theta], dtype="float64")
 
@@ -247,9 +254,8 @@ def fit_gev(
                 data, theta, covariate=kwargs["covariate"], core_dim=kwargs["core_dim"]
             )
 
-            # Accept the null distribution of the AD test.
-            success = True if np.all(pvalue >= alpha) else False
-            if not success:
+            # Accept null distribution of the Anderson-darling test (same distribution).
+            if np.all(pvalue < alpha):
                 if not kwargs["generate_estimates"]:
                     warnings.warn(
                         "Data fit failed. Retrying with 'generate_estimates=True'."
@@ -258,7 +264,6 @@ def fit_gev(
                     theta = fit(data, **kwargs)
                 else:
                     warnings.warn("Data fit failed.")
-                    shape, loc, scale
         return theta
 
     def fit(data, **kwargs):
@@ -284,13 +289,25 @@ def fit_gev(
 
     data = kwargs.pop("data")
 
-    if not stationary and isinstance(covariate, str):
-        covariate = data[covariate]
+    # Format or generate covariate
+    if not stationary:
+        if isinstance(covariate, str):
+            # Select coordinate in data
+            covariate = data[covariate]
+        elif covariate is None:
+            # Guess covariate
+            if core_dim in data:
+                covariate = data[core_dim]
+            else:
+                covariate = np.arange(data.shape[0])
+
         if covariate.dtype.kind not in set("buifc"):
             # Convert dates to numbers
             covariate = date2num(covariate)
-        kwargs["covariate"] = covariate
 
+        kwargs["covariate"] = covariate  # Update kw dict
+
+    # Fit data to distribution parameters
     theta = fit(data, **kwargs)
 
     # Return a tuple of scalars instead of a 1D data array

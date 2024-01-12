@@ -263,6 +263,8 @@ def fit_gev(
                     kwargs["generate_estimates"] = True  # Also breaks loop
                     theta = fit(data, **kwargs)
                 else:
+                    # Return NaNs
+                    theta = theta * np.nan
                     warnings.warn("Data fit failed.")
         return theta
 

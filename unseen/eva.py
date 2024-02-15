@@ -3,7 +3,7 @@
 from matplotlib.dates import date2num
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import genextreme, goodness_of_fit, spearmanr
+from scipy.stats import genextreme, goodness_of_fit
 import warnings
 from xarray import apply_ufunc
 
@@ -54,8 +54,10 @@ def fit_gev(
     core_dim="time",
     stationary=True,
     check_fit=True,
+    check_relative_fit=None,
     alpha=0.05,
     generate_estimates=False,
+    method="Nelder-Mead",
 ):
     """Estimate parameters for stationary or nonstationary data distributions.
 
@@ -67,18 +69,23 @@ def fit_gev(
         Initial estimates of the shape, loc and scale parameters
     loc1, scale1 : float, default 0
         Initial estimates of the location and scale trend parameters
-    covariate : array-like or string, default "time" (required if 'stationary=False')
-        A non-stationary covariate array or coordinate name.
+    covariate : array-like or string, default "time"
+        A non-stationary covariate array or coordinate name (non-stationary only).
     core_dim : str, default "time"
         Name of time/sample dimension in 'data'
     stationary : bool, default True
         Fit as a stationary GEV using 'scipy.stats.genextremes.fit'
     check_fit : bool, default False
         Test goodness of fit and attempt retry
+    check_relative_fit : (None, "AIC", "BIC", "lr"), default None
+        Method to test relative fit of stationary and non-stationary models.
+        The trend paramters are set to zero if the stationary fit is better (non-stationary only)
     alpha : float, default 0.05
         Goodness of fit p-value threshold
     generate_estimates : bool, default False
         Generate initial parameter guesses using a data subset
+    method : str, default "Nelder-Mead"
+        Optimisation method for non-stationary fit (non-stationary only)
 
     Returns
     -------
@@ -93,16 +100,12 @@ def fit_gev(
     parameters are estimated using a penalised negative log-likelihood
     function with initial estimates based on the stationary fit.
     - The distribution fit is considered good if the p-value is above
-    the 99th percent level (i.e., accept the null hypothesis).
+     alpha (i.e., accept the null hypothesis).
     - If the parameters fail the goodness of fit test, it will attempt
-    to fit the data again by generating an initial guess - if that
+    to fit the data again by generating an initial guess, if that
     hasn't already been tried.
     - If data is a stacked forecast ensemble, the covariate will need to be
     stacked in the same way.
-
-    Todo
-    ----
-    - Test if data is trended before nonstationary fit
     """
     kwargs = locals()  # Function inputs
 
@@ -136,7 +139,7 @@ def fit_gev(
 
         return total + penalty
 
-    def nllf(theta, data, covariate):
+    def nllf(theta, data, covariate=None):
         """Penalised negative log-likelihood function.
 
         Parameters
@@ -209,8 +212,10 @@ def fit_gev(
         core_dim,
         stationary,
         check_fit,
+        check_relative_fit,
         alpha,
         generate_estimates,
+        method,
     ):
         """Estimate distribution parameters."""
         # Use genextremes to get stationary distribution parameters.
@@ -221,31 +226,40 @@ def fit_gev(
             shape, loc, scale = theta
             theta_i = -shape, loc, loc1, scale, scale1
 
-            # Run data fit if there is a significant monotonic trend.
-            correlation_res = spearmanr(covariate, data)
-            print(correlation_res.pvalue)
+            # Optimisation bounds (scale parameter must be non-negative).
+            bounds = [(None, None)] * 5
+            bounds[3] = (0, None)
 
-            if correlation_res.pvalue < alpha:
-                # Optimisation bounds (scale parameter must be non-negative).
-                bounds = [(None, None)] * 5
-                bounds[3] = (0, None)
+            # Minimise the negative log-likelihood function to get optimal theta.
+            res = minimize(
+                nllf,
+                theta_i,
+                args=(data, covariate),
+                method=method,
+                bounds=bounds,
+            )
+            theta = res.x
 
-                # Minimise the negative log-likelihood function to get optimal theta.
-                res = minimize(
-                    nllf,
-                    theta_i,
-                    args=(data, covariate),
-                    method="Nelder-Mead",
-                    bounds=bounds,
+            if check_relative_fit is not None:
+                ll_stationary = nllf([-shape, loc, scale], data)
+                ll_nonstationary = res.fun
+
+                result = check_gev_relative_fit(
+                    data,
+                    theta,
+                    ll_stationary,
+                    ll_nonstationary,
+                    test=check_relative_fit,
                 )
-                theta = res.x
+                if result is False:
+                    warnings.warn(
+                        "Fit test failed. Returning stationary fit parameters."
+                    )
+                    # Return genextremes fit with no trend.
+                    theta = [shape, loc, 0, scale, 0]
 
-                # Reverse shape sign for consistency with scipy.stats results.
-                theta[0] *= -1
-            else:
-                warnings.warn("No trend detected. Returning stationary fit parameters.")
-                # No trend: return genextremes fit with no trend.
-                theta = [shape, loc, 0, scale, 0]
+            # Reverse shape sign for consistency with scipy.stats results.
+            theta[0] *= -1
 
         theta = np.array([i for i in theta], dtype="float64")
 
@@ -410,6 +424,45 @@ def return_period(data, event, params=None, **kwargs):
     return_period = genextreme.isf(event, shape, loc=loc, scale=scale)
 
     return return_period
+
+
+def check_gev_relative_fit(data, theta, ll_stationary, ll_nonstationary, test):
+    """Test relative fit of stationary and non-stationary distribution parameters.
+
+    Parameters
+    ----------
+    data : array-like
+        Data to fit.
+    ll_stationary, ll_nonstationary : float
+        Log-likelihood of stationary and non-stationary models.
+    test : {'AIC', 'BIC', 'lr'}
+        Method to test relative fit of stationary and non-stationary models.
+
+    Returns
+    -------
+    result : bool
+        True if the non-stationary model is better.
+    """
+    # log-likelihood of each model [stationary, non-stationary]
+    ll = [ll_stationary, ll_nonstationary]
+
+    if test == "lr":
+        # Calculate the likelihood ratio test statistic
+        lr = -2 * (ll[0] - ll[1])
+
+        if lr <= 0:
+            result = True  # The non-stationary model is better
+    else:
+        if test == "AIC":
+            # Calculate the Alkaike Information Criterion (AIC)
+            ic = [2 * len(theta) - 2 * np.log(c) for c in ll]
+        elif test == "BIC":
+            # Calculate the Bayesian Information Criterion (BIC)
+            ic = [len(theta) * np.log(len(data)) - 2 * np.log(c) for c in ll]
+
+        if ic[1] < ic[0]:
+            result = True  # The non-stationary model is better
+    return result
 
 
 def gev_return_curve(

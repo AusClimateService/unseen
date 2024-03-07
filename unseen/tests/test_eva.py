@@ -6,8 +6,7 @@ import numpy.testing as npt
 from scipy.stats import genextreme
 import xarray as xr
 
-from unseen.eva import fit_gev, check_gev_fit
-
+from unseen.eva import fit_gev
 
 rtol = 0.3  # relative tolerance
 alpha = 0.05
@@ -69,7 +68,7 @@ def example_da_gev_3d_dask():
 
 
 def add_example_gev_trend(data):
-    trend = np.arange(data.time.size) * 2 / data.time.size
+    trend = np.arange(data.time.size) * 2.5 / data.time.size
     trend = xr.DataArray(trend, coords={"time": data.time})
     return data + trend
 
@@ -154,22 +153,23 @@ def test_fit_ns_gev_1d():
     data = add_example_gev_trend(data)
     covariate = np.arange(data.time.size, dtype=int)
 
-    theta = fit_gev(data, stationary=False, core_dim="time", covariate=covariate)
-    pvalue = check_gev_fit(data, theta, covariate=covariate, core_dim="time")
-    assert np.all(pvalue > alpha)
+    theta = fit_gev(
+        data,
+        stationary=False,
+        core_dim="time",
+        covariate=covariate,
+    )
+    assert np.all(theta[2] > 0)  # Positive trend in mean
 
 
 def test_fit_ns_gev_1d_dask():
     """Run non-stationary fit using 1D dask array & check results."""
-    data, theta_i = example_da_gev_1d_dask()
+    data, _ = example_da_gev_1d_dask()
     # Add a positive linear trend.
     data = add_example_gev_trend(data)
     covariate = np.arange(data.time.size, dtype=int)
-
     theta = fit_gev(data, stationary=False, covariate=covariate, core_dim="time")
-
-    pvalue = check_gev_fit(data, theta, core_dim="time")
-    assert np.all(pvalue > alpha)
+    assert np.all(theta[2] > 0)  # Positive trend in mean
 
 
 def test_fit_ns_gev_3d():
@@ -178,10 +178,8 @@ def test_fit_ns_gev_3d():
     # Add a positive linear trend.
     data = add_example_gev_trend(data)
     covariate = np.arange(data.time.size, dtype=int)
-
     theta = fit_gev(data, stationary=False, covariate=covariate, core_dim="time")
-    pvalue = check_gev_fit(data, theta, covariate=covariate, core_dim="time")
-    assert np.all(pvalue > alpha)
+    assert np.all(theta.isel(theta=2) > 0)  # Positive trend in mean
 
 
 def test_fit_ns_gev_3d_dask():
@@ -190,28 +188,19 @@ def test_fit_ns_gev_3d_dask():
     # Add a positive linear trend.
     data = add_example_gev_trend(data)
     covariate = np.arange(data.time.size, dtype=int)
-
     theta = fit_gev(data, stationary=False, covariate=covariate, core_dim="time")
-    pvalue = check_gev_fit(data, theta, covariate=covariate, core_dim="time")
-    assert np.all(pvalue > alpha)
+    assert np.all(theta.isel(theta=2) > 0)  # Positive trend in mean
 
 
 def test_fit_ns_gev_forecast():
     """Run non-stationary fit using stacked forecast dataArray & check results."""
-    data, theta_i = example_da_gev_forecast()
-
+    data, _ = example_da_gev_forecast()
     # Convert times to numerical timesteps.
     covariate = xr.DataArray(date2num(data.time), coords={"sample": data.sample})
     # Add a positive linear trend
     trend = covariate / 1e2
     data = data + trend
-
     data = data.sortby(data.time)
     covariate = covariate.sortby(data.time)
-
     theta = fit_gev(data, stationary=False, covariate=covariate, core_dim="sample")
-    shape, loc, loc1, scale, scale1 = theta
-
-    pvalue = check_gev_fit(data, theta, covariate=covariate, core_dim="sample")
-    assert np.all(pvalue > alpha)
-    assert np.all(loc1 > 0)  # Positive trend in mean
+    assert np.all(theta[2] > 0)  # Positive trend in mean

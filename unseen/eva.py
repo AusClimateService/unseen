@@ -248,7 +248,6 @@ def fit_gev(
 
                 result = check_gev_relative_fit(
                     data,
-                    theta,
                     [ll_stationary, ll_nonstationary],
                     test=check_relative_fit,
                 )

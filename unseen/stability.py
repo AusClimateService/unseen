@@ -378,8 +378,9 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--ylim",
-        type=list,
+        type=float,
         default=None,
+        nargs=2,
         help="y axis limits for return curve plots [min, max]",
     )
     parser.add_argument(

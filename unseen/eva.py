@@ -223,7 +223,7 @@ def fit_gev(
             # Return NaNs if any input data is not finite
             n = 3 if stationary else 5
             return np.array([np.nan] * n)
-            
+
         # Use genextremes to get stationary distribution parameters
         theta = fit_stationary_gev(data, user_estimates, generate_estimates)
 

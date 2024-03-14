@@ -61,7 +61,7 @@ def temporal_aggregation(
     variables,
     season=None,
     reset_times=False,
-    complete=False,
+    min_tsteps=None,
     agg_dates=False,
     time_dim="time",
 ):
@@ -84,8 +84,9 @@ def temporal_aggregation(
         Shift time values after resampling so months match initial date
     agg_dates : bool, default False
         Record the date of each time aggregated event (e.g. annual max)
-    complete : bool, default False
-        Keep only complete time units (e.g. complete years or months)
+    min_tsteps : int, optional
+        Minimum number of timesteps for temporal aggregation
+        (e.g. 365 for annual aggregation of daily data to ensure full years only)
     time_dim: str, default 'time'
         Name of the time dimension in ds
 
@@ -146,18 +147,16 @@ def temporal_aggregation(
         assert target_freq == "Q-NOV"
         final_month = {"DJF": 2, "MAM": 5, "JJA": 8, "SON": 11}
         season_month = final_month[season]
-        ds = select_month(ds, season_month, time_dim=time_dim)
+        ds = select_months(ds, [season_month,], time_dim=time_dim)
 
     if reset_times:
         diff = ds[time_dim].values[0] - start_time
         ds[time_dim] = ds[time_dim] - diff
         assert ds[time_dim].values[0] == start_time
 
-    if complete:
+    if min_tsteps:
         for var in variables:
-            ds[var] = _crop_to_complete_time_periods(
-                ds[var], counts, input_freq, target_freq
-            )
+            ds[var] = ds[var].where(counts.values >= min_tsteps)
 
     if reindexed:
         ds = ds.compute()
@@ -379,43 +378,6 @@ def _check_date_format(date_list):
         assert re.search(date_pattern, date), "Date format must be YYYY-MM-DD"
 
 
-def _crop_to_complete_time_periods(ds, counts, input_freq, output_freq):
-    """Crop an aggregated xarray dataset to include only complete time periods.
-
-    Parameters
-    ----------
-    ds : xarray DataArray or Dataset
-        Temporally aggregated data
-    counts : xarray DataArray
-        Number of samples in each aggregation
-    input_freq : {'D, 'M'}
-        Time frequency before temporal aggregation
-    output_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV'}
-        Time frequency after temporal aggregation
-
-    Returns
-    -------
-    ds : xarray DataArray or Dataset
-        Temporally aggregated data with only complete time periods retained
-    """
-
-    assert input_freq in ["D", "M"]
-    assert output_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"]
-
-    # to X from X
-    count_dict = {
-        ("A", "D"): 360,
-        ("A", "M"): 12,
-        ("M", "D"): 28,
-        ("Q", "M"): 3,
-        ("Q", "D"): 89,
-    }
-    min_sample = count_dict[(output_freq[0], input_freq)]
-    ds = ds.where(counts.values >= min_sample)
-
-    return ds
-
-
 def _update_rate(da, input_freq, target_freq):
     """Update a flow rate due to temporal aggregation."""
 
@@ -443,14 +405,14 @@ def _update_rate(da, input_freq, target_freq):
     return new_units
 
 
-def select_month(ds, month, init_month=False, time_dim="time"):
-    """Select month from dataset.
+def select_months(ds, months, init_month=False, time_dim="time"):
+    """Select months from dataset.
 
     Parameters
     ----------
     ds : xarray Dataset or DataArray
-    month : int
-        Month to select (1-12)
+    months : list
+        Months to select (1-12)
     init_month : bool, default False
         Set the month on the time axis to the initial month
     time_dim: str, default 'time'
@@ -462,8 +424,9 @@ def select_month(ds, month, init_month=False, time_dim="time"):
         Input dataset with month extracted
     """
 
-    month_idxs = ds.groupby("time.month").groups
-    ds_selection = ds.isel({time_dim: month_idxs[month]})
+    da_months = ds[time_dim].dt.month
+    time_selection = da_months.isin(months)
+    ds_selection = ds.sel({time_dim: time_selection})
     if init_month:
         initial_date = ds[time_dim].data[0]
         diff = ds_selection[time_dim].values[0] - initial_date

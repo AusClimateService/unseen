@@ -157,6 +157,7 @@ def temporal_aggregation(
     if min_tsteps:
         for var in variables:
             ds[var] = ds[var].where(counts.values >= min_tsteps)
+        ds = ds.dropna(dim=time_dim)
 
     if reindexed:
         ds = ds.compute()

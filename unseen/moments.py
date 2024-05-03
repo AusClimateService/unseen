@@ -3,6 +3,7 @@
 import argparse
 import logging
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
@@ -12,6 +13,11 @@ from . import eva
 
 
 logging.basicConfig(level=logging.INFO)
+mpl.rcParams["axes.labelsize"] = "x-large"
+mpl.rcParams["axes.titlesize"] = "xx-large"
+mpl.rcParams["xtick.labelsize"] = "x-large"
+mpl.rcParams["ytick.labelsize"] = "x-large"
+mpl.rcParams["legend.fontsize"] = "x-large"
 
 
 def calc_ci(data):
@@ -178,7 +184,7 @@ def create_plot(
         "GEV scale": "scale parameter",
         "GEV location": "location parameter",
     }
-    fig = plt.figure(figsize=[15, 22])
+    fig = plt.figure(figsize=[15, 28])
     for plotnum, moment in enumerate(moments):
         ax = fig.add_subplot(4, 2, plotnum + 1)
         ax.hist(
@@ -217,8 +223,8 @@ def create_plot(
                 linestyle="--",
                 linewidth=3.0,
             )
-        ax.set_ylabel("count")
-        ax.set_xlabel(units[moment])
+        ax.set_ylabel("count", fontsize="large")
+        ax.set_xlabel(units[moment], fontsize="large")
         letter = letters[plotnum]
         ax.set_title(f"({letter}) {moment}")
         if letter == "a":
@@ -325,9 +331,9 @@ def _main():
         infile_logs = None
 
     create_plot(
-        da_fcst,
-        da_obs,
-        da_bc_fcst=da_bc_fcst,
+        da_fcst.compute(),
+        da_obs.compute(),
+        da_bc_fcst=da_bc_fcst.compute(),
         outfile=args.outfile,
         units=args.units,
         ensemble_dim=args.ensemble_dim,

@@ -193,7 +193,7 @@ def fit_gev(
         Initial guess of trend parameters. If None, the trend is fixed at zero.
     test_fit_goodness : bool, optional
         Test goodness of fit and attempt retry. Default False.
-    relative_fit_test : {None, 'lr', 'aic', 'bic'}, optional
+    relative_fit_test : {None, 'lrt', 'aic', 'bic'}, optional
         Method to test relative fit of stationary and nonstationary models.
         The trend parameters are set to zero if the stationary fit is better.
     alpha : float, optional
@@ -382,12 +382,16 @@ def fit_gev(
     )
 
     # Format output
+    if len(data.shape) == 1:
+        # Return a tuple of scalars instead of a data array
+        theta = np.array([i for i in theta], dtype="float64")
+
     if isinstance(theta, DataArray):
         if stationary:
             coords = ["shape", "loc", "scale"]
         else:
             coords = ["shape", "loc0", "loc1", "scale0", "scale1"]
-            theta.coords["theta"] = coords
+        theta.coords["theta"] = coords
     return theta
 
 
@@ -446,7 +450,7 @@ def check_gev_relative_fit(data, L1, L2, test, alpha=0.05):
         Data to use in estimating the distribution parameters
     L1, L2 : float
         Negative log-likelihood of the stationary and nonstationary model
-    test : {"aic", "bic", "lr"}
+    test : {"aic", "bic", "lrt"}
         Method to test relative fit of stationary and nonstationary models
 
     Returns
@@ -464,10 +468,9 @@ def check_gev_relative_fit(data, L1, L2, test, alpha=0.05):
 
     dof = [3, 5]  # Degrees of freedom of each model
 
-    if test.casefold() == "lr":
+    if test.casefold() == "lrt":
         # Likelihood ratio test statistic
         LR = -2 * (L2 - L1)
-        result = LR > 1
         result = chi2.sf(LR, dof[1] - dof[0]) <= alpha
 
     elif test.casefold() == "aic":

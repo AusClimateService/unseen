@@ -6,7 +6,7 @@ import numpy.testing as npt
 from scipy.stats import genextreme
 from xarray import cftime_range, DataArray
 
-from unseen.eva import fit_gev
+from unseen.eva import fit_gev, get_return_period, get_return_level
 
 rtol = 0.3  # relative tolerance
 alpha = 0.05
@@ -246,7 +246,7 @@ def test_fit_ns_gev_3d_dask():
 
 
 def test_fit_ns_gev_forecast():
-    """Run non-stationary fit using stacked forecast dataArray & check results."""
+    """Run non-stationary fit using stacked forecast dataArray."""
     data, _ = example_da_gev_forecast()
     # Convert times to numerical timesteps
     covariate = DataArray(date2num(data.time), coords={"sample": data.sample})
@@ -257,3 +257,78 @@ def test_fit_ns_gev_forecast():
     covariate = covariate.sortby(data.time)
     theta = fit_gev(data, stationary=False, covariate=covariate, core_dim="sample")
     assert np.all(theta[2] > 0)  # Positive trend in location
+
+
+def test_get_return_period():
+    """Run get_return_period for a single event using 1d data."""
+    data, _ = example_da_gev_1d()
+    event = data.mean()
+    rp = get_return_period(event, data=data)
+    assert rp.size == 1
+    assert np.all(np.isfinite(rp))
+
+
+def test_get_return_period_1d():
+    """Run get_return_period for 1d array of events using 1d data."""
+    data, theta = example_da_gev_1d()
+    event = data.quantile([0.25, 0.5, 0.75], dim="time")
+    rp = get_return_period(event, theta)
+    assert rp.shape == event.shape
+    assert np.all(np.isfinite(rp))
+
+
+def test_get_return_period_3d():
+    """Run get_return_period for 3d array of events using 3d data."""
+    data, theta = example_da_gev_3d()
+    theta = fit_gev(data, stationary=True)
+    # Multiple events unique to each lat/lon
+    event = data.quantile([0.25, 0.5, 0.75], dim="time")
+    rp = get_return_period(event, theta)
+    assert rp.shape == event.shape
+    assert np.all(np.isfinite(rp))
+
+
+def test_get_return_period_3d_nonstationary():
+    """Run get_return_period for 3d events using 3d nonstationary data."""
+    data, _ = example_da_gev_3d()
+    data = add_example_gev_trend(data)
+    covariate = DataArray(np.arange(data.time.size), dims="time")
+    params = fit_gev(data, stationary=False, covariate=covariate, core_dim="time")
+
+    # Multiple events unique to each lat/lon
+    event = data.quantile([0.25, 0.5, 0.75], dim="time")
+    covariate_subset = DataArray([0, covariate.size], dims="time")
+    rp = get_return_period(event, params, covariate=covariate_subset)
+    assert rp.shape == (*list(event.shape), covariate_subset.size)
+    assert np.all(np.isfinite(rp))
+
+
+def test_get_return_level():
+    """Run get_return_level for a single return_period using 1d data."""
+    _, theta = example_da_gev_1d()
+    rp = 100
+    return_level = get_return_level(rp, theta)
+    assert return_level.size == 1
+    assert np.all(np.isfinite(return_level))
+
+
+def test_get_return_level_1d():
+    """Run get_return_level for 1d array of periods using 1d data."""
+    _, theta = example_da_gev_1d()
+    rp = np.array([10, 100, 1000])
+    return_level = get_return_level(rp, theta)
+    assert return_level.shape == rp.shape
+    assert np.all(np.isfinite(return_level))
+
+
+def test_get_return_level_3d():
+    """Run get_return_level for 3d array of periods using 3d data."""
+    data, theta = example_da_gev_3d()
+    theta = fit_gev(data, stationary=True)
+    # Multiple events unique to each lat/lon
+    dims = ("return_period", "lat", "lon")
+    rp = np.array([10, 100, 1000] * 4).T
+    rp = DataArray(rp.reshape((3, 2, 2)), dims=dims)
+    return_level = get_return_level(rp, theta)
+    assert return_level.shape == rp.shape
+    assert np.all(np.isfinite(return_level))

@@ -485,21 +485,114 @@ def check_gev_relative_fit(data, L1, L2, test, alpha=0.05):
     return result
 
 
-def return_period(data, event, params=None, **kwargs):
-    """Get return period for given event by fitting a GEV."""
+def unpack_gev_params(params, covariate=None):
+    """Unpack shape, loc, scale from params.
 
-    # GEV fit to data
-    if len(params) != 3 or not kwargs.get("stationary", True):
-        raise NotImplementedError(
-            "Non-stationary GEV parameters must be evaluated at a point first."
-        )
+    Parameters
+    ----------
+    params : xarray.DataArray, list or tuple
+        Stationary or nonstationary GEV parameters
+    covariate : xarray.DataArray, optional
+        Covariate values for nonstationary parameters
 
+    Returns
+    -------
+    shape, loc, scale : array_like or float
+        GEV parameters. If nonstationary, loc and scale are functions of the
+        covariate.
+    """
+
+    if hasattr(params, "theta"):
+        # Select the correct dimension in a DataArray
+        params = [params.isel(theta=i) for i in range(params.theta.size)]
+
+    # Unpack GEV parameters
+    if len(params) == 3:
+        # Stationary GEV parameters
+        shape, loc, scale = params
+
+    elif len(params) == 5:
+        # Nonstationary GEV parameters
+        shape, loc0, loc1, scale0, scale1 = params
+        loc = loc0 + loc1 * covariate
+        scale = scale0 + scale1 * covariate
+    return shape, loc, scale
+
+
+def get_return_period(event, params=None, covariate=None, **kwargs):
+    """Get return periods for a given events.
+
+    Parameters
+    ----------
+    event : float or array_like
+        Event value(s) for which to calculate the return period
+    params : array_like, optional
+        Stationary or nonstationary GEV parameters
+    covariate : array_like, optional
+        Covariate values for nonstationary parameters
+    kwargs : dict, optional
+        Additional keyword arguments to pass to `fit_gev`
+
+    Returns
+    -------
+    return_period : float or array_like
+        Return period(s) for the event(s)
+    """
     if params is None:
-        params = fit_gev(data, **kwargs)
-    shape, loc, scale = params
-    return_period = genextreme.isf(event, shape, loc=loc, scale=scale)
+        params = fit_gev(**kwargs)
 
-    return return_period
+    shape, loc, scale = unpack_gev_params(params, covariate)
+
+    probability = apply_ufunc(
+        genextreme.sf,
+        event,
+        shape,
+        loc,
+        scale,
+        input_core_dims=[[], [], [], []],
+        output_core_dims=[[]],
+        vectorize=True,
+        dask="parallelized",
+    )
+    return 1.0 / probability
+
+
+def get_return_level(return_period, params=None, covariate=None, **kwargs):
+    """Get the return levels for given return periods.
+
+    Parameters
+    ----------
+    return_period : float or array_like
+       Return period(s) for which to calculate the return level
+    params : array_like, optional
+        Stationary or nonstationary GEV parameters
+    covariate : array_like, optional
+        Covariate values for nonstationary parameters
+    kwargs : dict, optional
+        Additional keyword arguments to pass to `fit_gev`
+
+    Returns
+    -------
+    return_level : float or array_like
+        Return level(s) of the given return period(s)
+    """
+    if params is None:
+        params = fit_gev(**kwargs)
+
+    shape, loc, scale = unpack_gev_params(params, covariate)
+
+    return_level = apply_ufunc(
+        genextreme.isf,
+        1 / return_period,
+        shape,
+        loc,
+        scale,
+        input_core_dims=[[], [], [], []],
+        output_core_dims=[[]],
+        vectorize=True,
+        dask="parallelized",
+    )
+    return return_level
 
 
 def gev_return_curve(

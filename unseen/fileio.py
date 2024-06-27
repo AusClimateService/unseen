@@ -46,10 +46,10 @@ def open_dataset(
     time_freq=None,
     time_agg=None,
     time_agg_dates=False,
-    month=None,
+    months=None,
     season=None,
     reset_times=False,
-    complete_time_agg_periods=False,
+    time_agg_min_tsteps=None,
     input_freq=None,
     time_dim="time",
     isel={},
@@ -111,14 +111,14 @@ def open_dataset(
         Record the date of each time aggregated event (e.g. annual max)
     standard_calendar : bool, default False
         Force a common calendar on all input files
-    month : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, optional
-        Select a single month from the dataset
+    months : list, optional
+        Select months from the dataset
     season : {'DJF', 'MAM', 'JJA', 'SON'}, optional
         Select a single season after Q-NOV temporal resampling
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
-    complete_time_agg_periods : bool default False
-        Limit temporal aggregation output to complete years/months
+    time_agg_min_tsteps : int, optional
+        Minimum number of timesteps for temporal aggregation
     input_freq : {'A', 'Q', 'M', 'D'}, optional
         Input time frequency for resampling (estimated if not provided)
     time_dim: str, default 'time'
@@ -161,9 +161,9 @@ def open_dataset(
         ds = ds.isel(isel)
     if sel:
         ds = ds.sel(sel)
-    if month:
-        ds = time_utils.select_month(
-            ds, month, init_month=reset_times, time_dim=time_dim
+    if months:
+        ds = time_utils.select_months(
+            ds, months, init_month=reset_times, time_dim=time_dim
         )
 
     # Scale factors
@@ -231,7 +231,7 @@ def open_dataset(
             variables,
             season=season,
             reset_times=reset_times,
-            complete=complete_time_agg_periods,
+            min_tsteps=time_agg_min_tsteps,
             agg_dates=time_agg_dates,
         )
 
@@ -628,11 +628,11 @@ def _parse_command_line():
         help="Record the date of each time aggregated event (e.g. annual max) [default=False]",
     )
     parser.add_argument(
-        "--month",
+        "--months",
         type=int,
-        choices=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+        nargs='*',
         default=None,
-        help="Select a single month from the dataset",
+        help="Select months from the dataset",
     )
     parser.add_argument(
         "--season",
@@ -648,10 +648,10 @@ def _parse_command_line():
         help="Shift time values after resampling so months match initial date [default=False]",
     )
     parser.add_argument(
-        "--complete_time_agg_periods",
-        action="store_true",
-        default=False,
-        help="Limit temporal aggregation output to complete years/months [default=False]",
+        "--time_agg_min_tsteps",
+        type=int,
+        default=None,
+        help="Minimum number of timesteps for temporal aggregation [default=None]",
     )
     parser.add_argument(
         "--input_freq",
@@ -844,10 +844,10 @@ def _main():
         "time_freq": args.time_freq,
         "time_agg": args.time_agg,
         "time_agg_dates": args.time_agg_dates,
-        "month": args.month,
+        "months": args.months,
         "season": args.season,
         "reset_times": args.reset_times,
-        "complete_time_agg_periods": args.complete_time_agg_periods,
+        "time_agg_min_tsteps": args.time_agg_min_tsteps,
         "input_freq": args.input_freq,
         "time_dim": args.time_dim,
         "isel": args.isel,

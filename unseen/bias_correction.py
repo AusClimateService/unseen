@@ -227,7 +227,11 @@ def _main():
 
     if args.output_chunks:
         ds_fcst_bc = ds_fcst_bc.chunk(args.output_chunks)
-    fileio.to_zarr(ds_fcst_bc, args.outfile)
+
+    if "zarr" in args.outfile:
+        fileio.to_zarr(ds_fcst_bc, args.outfile)
+    else:
+        ds_fcst_bc.to_netcdf(args.outfile)
 
 
 if __name__ == "__main__":

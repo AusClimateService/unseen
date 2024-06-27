@@ -216,8 +216,8 @@ def _main():
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     ds_obs = fileio.open_dataset(args.obs_file, variables=[args.var])
     if args.reference_time_period:
-        time_slice = time_utils.date_pair_to_time_slice(args.reference_time_period)
-        ds_obs = ds_obs.sel({args.time_dim: time_slice})
+        start_date, end_date = args.reference_time_period
+        ds_obs = ds_obs.sel({args.time_dim: slice(start_date, end_date)})
 
     ds_similarity = similarity_tests(
         ds_fcst,
@@ -239,7 +239,11 @@ def _main():
 
     if args.output_chunks:
         ds_similarity = ds_similarity.chunk(args.output_chunks)
-    fileio.to_zarr(ds_similarity, args.outfile)
+
+    if "zarr" in args.outfile:
+        fileio.to_zarr(ds_similarity, args.outfile)
+    else:
+        ds_similarity.to_netcdf(args.outfile)
 
 
 if __name__ == "__main__":

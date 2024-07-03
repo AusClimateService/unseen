@@ -1,5 +1,0 @@
-rename:
-  precip: pr
-
-units:
-  pr: mm month-1   

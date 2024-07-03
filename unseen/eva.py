@@ -624,7 +624,9 @@ def gev_return_curve(
 
     # GEV fit to data
     if user_estimates:
-        shape, loc, scale = fit_gev(data, user_estimates=user_estimates, stationary=True)
+        shape, loc, scale = fit_gev(
+            data, user_estimates=user_estimates, stationary=True
+        )
     else:
         shape, loc, scale = fit_gev(data, generate_estimates=True, stationary=True)
 

@@ -147,7 +147,13 @@ def temporal_aggregation(
         assert target_freq == "Q-NOV"
         final_month = {"DJF": 2, "MAM": 5, "JJA": 8, "SON": 11}
         season_month = final_month[season]
-        ds = select_months(ds, [season_month,], time_dim=time_dim)
+        ds = select_months(
+            ds,
+            [
+                season_month,
+            ],
+            time_dim=time_dim,
+        )
 
     if reset_times:
         diff = ds[time_dim].values[0] - start_time

@@ -630,7 +630,7 @@ def _parse_command_line():
     parser.add_argument(
         "--months",
         type=int,
-        nargs='*',
+        nargs="*",
         default=None,
         help="Select months from the dataset",
     )

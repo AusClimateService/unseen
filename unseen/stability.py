@@ -31,7 +31,7 @@ def plot_dist_by_lead(ax, sample_da, metric, units=None, lead_dim="lead_time"):
     """
 
     lead_times = np.unique(sample_da[lead_dim].values)
-    colors = iter(plt.cm.viridis_r(np.linspace(0, 1, len(lead_times))))
+    colors = iter(plt.cm.BuPu(np.linspace(0, 1, len(lead_times))))
     for lead in lead_times:
         selection_da = sample_da.sel({lead_dim: lead})
         selection_da = selection_da.dropna("sample")
@@ -156,7 +156,7 @@ def plot_return_by_lead(
     """
 
     lead_times = np.unique(sample_da["lead_time"].values)
-    colors = iter(plt.cm.viridis_r(np.linspace(0, 1, len(lead_times))))
+    colors = iter(plt.cm.BuPu(np.linspace(0, 1, len(lead_times))))
     for lead in lead_times:
         selection_da = sample_da.sel({"lead_time": lead})
         selection_da = selection_da.dropna("sample")
@@ -188,9 +188,9 @@ def plot_return_by_lead(
             alpha=0.3,
         )
 
-    ax.grid(True)
     ax.set_title(f"(b) {metric} return period by lead time")
     ax.set_xscale("log")
+    ax.grid(True, which="both")
     ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
     ax.set_ylabel(units_label)
@@ -260,9 +260,9 @@ def plot_return_by_time(
             alpha=0.3,
         )
 
-    ax.grid(True)
     ax.set_title(f"(d) {metric} return period by year")
     ax.set_xscale("log")
+    ax.grid(True, which="both")
     ax.set_xlabel("return period (years)")
     units_label = units if units else sample_da.attrs["units"]
     ax.set_ylabel(units_label)
@@ -378,8 +378,9 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--ylim",
-        type=list,
+        type=float,
         default=None,
+        nargs=2,
         help="y axis limits for return curve plots [min, max]",
     )
     parser.add_argument(
@@ -427,7 +428,7 @@ def _main():
     da_fcst = ds_fcst[args.var]
 
     create_plot(
-        da_fcst,
+        da_fcst.compute(),
         args.metric,
         args.start_years,
         outfile=args.outfile,

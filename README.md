@@ -13,3 +13,9 @@ approach to assessing the likelihood of extreme events.
 ## Documentation
 
 The documentation for the package can be accessed/generated from the `docs/` directory.
+
+## Workflows
+
+See the unseen-projects repo for file lists, configuration files and makefiles
+to assist with running UNSEEN workflows:  
+https://github.com/AusClimateService/unseen-projects

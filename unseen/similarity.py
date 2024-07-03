@@ -8,7 +8,6 @@ import xstatstests
 from . import dask_setup
 from . import fileio
 from . import general_utils
-from . import time_utils
 
 
 def ks_test(obs_ds, fcst_ds):

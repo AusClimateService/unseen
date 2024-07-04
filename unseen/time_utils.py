@@ -70,14 +70,15 @@ def temporal_aggregation(
     Parameters
     ----------
     ds : xarray Dataset
-    target_freq : {'A-DEC', 'Q-NOV', 'M', 'A-NOV', 'A-AUG', 'A-JUN'}
+    target_freq : str
         Target frequency for the resampling
+        Options: https://pandas.pydata.org/docs/user_guide/timeseries.html#anchored-offsets
     agg_method : {'mean', 'min', 'max', 'sum'}
         Aggregation method
     variables : list
         Variables in the dataset
-    input_freq : {'D', 'M', 'Q', 'A'}
-        Temporal frequency of input data (daily, monthly or annual)
+    input_freq : {'D', 'M', 'Q', 'Y'}
+        Temporal frequency of input data (daily, monthly, quarterly or yearly)
     season : {'DJF', 'MAM', 'JJA', 'SON'}, optional
         Select a single season after Q-NOV resampling
     reset_times : bool, default False
@@ -96,16 +97,16 @@ def temporal_aggregation(
 
     Notes
     -----
-    A-DEC = annual, with date label being last day of year
-    M = monthly, with date label being last day of month
-    Q-NOV = DJF, MAM, JJA, SON, with date label being last day of season
-    A-NOV = annual Dec-Nov, date label being last day of the year
-    A-AUG = annual Sep-Aug, date label being last day of the year
-    A-JUN = annual Jul-Jun, date label being last day of the year
+    Example target_freq includes:
+      YE-DEC = annual, with date label being last day of year
+      M = monthly, with date label being last day of month
+      Q-NOV = DJF, MAM, JJA, SON, with date label being last day of season
+      YE-NOV = annual Dec-Nov, date label being last day of the year
+      YE-AUG = annual Sep-Aug, date label being last day of the year
+      YE-JUN = annual Jul-Jun, date label being last day of the year
     """
 
-    assert target_freq in ["A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"]
-    assert input_freq in ["D", "M", "Q", "A"]
+    assert input_freq in ["D", "M", "Q", "Y"]
 
     if time_dim not in ds.dims:
         ds = array_handling.reindex_forecast(ds)

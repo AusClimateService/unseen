@@ -103,8 +103,9 @@ def open_dataset(
         Remove leap days from data
     rolling_sum_window : int, default None
         Apply a rolling sum with this window width
-    time_freq : {'A-DEC', 'M', 'Q-NOV', 'A-NOV', 'A-AUG', 'A-JUN'}, optional
+    time_freq : str, optional
         Target temporal frequency for resampling
+        Options: https://pandas.pydata.org/docs/user_guide/timeseries.html#anchored-offsets
     time_agg : {'mean', 'sum', 'min', 'max'}, optional
         Temporal aggregation method
     time_agg_dates : bool, default False
@@ -119,7 +120,7 @@ def open_dataset(
         Shift time values after resampling so months match initial date
     time_agg_min_tsteps : int, optional
         Minimum number of timesteps for temporal aggregation
-    input_freq : {'A', 'Q', 'M', 'D'}, optional
+    input_freq : {'Y', 'Q', 'M', 'D'}, optional
         Input time frequency for resampling (estimated if not provided)
     time_dim: str, default 'time'
         Name of the time dimension in infiles
@@ -610,7 +611,6 @@ def _parse_command_line():
     parser.add_argument(
         "--time_freq",
         type=str,
-        choices=("A-DEC", "M", "Q-NOV", "A-NOV", "A-AUG", "A-JUN"),
         default=None,
         help="Target frequency for temporal aggregation",
     )
@@ -656,7 +656,7 @@ def _parse_command_line():
     parser.add_argument(
         "--input_freq",
         type=str,
-        choices=("M", "D", "Q", "A"),
+        choices=("M", "D", "Q", "Y"),
         default=None,
         help="Time frequency of input data",
     )

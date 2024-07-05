@@ -68,12 +68,17 @@ def random_resample(
             )
         ]
         args_sub = [
-            xr.concat(
-                [obj.isel({dim: random_sample}) for random_sample in random_samples],
-                dim=dim,
+            (
+                xr.concat(
+                    [
+                        obj.isel({dim: random_sample})
+                        for random_sample in random_samples
+                    ],
+                    dim=dim,
+                )
+                if dim in obj.dims
+                else obj
             )
-            if dim in obj.dims
-            else obj
             for obj in args_sub
         ]
 

@@ -357,7 +357,7 @@ def fit_gev(
     covariate = _format_covariate(data, covariate, stationary, core_dim)
 
     # Input core dimensions
-    if hasattr(covariate, core_dim):
+    if core_dim is not None and hasattr(covariate, core_dim):
         # Covariate has the same core dimension as data
         input_core_dims = [[core_dim], [core_dim]]
     else:

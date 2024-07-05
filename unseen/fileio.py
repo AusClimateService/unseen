@@ -456,10 +456,8 @@ def _fix_metadata(ds, metadata_file):
 
     if "rename" in metadata_dict:
         for orig_var, target_var in metadata_dict["rename"].items():
-            try:
+            if orig_var in ds:
                 ds = ds.rename({orig_var: target_var})
-            except ValueError:
-                pass
 
     if "drop_coords" in metadata_dict:
         for drop_coord in metadata_dict["drop_coords"]:
@@ -472,7 +470,8 @@ def _fix_metadata(ds, metadata_file):
 
     if "units" in metadata_dict:
         for var, units in metadata_dict["units"].items():
-            ds[var].attrs["units"] = units
+            if var in ds.data_vars:
+                ds[var].attrs["units"] = units
 
     return ds
 

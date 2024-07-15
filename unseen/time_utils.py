@@ -15,8 +15,8 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
 
     Parameters
     ----------
-    ds : xarray Dataset
-        A time resampled dataset
+    ds : xarray.Dataset
+        Dataset to be resampled
     var : str
         A variable in the dataset
     target_freq : str
@@ -29,28 +29,19 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
     Returns
     -------
     event_datetimes_str : numpy.ndarray
-        Array of event dates
+        Event date strings for the resampled array
     """
+    ds_arg = ds[var].resample(time=target_freq, label="left")
+    if agg_method == "max":
+        dates = [da.idxmax(time_dim) for _, da in ds_arg]
+    elif agg_method == "min":
+        dates = [da.idxmin(time_dim) for _, da in ds_arg]
 
-    reduce_funcs = {"min": np.nanargmin, "max": np.nanargmax}
+    dates = xr.concat(dates, dim=time_dim)
+    event_datetimes_str = dates.load().dt.strftime("%Y-%m-%d")
+    event_datetimes_str = event_datetimes_str.astype(dtype=str)
 
-    ds_arg = ds.resample(
-        time=target_freq, label="left", loffset=datetime.timedelta(days=1)
-    ).reduce(reduce_funcs[agg_method], dim=time_dim)
-    time_diffs = ds_arg[var].values.astype("timedelta64[D]")
-    str_time_axis = [time.strftime("%Y-%m-%d") for time in ds_arg[time_dim].values]
-    datetime_time_axis = np.array(str_time_axis, dtype="datetime64")
-    assert time_diffs.ndim <= 2
-    if time_diffs.ndim == 2:
-        other_dims = list(ds_arg[var].dims)
-        other_dims.remove(time_dim)
-        other_dim_name = other_dims[0]
-        other_dim_index = ds_arg[var].dims.index(other_dim_name)
-        datetime_time_axis = np.expand_dims(datetime_time_axis, axis=other_dim_index)
-    event_datetimes_np = datetime_time_axis + time_diffs
-    event_datetimes_str = np.datetime_as_string(event_datetimes_np)
-
-    return event_datetimes_str
+    return event_datetimes_str.values
 
 
 def temporal_aggregation(
@@ -162,9 +153,14 @@ def temporal_aggregation(
         assert ds[time_dim].values[0] == start_time
 
     if min_tsteps:
-        for var in variables:
-            ds[var] = ds[var].where(counts.values >= min_tsteps)
-        ds = ds.dropna(dim=time_dim)
+        # Drop first and last time points with insufficient time steps
+        counts = counts.isel({time_dim: [0, -1]})
+        # Select the minimum of the non-time dimensions
+        counts = counts.min([dim for dim in ds[variables[0]].dims if dim != time_dim])
+        if counts[0] < min_tsteps:
+            ds = ds.isel({time_dim: slice(1, None)})
+        if counts[-1] < min_tsteps:
+            ds = ds.isel({time_dim: slice(None, -1)})
 
     if reindexed:
         ds = ds.compute()
@@ -219,8 +215,9 @@ def select_time_period(ds, period, time_name="time"):
             start=start, end=stop, periods=2, freq=None, calendar=calendar
         )
         mask_values = _vinbounds(time_values, time_bounds)
-        mask = ds[time_name].copy()
-        mask.values = mask_values
+        mask = xr.DataArray(
+            mask_values, dims=ds[time_name].dims, coords=ds[time_name].coords
+        )
         selection = ds.where(mask, drop=True)
     else:
         raise ValueError("No time axis for masking")

@@ -3,9 +3,7 @@ import pytest
 import numpy as np
 from xarray.coding.times import cftime_to_nptime
 
-from unseen.time_utils import (
-    select_time_period,
-)
+from unseen.time_utils import select_time_period, temporal_aggregation
 
 
 @pytest.mark.parametrize("example_da_forecast", ["numpy"], indirect=True)
@@ -30,3 +28,56 @@ def test_select_time_period(example_da_forecast, add_nans, data_object):
 
     assert min_time >= np.datetime64(PERIOD[0])
     assert max_time <= np.datetime64(PERIOD[1])
+
+
+@pytest.mark.parametrize("example_da_timeseries", ["numpy"], indirect=True)
+def test_temporal_aggregation_agg_dates(example_da_timeseries):
+    """Test temporal_aggregation using agg_dates."""
+    # Monotonically increasing time series
+    data = example_da_timeseries
+    ds = data.to_dataset(name="var")
+
+    ds_resampled = temporal_aggregation(
+        ds,
+        target_freq="ME",
+        input_freq="D",
+        agg_method="max",
+        variables=["var"],
+        season=None,
+        reset_times=False,
+        min_tsteps=None,
+        agg_dates=True,
+        time_dim="time",
+    )
+    event_time = ds_resampled["event_time"].astype(dtype="datetime64[ns]")
+    # Monthly maximum should be the last day of each month
+    assert np.all(event_time.dt.day >= 28)
+
+
+@pytest.mark.parametrize("example_da_timeseries", ["numpy"], indirect=True)
+def test_temporal_aggregation_min_tsteps(example_da_timeseries):
+    """Test temporal_aggregation using min_tsteps."""
+    data = example_da_timeseries
+    ds = data.to_dataset(name="var")
+    # Remove days from first & last month and test the months are removed
+    ds = ds.isel(time=slice(5, -5))
+
+    variables = ["var"]
+    target_freq = "ME"
+    time_dim = "time"
+    min_tsteps = 28
+    counts = ds[variables[0]].resample(time=target_freq).count(dim=time_dim).load()
+
+    ds_resampled = temporal_aggregation(
+        ds,
+        target_freq,
+        input_freq="D",
+        agg_method="max",
+        variables=variables,
+        season=None,
+        reset_times=False,
+        min_tsteps=min_tsteps,
+        agg_dates=False,
+        time_dim=time_dim,
+    )
+    assert np.all((counts >= min_tsteps).sum(time_dim) == len(ds_resampled.time))

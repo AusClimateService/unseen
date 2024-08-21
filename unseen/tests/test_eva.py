@@ -235,6 +235,40 @@ def test_fit_ns_gev_3d():
     assert np.all(theta.isel(theta=2) > 0)  # Positive trend in location
 
 
+def test_fit_ns_gev_1d_relative_fit_test_bic_trend():
+    """Run non-stationary fit & check 'BIC' test returns nonstationary params."""
+    data, _ = example_da_gev_1d()
+    # Add a large positive linear trend
+    data = add_example_gev_trend(data)
+    data = add_example_gev_trend(data)
+    covariate = np.arange(data.time.size, dtype=int)
+
+    theta = fit_gev(
+        data,
+        stationary=False,
+        core_dim="time",
+        covariate=covariate,
+        relative_fit_test="bic",
+    )
+    assert np.all(theta[2] > 0)  # Positive trend in location
+
+
+def test_fit_ns_gev_1d_relative_fit_test_bic_no_trend():
+    """Run non-stationary fit & check 'BIC' test returns stationary params."""
+    data, _ = example_da_gev_1d()
+    covariate = np.arange(data.time.size, dtype=int)
+
+    theta = fit_gev(
+        data,
+        stationary=False,
+        core_dim="time",
+        covariate=covariate,
+        relative_fit_test="bic",
+    )
+    assert np.all(theta[2] == 0)  # No trend in location
+    assert np.all(theta[4] == 0)  # No trend in scale
+
+
 def test_fit_ns_gev_3d_dask():
     """Run non-stationary fit using 3D dask array & check results."""
     data, _ = example_da_gev_3d_dask()

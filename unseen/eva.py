@@ -319,7 +319,7 @@ def fit_gev(
                 result = check_gev_relative_fit(
                     data, L1, L2, test=relative_fit_test, alpha=alpha
                 )
-                if result is False:
+                if not result:
                     warnings.warn(
                         f"{relative_fit_test} test failed. Returning stationary parameters."
                     )

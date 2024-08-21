@@ -1,6 +1,8 @@
 """Extreme value analysis functions."""
 
+from matplotlib import colormaps
 from matplotlib.dates import date2num
+from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import genextreme, goodness_of_fit
@@ -809,3 +811,140 @@ def plot_gev_return_curve(
     if ylim:
         ax.set_ylim(ylim)
     ax.grid()
+
+
+def plot_nonstationary_pdfs(ax, data, theta_s, theta_ns, covariate):
+    """Plot stationary and nonstationary GEV PDFs.
+
+    Parameters
+    ----------
+    ax : matplotlib.Axes
+    data : array-like
+        Data to plot the histogram
+    theta_s : tuple of floats
+        Stationary GEV parameters (shape, loc, scale)
+    theta_ns : tuple or array-like
+        Nonstationary GEV parameters (shape, loc0, loc1, scale0, scale1)
+    covariate : array-like
+        Covariates values in which to plot the nonstationary PDFs
+
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+    """
+    n = covariate.size
+    colors = colormaps["rainbow"](np.linspace(0, 1, n))
+    shape, loc, scale = unpack_gev_params(theta_ns, covariate)
+
+    # Histogram.
+    _, bins, _ = ax.hist(data, bins=40, density=True, alpha=0.5, label="Histogram")
+
+    # Stationary GEV PDF
+    shape_s, loc_s, scale_s = theta_s
+    pdf_s = genextreme.pdf(bins, shape_s, loc=loc_s, scale=scale_s)
+    ax.plot(bins, pdf_s, c="k", ls="--", lw=2.8, label="Stationary")
+
+    # Nonstationary GEV PDFs
+    for i, t in enumerate(covariate.values):
+        pdf_ns = genextreme.pdf(bins, shape, loc=loc[i], scale=scale[i])
+        ax.plot(bins, pdf_ns, lw=1.6, c=colors[i], zorder=0, label=t)
+
+    ax.set_ylabel("Probability")
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.legend(bbox_to_anchor=(1, 1))
+    return ax
+
+
+def plot_nonstationary_return_curve(
+    ax, return_periods, theta_s, theta_ns, covariate, dim="time"
+):
+    """Plot stationary and nonstationary return period curves.
+
+    Parameters
+    ----------
+    ax : matplotlib.Axes
+    return_periods : array-like
+        Return periods to plot
+    theta_s : array-like or tuple of floats
+        Stationary GEV parameters (shape, loc, scale)
+    theta_ns : array-like or tuple of floats
+        Nonstationary GEV parameters (shape, loc0, loc1, scale0, scale1)
+    covariate : array-like
+        Covariate values in which to show the nonstationary return levels
+    dim : str, optional
+        Covariate core dimension name, default "time"
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+    """
+    n = covariate.size
+    colors = colormaps["rainbow"](np.linspace(0, 1, n))
+
+    # Stationary return levels
+    return_levels = get_return_level(return_periods, theta_s)
+    ax.plot(
+        return_periods, return_levels, label="Stationary", c="k", ls="--", zorder=n + 1
+    )
+
+    # Nonstationary return levels
+    return_levels = get_return_level(return_periods, theta_ns, covariate)
+    for i, t in enumerate(covariate.values):
+        ax.plot(return_periods, return_levels.isel({dim: i}), label=t, c=colors[i])
+
+    ax.set_xscale("log")
+    ax.set_xlabel("Return period [years]")
+    ax.yaxis.set_minor_locator(AutoMinorLocator())
+    ax.set_xmargin(1e-2)
+    ax.legend()
+    return ax
+
+
+def plot_stacked_histogram(ax, dv1, dv2, bins, labels=None, dim="time"):
+    """Plot data binned by a covariate as a stacked histogram.
+
+    Parameters
+    ----------
+    ax : matplotlib.Axes
+    dv1 : xarray.DataArray
+        Data to plot in the histogram
+    dv2 : xarray.DataArray
+        Covariate used to bin the data
+    bins : array-like
+        Bin edges of dv2
+    labels : array-like, optional
+        Labels for each bin, default None (uses left side of each bin)
+    dim : str, default: "time"
+        Core dimension name of dv1 and dv2, default "time"
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+    """
+
+    assert dv1.size == dv2.size
+
+    # Subset dv1 by bins
+    dx_subsets = [
+        dv1.where((dv2 >= bins[a]) & (dv2 < bins[a + 1])) for a in range(len(bins) - 1)
+    ]
+
+    if labels is None:
+        # Labels show left side of each bin
+        labels = bins[:-1]
+
+    colors = colormaps["rainbow"](np.linspace(0, 1, len(bins) - 1))
+    ax.hist(
+        dx_subsets,
+        density=True,
+        stacked=True,
+        histtype="barstacked",
+        color=colors,
+        edgecolor="k",
+        label=labels,
+    )
+    ax.legend()
+    ax.set_ylabel("Probability")
+    return ax

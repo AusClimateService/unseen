@@ -2,7 +2,6 @@
 
 import glob
 import re
-from collections import Counter
 import calendar
 import datetime
 
@@ -16,26 +15,77 @@ import cmocean
 from . import fileio
 
 
-def plot_event_seasonality(df, outfile=None):
+def get_event_seasonality(event_time, core_dim="time"):
+    """Count the number of events each month
+
+    Parameters
+    ----------
+    event_time : xarray.DataArray
+        Time of each event
+    core_dim : list, default "time"
+        Core dimensions of the input data array
+
+    Returns
+    -------
+    counts : xarray.DataArray
+        Number of events occuring in each month
+    """
+
+    def count_months(event_months):
+        """Count the number of events in each month."""
+        months_unique, month_counts = np.unique(event_months, return_counts=True)
+        counts = np.zeros(12)
+        counts[months_unique - 1] = month_counts
+        return counts
+
+    if not isinstance(core_dim, list):
+        core_dim = [core_dim]
+
+    # Event not a value or datetime64
+    if event_time.dtype in ["<U10", "str", np.dtype(object)]:
+        # Convert time strings to datetime64
+        event_time = event_time.astype("datetime64[ns]")
+
+    event_months = event_time.dt.month
+    counts = xr.apply_ufunc(
+        count_months,
+        event_months,
+        input_core_dims=[core_dim],
+        output_core_dims=[["month"]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=["float64"],
+        dask_gufunc_kwargs=dict(output_sizes={"month": 12}),
+    )
+    return counts
+
+
+def plot_event_seasonality(ds, ax=None, core_dim=None, outfile=None):
     """Plot event seasonality
 
     Parameters
     ----------
-    df : pandas dataframe
+    ds : xarray.Dataset
+        Dataset containing a event_time variable
+    ax : matplotlib.axes, optional
+        Axes on which to plot. By default, create a new figure
+    core_dim : list, default None
+        Core dimensions of the input data array
     outfile : str, optional
         Path for output image file
     """
-
-    event_months = [int(date[5:7]) for date in df["event_time"].values]
-    month_counts = Counter(event_months)
     months = np.arange(1, 13)
-    counts = [month_counts[month] for month in months]
+    counts = get_event_seasonality(ds["event_time"], core_dim=core_dim)
 
-    plt.bar(months, counts)
-    plt.ylabel("number of events")
-    plt.xlabel("month")
-    xlabels = [calendar.month_abbr[i] for i in months]
-    plt.xticks(months, xlabels)
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(9, 7))
+
+    ax.bar(months, counts)
+    # ax.hist(event_months, bins=np.arange(1, 14))
+    ax.set_ylabel("Number of events")
+    ax.set_xlabel("Month")
+    ax.set_xticks(months, labels=[calendar.month_abbr[i] for i in months])
+    plt.tight_layout()
 
     if outfile:
         plt.savefig(

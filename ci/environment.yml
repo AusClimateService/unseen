@@ -2,6 +2,7 @@ name: unseen-test
 channels:
   - conda-forge
 dependencies:
+  - cartopy
   - cftime
   - cmdline_provenance
   - dask-core
@@ -18,6 +19,7 @@ dependencies:
   - seaborn
   - xarray
   - xclim>=0.39.0
+  - xesmf
   - xskillscore
   - zarr
   - pip:

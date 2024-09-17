@@ -2,7 +2,6 @@
 
 import argparse
 import operator
-
 import xarray as xr
 
 from . import array_handling
@@ -20,15 +19,19 @@ def get_bias(
     ensemble_dim="ensemble",
     init_dim="init_date",
     lead_dim="lead_time",
+    lat_dim="lat",
+    lon_dim="lon",
     by_lead=False,
+    regrid="obs",
+    regrid_method="conservative",
 ):
     """Calculate forecast bias.
 
     Parameters
     ----------
-    fcst : xarray DataArray
+    fcst : xarray.DataArray
         Forecast array with ensemble, initial date and lead time dimensions
-    obs : xarray DataArray
+    obs : xarray.DataArray
         Observational array with time dimension
     method : {'additive', 'multiplicative'}
         Bias removal method
@@ -42,12 +45,21 @@ def get_bias(
         Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
         Name of the lead time dimension in fcst
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in fcst and obs (if regridding)
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in fcst and obs (if regridding)
     by_lead: bool, default False
         Calculate bias for each lead time separately
+    regrid: {None, 'obs', 'fcst'}, default 'obs'
+        Regrid observational data to model grid (or vice versa)
+    regrid_method: {'conservative', 'bilinear', 'nearest_s2d', 'nearest_d2s'}, default 'conservative'
+        Regriding method (see xesmf.Regridder)
+
 
     Returns
     -------
-    bias : xarray DataArray
+    bias : xarray.DataArray
 
     Raises
     ------
@@ -63,10 +75,12 @@ def get_bias(
 
     fcst_clim = time_utils.get_clim(
         fcst,
-        fcst_ave_dims,
+        dims=fcst_ave_dims,
         time_period=time_period,
         groupby_init_month=True,
+        time_name="time",
     )
+
     obs_stacked = array_handling.stack_by_init_date(
         obs,
         init_dates=fcst[init_dim],
@@ -79,6 +93,25 @@ def get_bias(
         time_period=time_period,
         groupby_init_month=True,
     )
+
+    # Check fcst dimensions include lat_dim and lon_dim
+    if set({lat_dim, lon_dim}).issubset(fcst_clim.dims):
+        # Check lat and lon coordinates match
+        if not all(
+            [fcst_clim[dim].equals(obs_clim[dim]) for dim in [lat_dim, lon_dim]]
+        ):
+            if regrid == "obs":
+                obs_clim = general_utils.regrid(
+                    obs_clim, fcst_clim, method=regrid_method
+                )
+            elif regrid == "fcst":
+                fcst_clim = general_utils.regrid(
+                    fcst_clim, obs_clim, method=regrid_method
+                )
+            else:
+                raise ValueError(
+                    "Forecast and observational data coordinates do not match. Consider regridding."
+                )
 
     with xr.set_options(keep_attrs=True):
         if method == "additive":
@@ -100,9 +133,9 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
 
     Parameters
     ----------
-    fcst : xarray DataArray
+    fcst : xarray.DataArray
         Forecast array with initial date and lead time dimensions
-    bias : xarray DataArray
+    bias : xarray.DataArray
         Bias array
     method : {'additive', 'multiplicative'}
         Bias removal method
@@ -111,7 +144,7 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
 
     Returns
     -------
-    fcst_bc : xarray DataArray
+    fcst_bc : xarray.DataArray
         Bias corrected forecast array
 
     Raises
@@ -128,7 +161,7 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
         raise ValueError(f"Unrecognised bias removal method {method}")
 
     with xr.set_options(keep_attrs=True):
-        fcst_bc = op(fcst.groupby(f"{init_dim}.month"), bias).drop("month")
+        fcst_bc = op(fcst.groupby(f"{init_dim}.month"), bias).drop_vars("month")
 
     fcst_bc.attrs["bias_correction_method"] = bias.attrs["bias_correction_method"]
     try:
@@ -190,6 +223,19 @@ def _parse_command_line():
         default=False,
         help="Remove bias for each lead time separately [default=False]",
     )
+    parser.add_argument(
+        "--regrid",
+        choices=("obs", "fcst"),
+        default="obs",
+        help="Regrid observational or forecast data if they are on different grids[default=obs]",
+    )
+    parser.add_argument(
+        "--regrid_method",
+        choices=("conservative", "bilinear", "nearest_s2d", "nearest_d2s"),
+        default="conservative",
+        help="Regriding method for observational or forecast data [default=conservative]",
+    )
+
     args = parser.parse_args()
 
     return args
@@ -204,7 +250,8 @@ def _main():
     da_obs = ds_obs[args.var]
 
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
-    da_fcst = ds_fcst[args.var]
+    da_fcst = ds_fcst[args.var].load()
+
     if args.min_lead:
         da_fcst = da_fcst.where(da_fcst["lead_time"] >= args.min_lead)
 
@@ -215,10 +262,14 @@ def _main():
         time_period=args.base_period,
         time_rounding=args.rounding_freq,
         by_lead=args.by_lead,
+        regrid=args.regrid,
+        regrid_method=args.regrid_method,
     )
     da_fcst_bc = remove_bias(da_fcst, bias, args.method)
 
-    ds_fcst_bc = da_fcst_bc.to_dataset()
+    ds_fcst_bc = da_fcst_bc.to_dataset(name=args.var)
+    ds_fcst_bc.attrs.update(ds_fcst.attrs)
+
     infile_logs = {
         args.fcst_file: ds_fcst.attrs["history"],
         args.obs_file: ds_obs.attrs["history"],

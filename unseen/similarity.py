@@ -1,7 +1,6 @@
 """Funcitons and command line program for similarity testing."""
 
 import argparse
-import numpy as np
 import xarray as xr
 import xstatstests
 
@@ -93,29 +92,9 @@ def similarity_tests(
     obs_stacked = obs.rename({time_dim: "sample"})
     obs_stacked = obs_stacked.chunk({"sample": -1})
 
-    if by_lead:
-        ks_statistics = []
-        ks_pvals = []
-        ad_statistics = []
-        ad_pvals = []
-        for lead_time in fcst_stacked[lead_dim].values:
-            fcst_data = fcst_stacked.sel({lead_dim: lead_time})
-            if not np.isnan(fcst_data[var].values).all():
-                ks = ks_test(obs_stacked, fcst_data)
-                ks_statistics.append(ks["ks_statistic"])
-                ks_pvals.append(ks["ks_pval"])
-                ad = anderson_darling_test(obs_stacked, fcst_data)
-                ad_statistics.append(ad["ad_statistic"])
-                ad_pvals.append(ad["ad_pval"])
-        ks_statistics = xr.concat(ks_statistics, lead_dim)
-        ks_pvals = xr.concat(ks_pvals, lead_dim)
-        ad_statistics = xr.concat(ad_statistics, lead_dim)
-        ad_pvals = xr.concat(ad_pvals, lead_dim)
-        ds = xr.merge([ks_statistics, ks_pvals, ad_statistics, ad_pvals])
-    else:
-        ks = ks_test(obs_stacked, fcst_stacked)
-        ad = anderson_darling_test(obs_stacked, fcst_stacked)
-        ds = xr.merge([ks, ad])
+    ks = ks_test(obs_stacked, fcst_stacked)
+    ad = anderson_darling_test(obs_stacked, fcst_stacked)
+    ds = xr.merge([ks, ad])
 
     ds["ks_statistic"].attrs = {"long_name": "kolmogorov_smirnov_statistic"}
     ds["ks_pval"].attrs = {

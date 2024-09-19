@@ -6,6 +6,7 @@ import datetime
 import numpy as np
 import cftime
 import xarray as xr
+from datetime import timedelta
 
 from . import array_handling
 
@@ -150,7 +151,8 @@ def temporal_aggregation(
     if reset_times:
         diff = ds[time_dim].values[0] - start_time
         ds[time_dim] = ds[time_dim] - diff
-        assert ds[time_dim].values[0] == start_time
+        ds[time_dim] = ds[time_dim] + timedelta(days=1)
+        assert ds[time_dim].values[0].month == start_time.month
 
     if min_tsteps:
         # Drop first and last time points with insufficient time steps

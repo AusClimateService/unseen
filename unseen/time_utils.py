@@ -152,7 +152,8 @@ def temporal_aggregation(
         diff = ds[time_dim].values[0] - start_time
         ds[time_dim] = ds[time_dim] - diff
         ds[time_dim] = ds[time_dim] + timedelta(days=1)
-        assert ds[time_dim].values[0].month == start_time.month
+        months = ds[time_dim].dt.month.values
+        assert np.all(months == start_time.month), "Problem with time reset"
 
     if min_tsteps:
         # Drop first and last time points with insufficient time steps

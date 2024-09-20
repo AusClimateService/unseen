@@ -52,7 +52,7 @@ def temporal_aggregation(
     agg_method,
     variables,
     season=None,
-    _times=False,
+    reset_times=False,
     min_tsteps=None,
     agg_dates=False,
     time_dim="time",

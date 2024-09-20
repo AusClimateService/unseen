@@ -52,7 +52,7 @@ def temporal_aggregation(
     agg_method,
     variables,
     season=None,
-    reset_times=False,
+    _times=False,
     min_tsteps=None,
     agg_dates=False,
     time_dim="time",
@@ -149,6 +149,7 @@ def temporal_aggregation(
         )
 
     if reset_times:
+        assert target_freq[0:2] == "YE", "--reset_times is for annual aggregation" 
         diff = ds[time_dim].values[0] - start_time
         ds[time_dim] = ds[time_dim] - diff
         ds[time_dim] = ds[time_dim] + timedelta(days=1)

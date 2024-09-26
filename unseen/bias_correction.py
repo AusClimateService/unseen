@@ -54,7 +54,7 @@ def get_bias(
     regrid: {None, 'obs', 'fcst'}, default 'obs'
         Regrid observational data to model grid (or vice versa)
     regrid_method: {'conservative', 'bilinear', 'nearest_s2d', 'nearest_d2s'}, default 'conservative'
-        Regriding method (see xesmf.Regridder)
+        Regridding method (see xesmf.Regridder)
 
 
     Returns
@@ -173,7 +173,7 @@ def remove_bias(fcst, bias, method, init_dim="init_date"):
 
 
 def _parse_command_line():
-    """Parse the command line for input agruments"""
+    """Parse the command line for input arguments"""
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -213,9 +213,14 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--min_lead",
-        type=int,
         default=None,
-        help="Minimum lead time to include in analysis",
+        help="Minimum lead time to include in analysis (int or filename)",
+    )
+    parser.add_argument(
+        "--min_lead_kwargs",
+        nargs="*",
+        action=general_utils.store_dict,
+        help="Optional fileio.open_dataset kwargs for lead independence (e.g., spatial_agg=median)",
     )
     parser.add_argument(
         "--by_lead",
@@ -233,7 +238,7 @@ def _parse_command_line():
         "--regrid_method",
         choices=("conservative", "bilinear", "nearest_s2d", "nearest_d2s"),
         default="conservative",
-        help="Regriding method for observational or forecast data [default=conservative]",
+        help="Regridding method for observational or forecast data [default=conservative]",
     )
 
     args = parser.parse_args()
@@ -252,9 +257,19 @@ def _main():
     ds_fcst = fileio.open_dataset(args.fcst_file, variables=[args.var])
     da_fcst = ds_fcst[args.var].load()
 
+    # Mask lead times below min_lead
     if args.min_lead:
-        da_fcst = da_fcst.where(da_fcst["lead_time"] >= args.min_lead)
+        if isinstance(args.min_lead, str):
+            # Load min_lead from file
+            min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
+            # Assumes min_lead has only one init month
+            assert min_lead.month.size == 1, "Not implemented for multiple init months"
+            min_lead = min_lead.drop_vars("month")
+            min_lead = min_lead["min_lead"].load()
 
+        da_fcst = da_fcst.where(da_fcst >= min_lead)
+
+    # Calculate bias
     bias = get_bias(
         da_fcst,
         da_obs,
@@ -265,8 +280,10 @@ def _main():
         regrid=args.regrid,
         regrid_method=args.regrid_method,
     )
+    # Remove bias
     da_fcst_bc = remove_bias(da_fcst, bias, args.method)
 
+    # Save to file
     ds_fcst_bc = da_fcst_bc.to_dataset(name=args.var)
     ds_fcst_bc.attrs.update(ds_fcst.attrs)
 

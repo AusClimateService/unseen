@@ -14,6 +14,8 @@ from . import dask_setup
 from . import fileio
 from . import general_utils
 
+rng = np.random.default_rng(seed=0)
+
 
 def run_tests(
     fcst,
@@ -21,6 +23,8 @@ def run_tests(
     init_dim="init_date",
     lead_dim="lead_time",
     ensemble_dim="ensemble",
+    confidence_interval=0.95,
+    n_resamples=100,
 ):
     """Perform independence tests for each lead time and initial month.
 
@@ -37,16 +41,20 @@ def run_tests(
         Name of the lead time dimension in fcst
     ensemble_dim : str, default 'ensemble'
         Name of the ensemble member dimension in fcst
+    confidence_interval : float, default 0.95
+        Confidence interval for the uncertainty bounds
+    n_resamples : int, default 100
+        Number of confidence interval bootstrap resamples
 
     Returns
     -------
     ds : xarray.Dataset
-        Correlation ensemble mean and the corresponding 95% confidence interval
+        Correlation ensemble mean and confidence interval bounds
     """
 
     months = np.unique(fcst[init_dim].dt.month.values)
     r_mean = {}
-    r_ci = {}
+    ci = {}
     for month in months:
         fcst_month = fcst.where(fcst[init_dim].dt.month == month, drop=True)
         fcst_month_detrended = _remove_ensemble_mean_trend(
@@ -70,37 +78,29 @@ def run_tests(
                 fcst_month_detrended, dim=init_dim, ensemble_dim=ensemble_dim
             )
 
-        r_ci[month] = _get_null_correlation_bounds(
+        ci[month] = _get_null_correlation_bounds(
             fcst_month_detrended,
             init_dim=init_dim,
             lead_dim=lead_dim,
             ensemble_dim=ensemble_dim,
+            confidence_interval=confidence_interval,
+            n_resamples=n_resamples,
         )
-    # Create Dataset
+
     ds_corr = xr.Dataset(
         {
-            "r_mean": xr.concat(
+            "r": xr.concat(
                 [da.assign_coords({"month": k}) for k, da in r_mean.items()],
                 dim="month",
             ),
-            "r_ci": xr.concat(
-                [da.assign_coords({"month": k}) for k, da in r_ci.items()], dim="month"
+            "ci": xr.concat(
+                [da.assign_coords({"month": k}) for k, da in ci.items()], dim="month"
             ),
         },
         coords=fcst.coords,
         attrs=fcst.attrs,
     )
-
-    ds_corr["r_mean"].attrs = {
-        "standard_name": "correlation_coefficent",
-        "long_name": "Ensemble mean correlation coefficent",
-        "description": "Mean Spearman rank correlation coefficent between all ensemble members",
-    }
-    ds_corr["r_ci"].attrs = {
-        "standard_name": "confidence_interval",
-        "long_name": "95% confidence interval",
-        "description": "Spearman rank correlation coefficent confidence interval (2.5%-97.5%)",
-    }
+    # Add minimum independent lead as variable
     ds_corr["min_lead"] = min_independent_lead(ds_corr, lead_dim=lead_dim)
     return ds_corr
 
@@ -111,8 +111,8 @@ def min_independent_lead(ds_corr, lead_dim="lead_time"):
     Parameters
     ----------
     ds_corr : xarray.Dataset
-        Correlation ensemble mean and the corresponding 95% confidence interval
-    lead_dim: str, default 'lead_time'
+        Dataset of correlation coefficient and confidence interval
+    lead_dim : str, default 'lead_time'
         Name of the lead time dimension in ds_corr
 
     Returns
@@ -120,15 +120,14 @@ def min_independent_lead(ds_corr, lead_dim="lead_time"):
     lead : int
         Index of the first lead time within the confidence interval
     """
-    mask = (ds_corr["r_mean"] >= ds_corr["r_ci"].isel(quantile=0)) & (
-        ds_corr["r_mean"] >= ds_corr["r_ci"].isel(quantile=-1)
+    mask = (ds_corr["r"] >= ds_corr["ci"].isel(quantile=0)) & (
+        ds_corr["r"] >= ds_corr["ci"].isel(quantile=-1)
     )
 
     min_lead = mask.rank(lead_dim).argmin(lead_dim)
-    min_lead.attrs["standard_name"] = lead_dim
-    min_lead.attrs["long_name"] = "First independent lead time"
+    min_lead.attrs["long_name"] = "Minimum lead time"
     min_lead.attrs["description"] = (
-        "First lead time where the ensemble mean correlation is within the 95% confidence interval"
+        "First lead within the independence confidence interval"
     )
     return min_lead
 
@@ -137,6 +136,7 @@ def point_plot(
     ds_corr,
     outfile=None,
     lead_dim="lead_time",
+    confidence_interval=0.95,
     **kwargs,
 ):
     """Scatter plot of lead time dependence (for each init month).
@@ -147,8 +147,10 @@ def point_plot(
         Mean correlation (for each lead time) and confidence interval
     outfile : str, optional
         Path for output image file
-    lead_dim: str, default 'lead_time'
+    lead_dim : str, default 'lead_time'
         Name of the lead time dimension
+    confidence_interval : float, default 0.95
+        Confidence interval for the uncertainty bounds (for plot legend)
     kwargs : dict
         Additional keyword arguments for plt.subplots
     """
@@ -156,14 +158,14 @@ def point_plot(
     fig, ax = plt.subplots(**kwargs)
     colors = iter(plt.cm.Set1(np.linspace(0, 1, 9)))
 
-    months = list(ds_corr.r_mean.month.values)
+    months = list(ds_corr["r"].month.values)
     months.sort()
     for i, month in enumerate(months):
         color = next(colors)
         month_abbr = calendar.month_abbr[month]
 
         # Plot the ensemble mean correlation
-        mean_corr = ds_corr.r_mean.isel(month=i).dropna(lead_dim)
+        mean_corr = ds_corr["r"].isel(month=i).dropna(lead_dim)
         mean_corr.plot.scatter(
             ax=ax,
             x=lead_dim,
@@ -173,12 +175,14 @@ def point_plot(
             label=f"{month_abbr} starts",
         )
         # Plot the null correlation bounds as dashed lines
-        bounds = ds_corr.r_ci.isel(month=i).values
+        bounds = ds_corr["ci"].isel(month=i).values
         ax.axhline(bounds[0], c=color, ls="--")
-        ax.axhline(bounds[1], c=color, ls="--", label="95% CI")
+        ax.axhline(
+            bounds[1], c=color, ls="--", label=f"{confidence_interval * 100: g}% CI"
+        )
 
-    ax.set_xlabel(lead_dim.replace("_", " ").capitalize())
-    ax.set_ylabel("Correlation coefficient")
+    ax.set_xlabel("Lead")
+    ax.set_ylabel(ds_corr["r"].attrs["long_name"])
     ax.legend()
 
     if outfile:
@@ -197,24 +201,47 @@ def spatial_plot(ds_corr, outfile=None, **kwargs):
         Index of the first independent lead time (for each init month)
     outfile : str, optional
         Path for output image file
-    lead_dim: str, default 'lead_time'
-        Name of the lead time dimension in r_mean
     kwargs : dict, optional
         Additional keyword arguments for xarray.DataArray.plot
     """
+    # Discrete colour bar based on lead times
+    cbar_ticks = np.arange(ds_corr.min_lead.min(), ds_corr.min_lead.max() + 2)
+    # Convert integer to month names for plot titles
+    ds_corr.coords["month"] = [
+        f"{calendar.month_name[m]} starts" for m in ds_corr.month.values
+    ]
 
     cm = ds_corr.min_lead.plot.pcolormesh(
         col="month",
         col_wrap=min(3, len(ds_corr.month)),
-        subplot_kws=dict(projection=PlateCarree()),
         transform=PlateCarree(),
-        levels=np.arange(ds_corr.min_lead.min(), ds_corr.min_lead.max() + 2),
-        add_labels=True,
+        subplot_kws=dict(projection=PlateCarree()),
+        levels=cbar_ticks,
+        cbar_kwargs=dict(ticks=cbar_ticks[:-1]),
+        add_colorbar=False,
         **kwargs,
     )
-
+    # Fix hidden axis ticks and labels
     for ax in cm.axs.flat:
+        subplotspec = ax.get_subplotspec()
+        if subplotspec.is_last_row():
+            ax.xaxis.set_visible(True)
+        if subplotspec.is_first_col():
+            ax.yaxis.set_visible(True)
         ax.coastlines()
+    cm.fig.set_constrained_layout(True)
+    cm.fig.get_layout_engine().set(h_pad=0.2)
+    cm.add_colorbar()
+    cm.set_titles("{value}")
+
+    # Fix lat/lon axis labels
+    if all([dim in ds_corr.dims for dim in ["lat", "lon"]]):
+        cm.set_xlabels(
+            f"{ds_corr.lon.attrs['long_name']} [{ds_corr.lon.attrs['units']}]"
+        )
+        cm.set_ylabels(
+            f"{ds_corr.lat.attrs['long_name']} [{ds_corr.lat.attrs['units']}]"
+        )
 
     if outfile:
         plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
@@ -231,7 +258,7 @@ def _remove_ensemble_mean_trend(da, dim="init_date", ensemble_dim="ensemble"):
         Input data array
     dim : str, default init_date
         Dimension over which to calculate and remove trend
-    init_dim: str, default 'init_date'
+    init_dim : str, default 'init_date'
         Name of the initial date dimension to create in the output
     ensemble_dim : str, default 'ensemble'
         Name of the ensemble member dimension in da
@@ -262,7 +289,7 @@ def _mean_ensemble_correlation(
     comparison_da : xarray.DataArray
         Input data array to compare da against
         If None, the ensemble members of da are compared against each other
-    dim : str, default init_date
+    dim : str, default 'init_date'
         Dimension over which to calculate correlation
     ensemble_dim : str, default 'ensemble'
         Name of the ensemble member dimension in da
@@ -297,7 +324,10 @@ def _mean_ensemble_correlation(
 
     corr_combinations = xs.spearman_r(e1, e2, dim=dim, skipna=True)
     mean_corr = corr_combinations.mean(ensemble_dim)
-
+    mean_corr.attrs = {
+        "long_name": "Correlation coefficient",
+        "description": "Ensemble mean Spearman rank correlation coefficient",
+    }
     return mean_corr
 
 
@@ -320,8 +350,7 @@ def _random_sample(ds, sample_dim, sample_size):
     """
 
     n_population = len(ds[sample_dim])
-    random_indexes = np.random.choice(n_population, size=sample_size, replace=False)
-    # random_indexes.sort()
+    random_indexes = rng.choice(n_population, size=sample_size, replace=False)
     ds_random_sample = ds.isel({sample_dim: random_indexes})
 
     return ds_random_sample
@@ -340,7 +369,7 @@ def _random_mean_ensemble_correlation(
         Number of initial dates
     n_ensembles : int
         Number of ensemble members
-    init_dim: str, default 'init_date'
+    init_dim : str, default 'init_date'
         Name of the initial date dimension to create in the output
     ensemble_dim : str, default 'ensemble'
         Name of the ensemble member dimension in ds
@@ -367,39 +396,46 @@ def _random_mean_ensemble_correlation(
 
 
 def _get_null_correlation_bounds(
-    da, init_dim="init_date", lead_dim="lead_time", ensemble_dim="ensemble"
+    da,
+    init_dim="init_date",
+    lead_dim="lead_time",
+    ensemble_dim="ensemble",
+    confidence_interval=0.95,
+    n_resamples=100,
 ):
     """Get the uncertainty bounds on zero correlation.
 
     Parameters
     ----------
     da : xarray.DataArray
-    init_dim: str, default 'init_date'
+    init_dim : str, default 'init_date'
         Name of the initial date dimension in da
-    lead_dim: str, default 'lead_time'
+    lead_dim : str, default 'lead_time'
         Name of the lead time dimension in da
-    ensemble_dim: str, default 'ensemble'
+    ensemble_dim : str, default 'ensemble'
         Name of the ensemble member dimension in da
+    confidence_interval : float, default 0.95
+        Confidence interval for the uncertainty bounds (between 0 and 1)
+    n_resamples : int, default 100
+        Number of confidence interval bootstrap resamples
 
     Returns
     -------
-    lower_bound : float
-        Lower uncertainly bound
-    upper_bound : float
-        Upper uncertainly bound
+    bounds : xarray.DataArray
+        Lower and upper bounds of the confidence interval
 
     Notes
     -----
     Performs bootstrapping via a simple loop.
     """
+    assert 0 < confidence_interval < 1, "Confidence interval must be between 0 and 1"
 
     n_init_dates = len(da[init_dim])
     n_ensembles = len(da[ensemble_dim])
     da_stacked = da.stack(sample=(init_dim, lead_dim, ensemble_dim))
 
     null_correlations = []
-    n_repeats = 100
-    for repeat in range(n_repeats):
+    for _ in range(n_resamples):
         mean_corr = _random_mean_ensemble_correlation(
             da_stacked, n_init_dates, n_ensembles
         )
@@ -407,12 +443,21 @@ def _get_null_correlation_bounds(
     null_correlations = xr.concat(null_correlations, "k")
     null_correlations = null_correlations.chunk({"k": -1})
 
-    bounds = null_correlations.quantile([0.025, 0.975], dim="k")
+    # Confidence interval bounds (half of the remaining probability on each side)
+    q = (100 - confidence_interval * 100) * 0.5 / 100
+    bounds = null_correlations.quantile([q, 1 - q], dim="k")
+
+    # Ensure upper and lower bounds are not the same
+    assert np.all(bounds.diff("quantile") > 0), "CI bounds are the same"
+    bounds.attrs = {
+        "long_name": "Confidence interval",
+        "description": f"Correlation {confidence_interval * 100:g}% confidence interval ({n_resamples} resamples)",
+    }
     return bounds
 
 
 def _parse_command_line():
-    """Parse the command line for input agruments"""
+    """Parse the command line for input arguments"""
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -421,6 +466,19 @@ def _parse_command_line():
     parser.add_argument("fcst_file", type=str, help="Forecast file")
     parser.add_argument("var", type=str, help="Variable name")
     parser.add_argument("outfile", type=str, help="Data filename")
+    parser.add_argument("--plot_outfile", type=str, default=None, help="Plot filename")
+    parser.add_argument(
+        "--confidence_interval",
+        type=float,
+        default=95,
+        help="Confidence interval e.g., --confidence_interval 0.95",
+    )
+    parser.add_argument(
+        "--n_resamples",
+        type=int,
+        default=100,
+        help="Number of resamples for confidence interval test",
+    )
     parser.add_argument(
         "--dask_config", type=str, help="YAML file specifying dask client configuration"
     )
@@ -482,9 +540,11 @@ def _main():
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,
         ensemble_dim=args.ensemble_dim,
+        confidence_interval=args.confidence_interval,
+        n_resamples=args.n_resamples,
     )
 
-    # Save correlation coefficents and confidence intervals
+    # Save correlation coefficients, confidence intervals and minimum lead
     infile_logs = {args.fcst_file: ds_fcst.attrs["history"]}
     ds_corr.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
 
@@ -495,6 +555,17 @@ def _main():
         fileio.to_zarr(ds_corr, args.outfile)
     else:
         ds_corr.to_netcdf(args.outfile, compute=True)
+
+    if args.plot_outfile and len(da_fcst.dims) <= 3:
+        # Scatter plot of correlation vs lead (if there are no extra dimensions)
+        point_plot(ds_corr, args.plot_outfile, args.lead_dim, args.confidence_interval)
+    elif args.plot_outfile:
+        # Spatial plot of minimum correlation
+        spatial_plot(
+            ds_corr,
+            args.plot_outfile,
+            figsize=[8, 5],
+        )
 
 
 if __name__ == "__main__":

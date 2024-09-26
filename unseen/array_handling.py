@@ -16,7 +16,7 @@ def stack_by_init_date(
     lead_dim="lead_time",
     time_rounding="D",
 ):
-    """Stack timeseries array in inital date / lead time format.
+    """Stack timeseries array in initial date / lead time format.
 
     Parameters
     ----------
@@ -44,10 +44,10 @@ def stack_by_init_date(
     Notes
     -----
     Only initial dates that fall within the time range of the input
-    timeseries are retained. Thus, inital dates prior to the time range of
+    timeseries are retained. Thus, initial dates prior to the time range of
     the input timeseries that include data at longer lead times are not
     included in the output dataset. To include these data, prepend the input
-    timeseries with nans so that the initial dates in question are present
+    timeseries with NaNs so that the initial dates in question are present
     in the time dimension of the input timeseries.
     """
     # Only keep init dates that fall within available times
@@ -56,7 +56,7 @@ def stack_by_init_date(
         np.logical_and(init_dates >= times.min(), init_dates <= times.max())
     ]
 
-    # Initialise indexes of specified inital dates and time info for each initial date
+    # Initialise indexes of specified initial dates and time info for each initial date
     time2d = np.empty((len(init_dates), n_lead_steps), "object")
     time2d[:] = cftime.DatetimeGregorian(
         3000, 1, 1

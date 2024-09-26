@@ -1,5 +1,4 @@
 import pytest
-
 import numpy as np
 from xarray.coding.times import cftime_to_nptime
 
@@ -55,10 +54,32 @@ def test_temporal_aggregation_agg_dates(example_da_timeseries):
 
 
 @pytest.mark.parametrize("example_da_timeseries", ["numpy"], indirect=True)
+def test_temporal_aggregation_reset_times(example_da_timeseries):
+    """Test temporal_aggregation using reset_times."""
+    data = example_da_timeseries
+    ds = data.to_dataset(name="var")
+
+    ds_resampled = temporal_aggregation(
+        ds,
+        target_freq="YE-DEC",
+        input_freq="D",
+        agg_method="max",
+        variables=["var"],
+        season=None,
+        reset_times=True,
+        min_tsteps=None,
+        agg_dates=True,
+        time_dim="time",
+    )
+    assert np.all(ds_resampled.time.dt.month.values == ds.time.dt.month[0].item())
+
+
+@pytest.mark.parametrize("example_da_timeseries", ["numpy"], indirect=True)
 def test_temporal_aggregation_min_tsteps(example_da_timeseries):
     """Test temporal_aggregation using min_tsteps."""
     data = example_da_timeseries
     ds = data.to_dataset(name="var")
+
     # Remove days from first & last month and test the months are removed
     ds = ds.isel(time=slice(5, -5))
 

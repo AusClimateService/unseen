@@ -261,12 +261,13 @@ def _main():
     if args.min_lead:
         if isinstance(args.min_lead, str):
             # Load min_lead from file
-            min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
+            ds_min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
+            min_lead = ds_min_lead["min_lead"].load()
             # Assumes min_lead has only one init month
             assert min_lead.month.size == 1, "Not implemented for multiple init months"
             min_lead = min_lead.drop_vars("month")
-            min_lead = min_lead["min_lead"].load()
-
+        else:
+            min_lead = args.min_lead
         da_fcst = da_fcst.where(da_fcst >= min_lead)
 
     # Calculate bias
@@ -291,6 +292,8 @@ def _main():
         args.fcst_file: ds_fcst.attrs["history"],
         args.obs_file: ds_obs.attrs["history"],
     }
+    if isinstance(args.min_lead, str):
+        infile_logs[args.min_lead] = ds_min_lead.attrs["history"]
     ds_fcst_bc.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
 
     if args.output_chunks:

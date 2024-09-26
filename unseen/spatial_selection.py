@@ -1,10 +1,9 @@
 """Functions for spatial selection."""
 
 import math
-
 import numpy as np
-import xarray as xr
 import regionmask
+import xarray as xr
 
 
 def select_point(ds, point, lat_dim="lat", lon_dim="lon"):
@@ -144,10 +143,10 @@ def select_shapefile_regions(
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
-    shapes : geopandas GeoDataFrame
+    ds : Union[xarray.DataArray, xarray.Dataset]
+    shapes : geopandas.GeoDataFrame
         Shapes/regions
-    agg : {'mean', 'sum', 'weighted_mean', 'none'}, default 'none'
+    agg : {'mean', 'sum', 'weighted_mean', 'median', 'none'}, default 'none'
         Spatial aggregation method
     overlap_fraction : float, optional
         Fraction that a grid cell must overlap with a shape to be included.
@@ -164,13 +163,20 @@ def select_shapefile_regions(
 
     Returns
     -------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
 
     Notes
     -----
     regionmask requires the names of the horizontal spatial dimensions
     to be 'lat' and 'lon'
     """
+    assert agg in [
+        "mean",
+        "sum",
+        "weighted_mean",
+        "median",
+        "none",
+    ], "Invalid spatial aggregation method"
 
     if combine_shapes:
         assert agg == "weighted_mean", "Combining shapes only works for weighted mean"
@@ -189,6 +195,8 @@ def select_shapefile_regions(
     lats = ds["lat"].values
 
     if overlap_fraction:
+        if isinstance(overlap_fraction, str):
+            overlap_fraction = float(overlap_fraction)  # Fix cmd line input
         mask = fraction_overlap_mask(shapes, lons, lats, overlap_fraction)
     else:
         outdim = "3D" if ("weighted" in agg) else "2D"
@@ -199,24 +207,25 @@ def select_shapefile_regions(
     else:
         mask = _squeeze_and_drop_region(mask)
 
-    if (agg == "sum") and not (overlap_fraction or combine_shapes):
-        ds = ds.groupby(mask).sum(keep_attrs=True)
-    elif (agg == "mean") and not (overlap_fraction or combine_shapes):
-        ds = ds.groupby(mask).mean(keep_attrs=True)
+    # Spatial aggregation
+    agg_func_map = {"mean": np.nanmean, "sum": np.nansum, "median": np.nanmedian}
+
+    if agg in agg_func_map.keys() and not (overlap_fraction or combine_shapes):
+        ds = ds.groupby(mask).reduce(agg_func_map[agg], keep_attrs=True)
     else:
         mask = _nan_to_bool(mask)
         ds = ds.where(mask)
         ds = ds.dropna("lat", how="all")
         ds = ds.dropna("lon", how="all")
-        if agg == "sum":
-            ds = ds.sum(dim=("lat", "lon"), keep_attrs=True)
-        elif agg == "mean":
-            ds = ds.mean(dim=("lat", "lon"), keep_attrs=True)
+
+        if agg in agg_func_map.keys():
+            ds = ds.reduce(agg_func_map[agg], dim=("lat", "lon"), keep_attrs=True)
         elif agg == "weighted_mean":
             weights = np.cos(np.deg2rad(ds["lat"]))
             ds = ds.weighted(weights).mean(dim=("lat", "lon"), keep_attrs=True)
         else:
             assert agg == "none"
+
     if "region" in ds.dims:
         assert len(shapes) == len(
             ds["region"]
@@ -239,16 +248,16 @@ def centre_mask(shapes_gp, lons, lats, output="2D"):
     ----------
     shapes_gp : geopandas GeoDataFrame
         Shapes/regions
-    lons : numpy ndarray
+    lons : numpy.ndarray
         Grid longitude values
-    lats : numpy ndarray
+    lats : numpy.ndarray
         Grid latitude values
-    output : {'2D', '3D'}
+    output : {'2D', '3D'}, default '2D'
         Dimensions for output array
 
     Returns
     -------
-    mask : xarray DataArray
+    mask : xarray.DataArray
         For 2D (i.e. lat/lon) output values are a region number or NaN
         For 3D (i.e. region/lat/lon) output values are bool
     """
@@ -271,16 +280,16 @@ def fraction_overlap_mask(shapes_gp, lons, lats, min_overlap):
     ----------
     shapes_gp : geopandas GeoDataFrame
         Shapes/regions
-    lons : numpy ndarray
+    lons : numpy.ndarray
         Grid longitude values
-    lats : numpy ndarray
+    lats : numpy.ndarray
         Grid latitude values
     threshold : float
         Minimum fractional overlap
 
     Returns
     -------
-    mask_3D : xarray DataArray
+    mask_3D : xarray.DataArray
         Three dimensional (i.e. region/lat/lon) boolean array
     """
 
@@ -304,14 +313,14 @@ def overlap_fraction(shapes_rm, lons, lats):
     ----------
     shapes_rm : regionmask.Regions
         Shapes/regions
-    lons : numpy ndarray
+    lons : numpy.ndarray
         Grid longitude values
-    lats : numpy ndarray
+    lats : numpy.ndarray
         Grid latitude values
 
     Returns
     -------
-    mask_sampled : xarray DataArray
+    mask_sampled : xarray.DataArray
         Three dimensional (i.e. region/lat/lon) array of overlap fractions
 
     Notes
@@ -331,7 +340,7 @@ def overlap_fraction(shapes_rm, lons, lats):
 
     mask_sampled = list()
     for num in numbers:
-        # coarsen the mask again
+        # Coarsen the mask again
         mask_coarse = (mask == num).coarsen(lat=10, lon=10).mean()
         mask_coarse = mask_coarse.assign_coords({"lat": lats, "lon": lons})
         mask_sampled.append(mask_coarse)
@@ -384,16 +393,16 @@ def _nan_to_bool(mask):
 
     Parameters
     ----------
-    mask : xarray DataArray
+    mask : xarray.DataArray
         Data array of NaN's and floats
 
     Returns
     -------
-    mask : xarray DataArray
+    mask : xarray.DataArray
         Data array of True (where floats were) and False (where NaNs were) values
     """
 
-    assert isinstance(mask, xr.core.dataarray.DataArray)
+    assert isinstance(mask, xr.DataArray)
     if mask.values.dtype != "bool":
         mask = xr.where(mask.notnull(), True, False)
 

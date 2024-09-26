@@ -2,7 +2,6 @@
 
 import re
 import datetime
-
 import numpy as np
 import cftime
 import xarray as xr
@@ -11,7 +10,7 @@ from . import array_handling
 
 
 def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
-    """Record the date of each time aggregated/resampled event (e.g. annual max)
+    """Record the date of each time aggregated/resampled event (e.g. annual max).
 
     Parameters
     ----------
@@ -60,37 +59,37 @@ def temporal_aggregation(
 
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.Dataset
     target_freq : str
         Target frequency for the resampling
         Options: https://pandas.pydata.org/docs/user_guide/timeseries.html#anchored-offsets
+    input_freq : {'D', 'M', 'Q', 'Y'}
+        Temporal frequency of input data (daily, monthly, quarterly or yearly)
     agg_method : {'mean', 'min', 'max', 'sum'}
         Aggregation method
     variables : list
         Variables in the dataset
-    input_freq : {'D', 'M', 'Q', 'Y'}
-        Temporal frequency of input data (daily, monthly, quarterly or yearly)
-    season : {'DJF', 'MAM', 'JJA', 'SON'}, optional
+    season : {'DJF', 'MAM', 'JJA', 'SON'}, default None
         Select a single season after Q-NOV resampling
     reset_times : bool, default False
         Shift time values after resampling so months match initial date
+    min_tsteps : int, optional
+        Minimum number of time steps for temporal aggregation
+        (e.g. 365 for annual aggregation of daily data to ensure full years only)
     agg_dates : bool, default False
         Record the date of each time aggregated event (e.g. annual max)
-    min_tsteps : int, optional
-        Minimum number of timesteps for temporal aggregation
-        (e.g. 365 for annual aggregation of daily data to ensure full years only)
     time_dim: str, default 'time'
         Name of the time dimension in ds
 
     Returns
     -------
-    ds : xarray Dataset
+    ds : xarray.Dataset
 
     Notes
     -----
     Example target_freq includes:
       YE-DEC = annual, with date label being last day of year
-      M = monthly, with date label being last day of month
+      ME = monthly, with date label being last day of month
       Q-NOV = DJF, MAM, JJA, SON, with date label being last day of season
       YE-NOV = annual Dec-Nov, date label being last day of the year
       YE-AUG = annual Sep-Aug, date label being last day of the year
@@ -105,8 +104,11 @@ def temporal_aggregation(
     else:
         reindexed = False
 
-    start_time = ds[time_dim].values[0]
-    counts = ds[variables[0]].resample(time=target_freq).count(dim=time_dim)
+    if reset_times:
+        start_time = ds[time_dim]
+
+    if min_tsteps:
+        counts = ds[variables[0]].resample(time=target_freq).count(dim=time_dim)
 
     if input_freq == target_freq[0]:
         pass
@@ -147,13 +149,21 @@ def temporal_aggregation(
             time_dim=time_dim,
         )
 
-    if reset_times:
-        diff = ds[time_dim].values[0] - start_time
-        ds[time_dim] = ds[time_dim] - diff
-        assert ds[time_dim].values[0] == start_time
+    if reset_times and target_freq[0] == "Y":
+        # Shift month/day values to match initialisation date
+        month = start_time.dt.month.values[0]
+        day = start_time.dt.day.values[0]
+        ds[time_dim] = (
+            ds[time_dim]
+            .dt.strftime(f"%Y-{month:02d}-{day:02d}")
+            .astype("datetime64[ns]")
+        )
+        ds[time_dim] = (ds[time_dim].dims, datetime_to_cftime(ds[time_dim]))
+        assert np.unique(ds[time_dim].dt.month).size == 1
+        assert np.unique(ds[time_dim].dt.month)[0] == month
 
     if min_tsteps:
-        # Drop first and last time points with insufficient time steps
+        # First and last time points likely have insufficient time steps
         counts = counts.isel({time_dim: [0, -1]})
         # Select the minimum of the non-time dimensions
         counts = counts.min([dim for dim in ds[variables[0]].dims if dim != time_dim])
@@ -177,22 +187,22 @@ def select_time_period(ds, period, time_name="time"):
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
         Array containing a time dimension or variable.
-        The times should be cftime objects but can contain nans.
+        The times should be cftime objects but can contain NaNs.
     period : list of str
         Start and stop dates (in YYYY-MM-DD format)
-    time_name: str
+    time_name: str, default 'time'
         Name of the time dimension, coordinate or variable
 
     Returns
     -------
-    selection : xarray DataArray or Dataset
+    selection : Union[xarray.DataArray, xarray.Dataset]
         Array containing only times within provided period
     """
 
     def _inbounds(t, bnds):
-        """Check if time in bounds, allowing for nans"""
+        """Check if time in bounds, allowing for NaNs."""
         if t != t:
             return False
         else:
@@ -238,7 +248,7 @@ def get_clim(
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
     dims : str or list
         Dimension/s over which to calculate climatology
     time_period : list, optional
@@ -250,7 +260,7 @@ def get_clim(
 
     Returns
     -------
-    clim : xarray DataArray or Dataset
+    clim : Union[xarray.DataArray, xarray.Dataset]
         Climatology
     """
 
@@ -271,7 +281,7 @@ def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
 
     Parameters
     ----------
-    time_dim : xarray DataArray
+    time_dim : xarray.DataArray
         Time dimension
     str_format : str, default '%Y-%m-%d'
         Output date string format (any format accepted by strftime)
@@ -289,7 +299,7 @@ def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
 
 
 def str_to_cftime(datestring, cftime_type=cftime.DatetimeJulian):
-    """Convert a date string to cftime object"""
+    """Convert a date string to cftime object."""
 
     dt = datetime.datetime.strptime(datestring, "%Y-%m-%d")
     # cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
@@ -303,12 +313,12 @@ def switch_calendar(ds):
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
         Dataset with cftime time axis
 
     Returns
     -------
-    ds : xarray DataArray or Dataset
+    ds : Union[xarray.DataArray, xarray.Dataset]
     """
 
     str_times = cftime_to_str(ds["time"])
@@ -327,12 +337,12 @@ def datetime_to_cftime(datetime_array):
 
     Parameters
     ----------
-    datetime_array : numpy ndarray
+    datetime_array : numpy.ndarray
         Array of numpy datetime objects
 
     Returns
     -------
-    cftime_array : numpy ndarray
+    cftime_array : numpy.ndarray
         Array of cftime objects
     """
 
@@ -365,7 +375,7 @@ def _check_cftime(time_dim):
 
     Parameters
     ----------
-    time_dim : xarray DataArray
+    time_dim : xarray.DataArray
         Time dimension
     """
 
@@ -415,7 +425,7 @@ def select_months(ds, months, init_month=False, time_dim="time"):
 
     Parameters
     ----------
-    ds : xarray Dataset or DataArray
+    ds : Union[xarray.DataArray, xarray.Dataset]
     months : list
         Months to select (1-12)
     init_month : bool, default False
@@ -425,8 +435,8 @@ def select_months(ds, months, init_month=False, time_dim="time"):
 
     Returns
     -------
-    ds_selection : xarray Dataset or DataArray
-        Input dataset with month extracted
+    ds_selection : Union[xarray.DataArray, xarray.Dataset]
+        Input data with month extracted
     """
 
     da_months = ds[time_dim].dt.month
@@ -446,6 +456,26 @@ def _get_groupby_and_reduce_dims(
     """Get groupby and reduction dimensions.
 
     For performing operations like calculating anomalies and percentile thresholds.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        The data to be grouped
+    frequency : str
+        The frequency at which to bin the data, e.g. per month
+    init_dim : str, default 'init_date'
+        Name of the initial date dimension in ds
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in ds
+    time_name : str, default 'time'
+        Name of the time dimension in ds
+
+    Returns
+    -------
+    groupby : str
+        The groupby string to use in the xarray groupby operation
+    reduce_dim : str or list
+        The dimension or dimensions to reduce along
     """
 
     def _same_group_per_lead(time, frequency):
@@ -495,7 +525,7 @@ def anomalise(
 
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.Dataset
         The data to anomalise
     clim_period : iterable
         Size 2 iterable containing strings indicating the start and end dates
@@ -506,6 +536,17 @@ def anomalise(
         indicate no frequency (climatology calculated by averaging all times).
         Note, setting to "None" for hindcast data can be dangerous, since only
         certain times may be available at each lead.
+    init_dim : str, default 'init_date'
+        Name of the initial date dimension in ds
+    ensemble_dim : str, default 'ensemble'
+        Name of the ensemble member dimension in ds
+    time_name : str, default 'time'
+        Name of the time dimension in ds
+
+    Returns
+    -------
+    xarray.Dataset
+        The data with the climatology subtracted
     """
     ds_period = select_time_period(ds, clim_period, time_name=time_name)
 

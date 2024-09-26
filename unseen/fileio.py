@@ -155,6 +155,8 @@ def open_dataset(
 
     # Variable selection
     if variables:
+        if not isinstance(variables, list):
+            variables = list(variables)
         ds = ds[variables]
 
     # General selection/subsetting
@@ -458,6 +460,7 @@ def _fix_metadata(ds, metadata_file):
         for orig_var, target_var in metadata_dict["rename"].items():
             if orig_var in ds:
                 ds = ds.rename({orig_var: target_var})
+                ds[target_var].attrs["original_name"] = orig_var
 
     if "drop_coords" in metadata_dict:
         for drop_coord in metadata_dict["drop_coords"]:
@@ -544,7 +547,7 @@ def _indices_setup(kwargs, variables):
 
 
 def _parse_command_line():
-    """Parse the command line for input agruments"""
+    """Parse the command line for input arguments"""
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -650,7 +653,7 @@ def _parse_command_line():
         "--time_agg_min_tsteps",
         type=int,
         default=None,
-        help="Minimum number of timesteps for temporal aggregation [default=None]",
+        help="Minimum number of time steps for temporal aggregation [default=None]",
     )
     parser.add_argument(
         "--input_freq",

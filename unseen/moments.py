@@ -12,7 +12,6 @@ from . import eva
 from . import fileio
 from . import general_utils
 
-
 logging.basicConfig(level=logging.INFO)
 mpl.rcParams["axes.labelsize"] = "x-large"
 mpl.rcParams["axes.titlesize"] = "xx-large"
@@ -364,9 +363,11 @@ def _main():
             # Assumes min_lead has only one init month
             assert min_lead.month.size == 1, "Not implemented for multiple init months"
             min_lead = min_lead.drop_vars("month")
+            if min_lead.size == 1:
+                min_lead = min_lead.item()
         else:
             min_lead = args.min_lead
-        da_fcst = da_fcst.where(da_fcst >= min_lead)
+        da_fcst = da_fcst.where(da_fcst[args.lead_dim] >= min_lead)
 
     ds_obs = fileio.open_dataset(args.obs_file)
     da_obs = ds_obs[args.var].dropna("time")
@@ -375,7 +376,8 @@ def _main():
         ds_bc_fcst = fileio.open_dataset(args.bias_file)
         da_bc_fcst = ds_bc_fcst[args.var]
         if args.min_lead is not None:
-            da_bc_fcst = da_bc_fcst.where(ds_bc_fcst[args.lead_dim] >= args.min_lead)
+            da_bc_fcst = da_bc_fcst.where(ds_bc_fcst[args.lead_dim] >= min_lead)
+        da_bc_fcst = da_bc_fcst.compute()
     else:
         da_bc_fcst = None
 
@@ -393,7 +395,7 @@ def _main():
     create_plot(
         da_fcst.compute(),
         da_obs.compute(),
-        da_bc_fcst=da_bc_fcst.compute(),
+        da_bc_fcst=da_bc_fcst,
         outfile=args.outfile,
         units=args.units,
         ensemble_dim=args.ensemble_dim,

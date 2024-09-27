@@ -266,9 +266,11 @@ def _main():
             # Assumes min_lead has only one init month
             assert min_lead.month.size == 1, "Not implemented for multiple init months"
             min_lead = min_lead.drop_vars("month")
+            if min_lead.size == 1:
+                min_lead = min_lead.item()
         else:
             min_lead = args.min_lead
-        da_fcst = da_fcst.where(da_fcst >= min_lead)
+        da_fcst = da_fcst.where(da_fcst[args.lead_dim] >= min_lead)
 
     # Calculate bias
     bias = get_bias(

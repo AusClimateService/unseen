@@ -1,25 +1,24 @@
-"""Functions and command line program for file I/O"""
+"""Functions and command line program for file I/O."""
 
-import os
-import zipfile
-import shutil
 import argparse
-import logging
-
-import git
-import yaml
-import numpy as np
-import pandas as pd
-import geopandas as gp
-import xarray as xr
 import cmdline_provenance as cmdprov
+import geopandas as gp
+import git
+import logging
+import numpy as np
+import os
+import pandas as pd
+import shutil
+import yaml
+import xarray as xr
+import zipfile
 
-from . import general_utils
-from . import spatial_selection
-from . import time_utils
 from . import array_handling
 from . import dask_setup
+from . import general_utils
 from . import indices
+from . import spatial_selection
+from . import time_utils
 
 
 def open_dataset(
@@ -36,6 +35,7 @@ def open_dataset(
     shape_overlap=None,
     combine_shapes=False,
     spatial_agg="none",
+    time_dim="time",
     lat_dim="lat",
     lon_dim="lon",
     agg_y_dim=None,
@@ -51,7 +51,6 @@ def open_dataset(
     reset_times=False,
     time_agg_min_tsteps=None,
     input_freq=None,
-    time_dim="time",
     isel={},
     sel={},
     scale_factors={},
@@ -91,6 +90,8 @@ def open_dataset(
         Add a region that combines all shapes
     spatial_agg : {'mean', 'sum', 'weighted_mean'}, optional
         Spatial aggregation method
+    time_dim: str, default 'time'
+        Name of the time dimension in infiles
     lat_dim: str, default 'lat'
         Name of the latitude dimension in infiles
     lon_dim: str, default 'lon'
@@ -122,8 +123,6 @@ def open_dataset(
         Minimum number of timesteps for temporal aggregation
     input_freq : {'Y', 'Q', 'M', 'D'}, optional
         Input time frequency for resampling (estimated if not provided)
-    time_dim: str, default 'time'
-        Name of the time dimension in infiles
     isel : dict, optional
         Selection using xarray.Dataset.isel
     sel : dict, optional
@@ -156,7 +155,7 @@ def open_dataset(
     # Variable selection
     if variables:
         if not isinstance(variables, list):
-            variables = list(variables)
+            variables = [variables]
         ds = ds[variables]
 
     # General selection/subsetting
@@ -254,7 +253,20 @@ def open_dataset(
 
 
 def _chunks(lst, n):
-    """Split a list into n sub-lists"""
+    """Split a list into n sub-lists.
+
+    Parameters
+    ----------
+    lst : list
+        Input list to be split
+    n : int
+        Number of sub-lists (i.e., number of files per period)
+
+    Returns
+    -------
+    new_lst : list
+        List of sub-lists
+    """
 
     new_lst = [lst[i : i + n] for i in range(0, len(lst), n)]
 
@@ -262,7 +274,22 @@ def _chunks(lst, n):
 
 
 def _process_mfilelist(file_list, n_time_files, n_ensemble_files):
-    """Read and chunk an input file list"""
+    """Read and chunk an input file list.
+
+    Parameters
+    ----------
+    file_list : str or list
+        List (or filename of list) of file paths (see open_mfforecast).
+    n_time_files : int
+        Number of consecutive files that span the time period (for a given initialisation date).
+    n_ensemble_files : int
+        Number of consecutive files (or n_time_file groupings) that form a complete ensemble.
+
+    Returns
+    -------
+    input_files_chunked : list
+        Chunked list of input files
+    """
 
     if isinstance(file_list, str) or (len(file_list) == 1):
         if len(file_list) == 1:
@@ -315,7 +342,7 @@ def open_mfforecast(
 
     Returns
     -------
-    ds : xarray Dataset
+    ds : xarray.Dataset
     """
     log_lev = logging.INFO if verbose else logging.WARNING
     logging.basicConfig(level=log_lev)
@@ -389,14 +416,14 @@ def get_new_log(infile_logs=None, repo_dir=None):
 
 
 def to_zarr(ds, file_name):
-    """Write to zarr file.
+    """Write dataset to zarr file.
 
     Parameters
     ----------
     ds : xarray DataArray or Dataset
         Input dataset
     file_name : str
-        Output file path
+        Output file path (if .zip, zarr collection is zipped)
     """
 
     for var in ds.variables:
@@ -438,14 +465,14 @@ def _fix_metadata(ds, metadata_file):
 
     Parameters
     ----------
-    ds : xarray DataArray or Dataset
+    ds : xarray.DataArray or xarray.Dataset
         Input dataset
     metadata_file : str
         YAML file specifying required file metadata changes
 
     Returns
     -------
-    ds : xarray DataArray or Dataset
+    ds : xarray.DataArray or xarray.Dataset
     """
 
     with open(metadata_file, "r") as reader:
@@ -469,7 +496,7 @@ def _fix_metadata(ds, metadata_file):
 
     if "round_coords" in metadata_dict:
         for coord in metadata_dict["round_coords"]:
-            ds = ds.assign_coords({coord: ds[coord].round(decimals=6)})
+            ds = ds.assign_coords({coord: ds[coord].round(decimals=3)})
 
     if "units" in metadata_dict:
         for var, units in metadata_dict["units"].items():

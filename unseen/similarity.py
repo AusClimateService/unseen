@@ -111,7 +111,7 @@ def similarity_tests(
 
 
 def _parse_command_line():
-    """Parse the command line for input agruments"""
+    """Parse the command line for input arguments."""
 
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -167,9 +167,14 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--min_lead",
-        type=int,
         default=None,
-        help="Minimum lead time",
+        help="Minimum lead time to include in analysis (int or filename)",
+    )
+    parser.add_argument(
+        "--min_lead_kwargs",
+        nargs="*",
+        action=general_utils.store_dict,
+        help="Optional fileio.open_dataset kwargs for lead independence (e.g., spatial_agg=median)",
     )
     parser.add_argument(
         "--by_lead",
@@ -197,11 +202,24 @@ def _main():
         start_date, end_date = args.reference_time_period
         ds_obs = ds_obs.sel({args.time_dim: slice(start_date, end_date)})
 
+    if args.min_lead:
+        if isinstance(args.min_lead, str):
+            # Load min_lead from file
+            ds_min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
+            min_lead = ds_min_lead["min_lead"].load()
+            # Assumes min_lead has only one init month
+            assert min_lead.month.size == 1, "Not implemented for multiple init months"
+            min_lead = min_lead.drop_vars("month")
+            if min_lead.size == 1:
+                min_lead = min_lead.item()
+        else:
+            min_lead = args.min_lead
+
     ds_similarity = similarity_tests(
         ds_fcst,
         ds_obs,
         args.var,
-        min_lead=args.min_lead,
+        min_lead=min_lead,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,
         ensemble_dim=args.ensemble_dim,
@@ -213,6 +231,8 @@ def _main():
         args.fcst_file: ds_fcst.attrs["history"],
         args.obs_file: ds_obs.attrs["history"],
     }
+    if isinstance(args.min_lead, str):
+        infile_logs[args.min_lead] = ds_min_lead.attrs["history"]
     ds_similarity.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
 
     if args.output_chunks:

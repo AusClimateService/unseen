@@ -1,4 +1,4 @@
-"""Funcitons and command line program for similarity testing."""
+"""Functions and command line program for similarity testing."""
 
 import argparse
 import xarray as xr
@@ -10,7 +10,18 @@ from . import general_utils
 
 
 def ks_test(obs_ds, fcst_ds):
-    """Calculate KS test statistic and p-value."""
+    """Calculate KS test statistic and p-value.
+
+    Parameters
+    ----------
+    obs_ds, fcst_ds : xarray.Dataset
+        Observational and forecast dataset with 'sample' dimension
+
+    Returns
+    -------
+    ks : xarray.Dataset
+        Dataset with KS statistic and p-value variables
+    """
 
     ks = xstatstests.ks_2samp_1d(obs_ds, fcst_ds, dim="sample")
     ks = ks.rename({"statistic": "ks_statistic"})
@@ -20,7 +31,18 @@ def ks_test(obs_ds, fcst_ds):
 
 
 def anderson_darling_test(obs_ds, fcst_ds):
-    """Calculate Anderson Darline test statistic and p-value"""
+    """Calculate Anderson Darling test statistic and p-value.
+
+    Parameters
+    ----------
+    obs_ds, fcst_ds : xarray.Dataset
+        Observational and forecast dataset with 'sample' dimension
+
+    Returns
+    -------
+    ad : xarray.Dataset
+        Dataset with Anderson Darling statistic and p-value variables
+    """
 
     ad = xstatstests.anderson_ksamp(obs_ds, fcst_ds, dim="sample")
     ad = ad.rename({"statistic": "ad_statistic"})
@@ -32,13 +54,16 @@ def anderson_darling_test(obs_ds, fcst_ds):
 def similarity_tests(
     fcst,
     obs,
-    var,
     min_lead=None,
     lead_dim="lead_time",
     init_dim="init_date",
     ensemble_dim="ensemble",
     time_dim="time",
+    lat_dim="lat",
+    lon_dim="lon",
     by_lead=False,
+    regrid="obs",
+    regrid_method="conservative",
 ):
     """Perform a series of similarity tests.
 
@@ -60,13 +85,21 @@ def similarity_tests(
         Name of the ensemble member dimension in fcst
     time_dim: str, default 'time'
         Name of the time dimension in obs
+    lat_dim: str, default 'lat'
+        Name of the latitude dimension in fcst and obs (if regridding)
+    lon_dim: str, default 'lon'
+        Name of the longitude dimension in fcst and obs (if regridding)
     by_lead: bool, default False
         Test each lead time separately
+    regrid: {None, 'obs', 'fcst'}, default 'obs'
+        Regrid observational data to model grid (or vice versa)
+    regrid_method: {'conservative', 'bilinear', 'nearest_s2d', 'nearest_d2s'}, default 'conservative'
+        Regriding method (see xesmf.Regridder)
 
     Returns
     -------
     ds : xarray Dataset
-        Dataset with KS statistic and p-value variables
+        Dataset with AD and KS statistic and p-value variables
 
     Notes
     -----
@@ -79,8 +112,18 @@ def similarity_tests(
 
     if isinstance(fcst, xr.DataArray):
         fcst = fcst.to_dataset()
+
     if isinstance(obs, xr.DataArray):
         obs = obs.to_dataset()
+
+    # Regrid fcst or obs if needed
+    if set({lat_dim, lon_dim}).issubset(fcst.dims) and not all(
+        [fcst[dim].equals(obs[dim]) for dim in [lat_dim, lon_dim]]
+    ):
+        if regrid == "obs":
+            obs = general_utils.regrid(obs, fcst, method=regrid_method)
+        elif regrid == "fcst":
+            fcst = general_utils.regrid(fcst, obs, method=regrid_method)
 
     stack_dims = [ensemble_dim, init_dim]
     if not by_lead:
@@ -181,6 +224,18 @@ def _parse_command_line():
         action="store_true",
         default=False,
         help="Similarity test each lead time separately [default=False]",
+    )
+    parser.add_argument(
+        "--regrid",
+        choices=("obs", "fcst"),
+        default="obs",
+        help="Regrid observational or forecast data if they are on different grids[default=obs]",
+    )
+    parser.add_argument(
+        "--regrid_method",
+        choices=("conservative", "bilinear", "nearest_s2d", "nearest_d2s"),
+        default="conservative",
+        help="Regridding method for observational or forecast data [default=conservative]",
     )
     args = parser.parse_args()
 

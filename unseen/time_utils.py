@@ -27,13 +27,8 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
 
     Returns
     -------
-    dates : xarray.DataArray
-        Event dates for the resampled array
-
-    Notes
-    -----
-    - Previously, the function returned a list of date strings
-    (event_datetimes_str = dates.load().dt.strftime("%Y-%m-%d"))
+    event_datetimes_str : xarray.DataArray
+        Event dates (YYYY-MM-DD) for the resampled array
     """
 
     ds_arg = ds[var].resample(time=target_freq, label="left")
@@ -43,9 +38,9 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
         dates = [da.idxmin(time_dim) for _, da in ds_arg]
 
     dates = xr.concat(dates, dim=time_dim)
-    dates.attrs = ds[time_dim].attrs
-
-    return dates
+    event_datetimes_str = dates.load().dt.strftime("%Y-%m-%d")
+    event_datetimes_str = event_datetimes_str.astype(dtype=str)
+    return event_datetimes_str
 
 
 def temporal_aggregation(

@@ -57,7 +57,6 @@ def anderson_darling_test(obs_ds, fcst_ds):
 def similarity_tests(
     fcst,
     obs,
-    min_lead=None,
     lead_dim="lead_time",
     init_dim="init_date",
     ensemble_dim="ensemble",
@@ -156,7 +155,7 @@ def similarity_tests(
     return ds
 
 
-def similarity_spatial_plot(ds, dataset_name=None, outfile=None):
+def similarity_spatial_plot(ds, dataset_name=None, outfile=None, alpha=0.05):
     """Plot spatial maps of similarity test results.
 
     Parameters
@@ -186,7 +185,7 @@ def similarity_spatial_plot(ds, dataset_name=None, outfile=None):
             long_name = f"{long_name} p-value"
             kwargs = dict(
                 cmap=plt.cm.seismic,
-                norm=TwoSlopeNorm(vcenter=0.05, vmin=0, vmax=0.4),
+                norm=TwoSlopeNorm(vcenter=alpha, vmin=0, vmax=0.4),
             )
 
         ds[var].plot(
@@ -269,6 +268,8 @@ def _parse_command_line():
     parser.add_argument(
         "--min_lead_kwargs",
         nargs="*",
+        type=str,
+        default={},
         action=general_utils.store_dict,
         help="Optional fileio.open_dataset kwargs for lead independence (e.g., spatial_agg=median)",
     )

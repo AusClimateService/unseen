@@ -240,7 +240,18 @@ def _parse_command_line():
         default="conservative",
         help="Regridding method for observational or forecast data [default=conservative]",
     )
-
+    parser.add_argument(
+        "--lead_dim",
+        type=str,
+        default="lead_time",
+        help="Name of lead time dimension",
+    )
+    parser.add_argument(
+        "--init_dim",
+        type=str,
+        default="init_date",
+        help="Name of initial date dimension",
+    )
     args = parser.parse_args()
 
     return args
@@ -263,14 +274,13 @@ def _main():
             # Load min_lead from file
             ds_min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
             min_lead = ds_min_lead["min_lead"].load()
-            # Assumes min_lead has only one init month
-            assert min_lead.month.size == 1, "Not implemented for multiple init months"
-            min_lead = min_lead.drop_vars("month")
-            if min_lead.size == 1:
-                min_lead = min_lead.item()
+            da_fcst = da_fcst.groupby(f"{args.init_dim}.month").where(
+                da_fcst[args.lead_dim] >= min_lead
+            )
+            da_fcst = da_fcst.drop_vars("month")
         else:
             min_lead = args.min_lead
-        da_fcst = da_fcst.where(da_fcst[args.lead_dim] >= min_lead)
+            da_fcst = da_fcst.where(da_fcst[args.lead_dim] >= min_lead)
 
     # Calculate bias
     bias = get_bias(

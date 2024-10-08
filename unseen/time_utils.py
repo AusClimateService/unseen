@@ -27,9 +27,10 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
 
     Returns
     -------
-    event_datetimes_str : numpy.ndarray
-        Event date strings for the resampled array
+    event_datetimes_str : xarray.DataArray
+        Event dates (YYYY-MM-DD) for the resampled array
     """
+
     ds_arg = ds[var].resample(time=target_freq, label="left")
     if agg_method == "max":
         dates = [da.idxmax(time_dim) for _, da in ds_arg]
@@ -39,8 +40,7 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
     dates = xr.concat(dates, dim=time_dim)
     event_datetimes_str = dates.load().dt.strftime("%Y-%m-%d")
     event_datetimes_str = event_datetimes_str.astype(dtype=str)
-
-    return event_datetimes_str.values
+    return event_datetimes_str
 
 
 def temporal_aggregation(
@@ -84,6 +84,7 @@ def temporal_aggregation(
     Returns
     -------
     ds : xarray.Dataset
+        Resampled dataset
 
     Notes
     -----
@@ -94,11 +95,13 @@ def temporal_aggregation(
       YE-NOV = annual Dec-Nov, date label being last day of the year
       YE-AUG = annual Sep-Aug, date label being last day of the year
       YE-JUN = annual Jul-Jun, date label being last day of the year
+
     """
 
     assert input_freq in ["D", "M", "Q", "Y"]
 
     if time_dim not in ds.dims:
+        # Swap time and lead time dimension
         ds = array_handling.reindex_forecast(ds)
         reindexed = True
     else:
@@ -114,6 +117,7 @@ def temporal_aggregation(
         pass
     elif agg_method in ["max", "min"]:
         if agg_dates:
+            # Record the date of each time aggregated event (e.g. annual max)
             agg_dates_var = get_agg_dates(
                 ds, variables[0], target_freq, agg_method, time_dim=time_dim
             )
@@ -121,8 +125,10 @@ def temporal_aggregation(
             ds = ds.resample(time=target_freq).max(dim=time_dim, keep_attrs=True)
         else:
             ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
+
         if agg_dates:
-            ds = ds.assign(event_time=(ds[variables[0]].dims, agg_dates_var))
+            # Add the event time to the resampled array
+            ds = ds.assign(event_time=agg_dates_var)
     elif agg_method == "sum":
         ds = ds.resample(time=target_freq).sum(dim=time_dim, keep_attrs=True)
         for var in variables:
@@ -153,20 +159,24 @@ def temporal_aggregation(
         # Shift month/day values to match initialisation date
         month = start_time.dt.month.values[0]
         day = start_time.dt.day.values[0]
-        ds[time_dim] = (
-            ds[time_dim]
-            .dt.strftime(f"%Y-{month:02d}-{day:02d}")
-            .astype("datetime64[ns]")
+        times_new = ds[time_dim].dt.strftime(f"%Y-{month:02d}-{day:02d}")
+        # Convert to cftime (original calendar)
+        cftime_type = type(
+            start_time.isel(dict([(k, 0) for k in start_time.dims])).item()
         )
-        ds[time_dim] = (ds[time_dim].dims, datetime_to_cftime(ds[time_dim]))
+        times_new = np.vectorize(str_to_cftime)(times_new, cftime_type)
+        ds[time_dim] = (ds[time_dim].dims, times_new)
+        ds[time_dim].attrs = start_time.attrs
+        # Check that all time points are in the same month
         assert np.unique(ds[time_dim].dt.month).size == 1
         assert np.unique(ds[time_dim].dt.month)[0] == month
 
     if min_tsteps:
         # First and last time points likely have insufficient time steps
         counts = counts.isel({time_dim: [0, -1]})
-        # Select the minimum of the non-time dimensions
+        # Check the minimum count for the first and last time points
         counts = counts.min([dim for dim in ds[variables[0]].dims if dim != time_dim])
+        # Remove first and/or last time if they have insufficient time steps
         if counts[0] < min_tsteps:
             ds = ds.isel({time_dim: slice(1, None)})
         if counts[-1] < min_tsteps:
@@ -300,10 +310,17 @@ def cftime_to_str(time_dim, str_format="%Y-%m-%d"):
 
 def str_to_cftime(datestring, cftime_type=cftime.DatetimeJulian):
     """Convert a date string to cftime object."""
+    try:
+        dt = datetime.datetime.strptime(datestring, "%Y-%m-%d")
+        year, month, day = dt.year, dt.month, dt.day
+    except ValueError:
+        # Manually separate "YYYY-MM-DD" for non-standard calendars
+        year, month, day = [int(i) for i in datestring.split("-")]
 
-    dt = datetime.datetime.strptime(datestring, "%Y-%m-%d")
-    # cfdt = cftime.datetime(dt.year, dt.month, dt.day, calendar=calendar)
-    cfdt = cftime_type(dt.year, dt.month, dt.day)
+    if isinstance(cftime_type, str):
+        cfdt = cftime.datetime(year, month, day, calendar=cftime_type)
+    else:
+        cfdt = cftime_type(year, month, day)
 
     return cfdt
 

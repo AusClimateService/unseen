@@ -1,6 +1,9 @@
 """Functions and command line program for similarity testing."""
 
 import argparse
+from cartopy.crs import PlateCarree
+import matplotlib.pyplot as plt
+from matplotlib.colors import TwoSlopeNorm
 import xarray as xr
 import xstatstests
 
@@ -54,7 +57,6 @@ def anderson_darling_test(obs_ds, fcst_ds):
 def similarity_tests(
     fcst,
     obs,
-    min_lead=None,
     lead_dim="lead_time",
     init_dim="init_date",
     ensemble_dim="ensemble",
@@ -73,10 +75,6 @@ def similarity_tests(
         Forecast dataset with initial date, lead time and ensemble member dimensions.
     obs : xarray DataArray or DataArray
         Observational/comparison dataset with a time dimension.
-    var : str
-        Variable from the datasets to process.
-    min_lead : int, optional
-        Minimum lead time
     init_dim: str, default 'init_date'
         Name of the initial date dimension in fcst
     lead_dim: str, default 'lead_time'
@@ -107,9 +105,6 @@ def similarity_tests(
     that the two samples are from the same population.
     """
 
-    if min_lead is not None:
-        fcst = fcst.where(fcst[lead_dim] >= min_lead)
-
     if isinstance(fcst, xr.DataArray):
         fcst = fcst.to_dataset()
 
@@ -120,6 +115,11 @@ def similarity_tests(
     if set({lat_dim, lon_dim}).issubset(fcst.dims) and not all(
         [fcst[dim].equals(obs[dim]) for dim in [lat_dim, lon_dim]]
     ):
+        # Drop empty lats/lons
+        fcst = fcst.where(
+            fcst.sum([dim for dim in fcst.dims if dim not in [lat_dim, lon_dim]]) > 0,
+        )
+        fcst = fcst.dropna(lon_dim, how="all").dropna(lat_dim, how="all")
         if regrid == "obs":
             obs = general_utils.regrid(obs, fcst, method=regrid_method)
         elif regrid == "fcst":
@@ -149,8 +149,60 @@ def similarity_tests(
         "long_name": "p_value",
         "note": "If p > 0.05 cannot reject the null hypothesis that the samples are drawn from the same population",
     }
+    for dim in ds.dims:
+        ds[dim].attrs = fcst[dim].attrs
 
     return ds
+
+
+def similarity_spatial_plot(ds, dataset_name=None, outfile=None, alpha=0.05):
+    """Plot spatial maps of similarity test results.
+
+    Parameters
+    ----------
+    ds : xarray Dataset
+        Dataset with AD and KS statistic and p-value variables
+    dataset_name : str, optional
+        Name of the dataset to include in the plot title
+    outfile : str, optional
+        Filename to save the plot
+    """
+    fig, axes = plt.subplots(
+        2,
+        2,
+        sharey=0,
+        sharex=0,
+        figsize=[10, 7],
+        subplot_kw={"projection": PlateCarree()},
+        constrained_layout=True,
+    )
+
+    for ax, var in zip(axes.flat, ds.data_vars):
+        if "statistic" in var:
+            long_name = ds[var].attrs["long_name"].replace("_", " ").title()
+            kwargs = {}
+        elif "pval" in var:
+            long_name = f"{long_name} p-value"
+            kwargs = dict(
+                cmap=plt.cm.seismic,
+                norm=TwoSlopeNorm(vcenter=alpha, vmin=0, vmax=0.4),
+            )
+
+        ds[var].plot(
+            ax=ax, transform=PlateCarree(), cbar_kwargs=dict(label=long_name), **kwargs
+        )
+        ax.coastlines()
+        ax.set_title(long_name)
+        ax.xaxis.set_visible(True)
+        ax.yaxis.set_visible(True)
+
+    if dataset_name:
+        fig.suptitle(dataset_name, y=1.02)
+
+    if outfile:
+        plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
+    else:
+        plt.show()
 
 
 def _parse_command_line():
@@ -216,6 +268,8 @@ def _parse_command_line():
     parser.add_argument(
         "--min_lead_kwargs",
         nargs="*",
+        type=str,
+        default={},
         action=general_utils.store_dict,
         help="Optional fileio.open_dataset kwargs for lead independence (e.g., spatial_agg=median)",
     )
@@ -262,19 +316,17 @@ def _main():
             # Load min_lead from file
             ds_min_lead = fileio.open_dataset(args.min_lead, **args.min_lead_kwargs)
             min_lead = ds_min_lead["min_lead"].load()
-            # Assumes min_lead has only one init month
-            assert min_lead.month.size == 1, "Not implemented for multiple init months"
-            min_lead = min_lead.drop_vars("month")
-            if min_lead.size == 1:
-                min_lead = min_lead.item()
+            ds_fcst = ds_fcst.groupby(f"{args.init_dim}.month").where(
+                ds_fcst[args.lead_dim] >= min_lead
+            )
+            ds_fcst = ds_fcst.drop_vars("month")
         else:
             min_lead = args.min_lead
+            ds_fcst = ds_fcst.where(ds_fcst[args.lead_dim] >= min_lead)
 
     ds_similarity = similarity_tests(
         ds_fcst,
         ds_obs,
-        args.var,
-        min_lead=min_lead,
         init_dim=args.init_dim,
         lead_dim=args.lead_dim,
         ensemble_dim=args.ensemble_dim,

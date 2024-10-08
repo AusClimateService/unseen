@@ -496,7 +496,7 @@ def _fix_metadata(ds, metadata_file):
 
     if "round_coords" in metadata_dict:
         for coord in metadata_dict["round_coords"]:
-            ds = ds.assign_coords({coord: ds[coord].round(decimals=3)})
+            ds = ds.assign_coords({coord: ds[coord].round(decimals=6)})
 
     if "units" in metadata_dict:
         for var, units in metadata_dict["units"].items():

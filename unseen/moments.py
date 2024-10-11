@@ -183,7 +183,7 @@ def create_plot(
         random_sample = np.random.choice(da_fcst_stacked, sample_size)
         sample_moments = calc_moments(
             random_sample,
-            user_estimates=[
+            fitstart=[
                 moments_fcst["GEV shape"],
                 moments_fcst["GEV location"],
                 moments_fcst["GEV scale"],
@@ -196,7 +196,7 @@ def create_plot(
             bc_random_sample = np.random.choice(da_bc_fcst_stacked, sample_size)
             bc_sample_moments = calc_moments(
                 bc_random_sample,
-                user_estimates=[
+                fitstart=[
                     moments_fcst["GEV shape"],
                     moments_fcst["GEV location"],
                     moments_fcst["GEV scale"],

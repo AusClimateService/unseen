@@ -29,6 +29,7 @@ setup(
             "bias_correction = unseen.bias_correction:_main",
             "stability = unseen.stability:_main",
             "moments = unseen.moments:_main",
+            "eva = unseen.eva:_main",
         ]
     },
 )

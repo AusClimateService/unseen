@@ -2,6 +2,7 @@ import dask
 import dask.array as dsa
 import numpy as np
 import pytest
+from scipy.stats import genextreme
 import xarray as xr
 
 
@@ -101,7 +102,8 @@ def example_da_forecast(request):
             )
         )
     else:
-        data = np.random.random(
+        rng = np.random.default_rng(seed=0)
+        data = rng.random(
             (
                 len(init),
                 len(lead),
@@ -113,3 +115,58 @@ def example_da_forecast(request):
     return ds.assign_coords(
         {pytest.TIME_DIM: ([pytest.INIT_DIM, pytest.LEAD_DIM], time)}
     )
+
+
+@pytest.fixture()
+def example_da_gev(request):
+    """An example 1D GEV DataArray and distribution parameters."""
+    rng = np.random.default_rng(seed=0)
+    time = xr.cftime_range(start="2000-01-01", periods=1500, freq="D")
+
+    # Shape, location and scale parameters
+    shape = rng.uniform(-0.5, 0.5)
+    loc = rng.uniform(-10, 10)
+    scale = rng.uniform(0.1, 10)
+    dparams = shape, loc, scale
+
+    rvs = genextreme.rvs(shape, loc=loc, scale=scale, size=(time.size), random_state=0)
+    data = xr.DataArray(rvs, coords=[time], dims=[pytest.TIME_DIM])
+    if request.param == "dask":
+        data = data.chunk({pytest.TIME_DIM: -1})
+    elif request.param == "numpy":
+        data = data.values
+    return data, dparams
+
+
+@pytest.fixture()
+def example_da_gev_3d(request):
+    """An example 3D GEV DataArray and distribution parameters."""
+    rng = np.random.default_rng(seed=0)
+    time = xr.cftime_range(start="2000-01-01", periods=1500, freq="D")
+    lat = np.arange(2)
+    lon = np.arange(2)
+
+    # Shape, location and scale parameters
+    size = (len(lat), len(lon))
+    shape = rng.uniform(-0.5, 0.5, size=size)
+    loc = rng.uniform(-10, 10, size=size)
+    scale = rng.uniform(0.1, 10, size=size)
+    dparams = np.stack([shape, loc, scale], axis=-1)
+
+    rvs = genextreme.rvs(
+        shape,
+        loc=loc,
+        scale=scale,
+        size=(len(time), len(lat), len(lon)),
+        random_state=0,
+    )
+    data = xr.DataArray(
+        rvs,
+        coords=[time, lat, lon],
+        dims=[pytest.TIME_DIM, pytest.LAT_DIM, pytest.LON_DIM],
+    )
+    if request.param == "dask":
+        data = data.chunk({pytest.TIME_DIM: -1, pytest.LAT_DIM: 1, pytest.LON_DIM: 1})
+    elif request.param == "numpy":
+        data = data.values
+    return data, dparams

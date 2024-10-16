@@ -32,6 +32,7 @@ def test_fit_gev_1d(example_da_gev):
     "fitstart",
     [
         [1, -5, 1],
+        None,
         "LMM",
         "scipy_fitstart",
         "scipy",
@@ -54,23 +55,13 @@ def test_fit_gev_1d_fitstart(example_da_gev, fitstart):
     npt.assert_allclose(dparams, dparams_i, rtol=rtol)
 
 
-@pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)
-def test_fit_gev_1d_assert_good_fit(example_da_gev):
-    """Run stationary GEV fit using 1D array & fit_goodness_test."""
-    data, dparams_i = example_da_gev
-    dparams = fit_gev(data, stationary=True, assert_good_fit=True)
-    # Check fitted params match params used to create data
-    npt.assert_allclose(dparams, dparams_i, rtol=0.3)
-
-
-# todo FAILED unseen/tests/test_eva.py::test_fit_gev_3d[xarray] - AssertionError:
 @pytest.mark.parametrize("example_da_gev_3d", ["xarray", "dask"], indirect=True)
 def test_fit_gev_3d(example_da_gev_3d):
     """Run stationary GEV fit using 3D array & check results."""
     data, dparams_i = example_da_gev_3d
     dparams = fit_gev(data, stationary=True, fitstart="LMM", core_dim="time")
     # Check fitted params match params used to create data
-    npt.assert_allclose(dparams, dparams_i, rtol=0.4)
+    npt.assert_allclose(dparams, dparams_i, rtol=rtol)
 
 
 @pytest.mark.parametrize("example_da_gev", ["xarray", "dask"], indirect=True)
@@ -138,13 +129,34 @@ def test_fit_ns_gev_3d(example_da_gev_3d):
     assert np.all(dparams.isel(dparams=2) > 0)  # Positive trend in location
 
 
+@pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)
+def test_fit_gev_1d_retry_fit(example_da_gev):
+    """Run stationary GEV fit using 1D array & retry_fit."""
+    data, dparams_i = example_da_gev
+    # Set large alpha to force any fit considered bad
+    dparams = fit_gev(data, stationary=True, retry_fit=True, alpha=1)
+    # Check fitted params match params used to create data
+    npt.assert_allclose(dparams, dparams_i, rtol=rtol)
+
+
+@pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)
+def test_fit_gev_1d_assert_good_fit(example_da_gev):
+    """Run stationary GEV fit using 1D array & assert_good_fit."""
+    data, _ = example_da_gev
+    # Set large alpha to force any fit considered bad
+    dparams = fit_gev(data, stationary=True, assert_good_fit=True, alpha=1)
+    assert all(np.isnan(dparams))
+
+
 @pytest.mark.parametrize("example_da_gev", ["xarray"], indirect=True)
-def test_fit_ns_gev_1d_pick_best_model_bic_trend(example_da_gev):
+@pytest.mark.parametrize("trend", [False, True])
+def test_fit_ns_gev_1d_pick_best_model_bic(example_da_gev, trend):
     """Run non-stationary GEV fit & check 'BIC' test returns nonstationary params."""
     data, _ = example_da_gev
-    # Add a large positive linear trend
-    data = add_example_gev_trend(data)
-    data = add_example_gev_trend(data)
+    if trend:
+        # Add a large positive linear trend
+        data = add_example_gev_trend(data)
+        data = add_example_gev_trend(data)
     covariate = xr.DataArray(np.arange(data.time.size), dims="time")
 
     dparams = fit_gev(
@@ -154,24 +166,11 @@ def test_fit_ns_gev_1d_pick_best_model_bic_trend(example_da_gev):
         covariate=covariate,
         pick_best_model="bic",
     )
-    assert np.all(dparams[2] > 0)  # Positive trend in location
-
-
-@pytest.mark.parametrize("example_da_gev", ["xarray"], indirect=True)
-def test_fit_ns_gev_1d_pick_best_model_bic_no_trend(example_da_gev):
-    """Run non-stationary GEV fit & check 'BIC' test returns stationary params."""
-    data, _ = example_da_gev
-    covariate = xr.DataArray(np.arange(data.time.size), dims="time")
-
-    dparams = fit_gev(
-        data,
-        stationary=False,
-        core_dim="time",
-        covariate=covariate,
-        pick_best_model="bic",
-    )
-    assert np.all(dparams[2] == 0)  # No trend in location
-    assert np.all(dparams[4] == 0)  # No trend in scale
+    if trend:
+        assert np.all(dparams[2] > 0)  # Positive trend in location
+    else:
+        assert np.all(dparams[2] == 0)  # No trend in location
+        assert np.all(dparams[4] == 0)  # No trend in scale
 
 
 @pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)

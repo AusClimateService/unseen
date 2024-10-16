@@ -8,7 +8,7 @@ from matplotlib.dates import date2num
 from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import genextreme, goodness_of_fit
+from scipy.stats import genextreme, ks_1samp, cramervonmises
 from scipy.stats.distributions import chi2
 import warnings
 from xarray import apply_ufunc, DataArray
@@ -64,12 +64,14 @@ def fit_gev(
     fitstart="LMM",
     loc1=0,
     scale1=0,
+    retry_fit=False,
     assert_good_fit=False,
     pick_best_model=False,
     alpha=0.05,
     method="Nelder-Mead",
+    goodness_of_fit_kwargs=dict(test="ks"),
 ):
-    """Estimate stationary or nonstationary GEV distribution parameters.
+    """Estimate stationary or nonstationary GEV distributionß parameters.
 
     Parameters
     ----------
@@ -86,9 +88,11 @@ def fit_gev(
         Initial guess method/estimate of the shape, loc and scale parameters
     loc1, scale1 : float or None, default 0
         Initial guess of trend parameters. If None, the trend is fixed at zero
+    retry_fit : bool, default True
+        Retry fit using a fitstart(data[::2]) if the fit does not pass the
+        goodness of fit test (p-value > alpha).
     assert_good_fit : bool, default False
-        Stationary parameters must pass goodness of fit test at `alpha` level.
-        Attempt a retry and return NaNs if the test fails again.
+        Return NaNs if data fails a GEV goodness of fit test at `alpha` level.
     pick_best_model : {False, 'lrt', 'aic', 'bic'}, default False
         Method to test relative fit of stationary and nonstationary models.
         Do not use if you don't want nonstationary parameters. The output will
@@ -98,6 +102,8 @@ def fit_gev(
     method : {'Nelder-Mead', 'L-BFGS-B', 'TNC', 'SLSQP', 'Powell',
     'trust-constr', 'COBYLA'}, default 'Nelder-Mead'
         Optimization method for nonstationary fit
+    goodness_of_fit_kwargs : dict, optional
+        Additional keyword arguments to pass to `check_gev_fit`
 
     Returns
     -------
@@ -115,51 +121,35 @@ def fit_gev(
     - For stationary data the parameters are estimated using
      `scipy.stats.genextreme.fit`.
     - For nonstationary data, the parameters (including the linear location and
-    scale trend parameters are estimated by minimising
-    a penalised negative log-likelihood function.
-    - The `assert_good_fit` option ensures that the distribution fit is
-    accepted if the goodness of fit test `p-value > alpha` (i.e., accept
-    the null hypothesis). It will retry the fit using data[::2] to generate
-    an initial guess.
+    scale trend parameters are estimated by minimising a penalised negative
+    log-likelihood function.
     - The `covariate` must be numeric and have dimensions aligned with `data`.
     - If `pick_best_model` is a method, the relative goodness of fit method is
     used to determine if stationary or nonstationary parameters are returned.
+    - `assert_good_fit`: Return NaNs if the goodness of fit null hypothesis is
+    rejected (i.e., `p-value <= alpha`).
+    - `retry_fit`: retry the fit using data[::2] to generate an initial
+    guess (same fitstart method).
+
 
     """
-    kwargs = {k: v for k, v in locals().items() if k not in ["data", "covariate"]}
-
-    def _assert_good_fit_1d(data, dparams, alpha, fit_kwargs):
-        """Test goodness of stationary GEV fit and retry if failed."""
-        pvalue = check_gev_fit(data, dparams)
-
-        if np.all(pvalue < alpha):
-            # Retry fit using alternative fitstart methods
-            warnings.warn("GEV fit failed. Retrying fitstart with data subset.")
-            _kwargs = fit_kwargs.copy()
-            _kwargs["fitstart"] = _fitstart_1d(data[::2], fitstart)
-            _kwargs["stationary"] = True
-            dparams = _fit_1d(data, covariate, **_kwargs)
-            pvalue = check_gev_fit(data, dparams)
-
-        # Return NaNs if the test still fails
-        if np.all(pvalue < alpha):
-            # Return NaNs
-            dparams = dparams * np.nan
-            warnings.warn("Data fit failed.")
-        return dparams
+    kwargs = {
+        k: v for k, v in locals().items() if k not in ["data", "covariate", "core_dim"]
+    }
 
     def _fit_1d(
         data,
         covariate,
         stationary,
         fitstart,
-        core_dim,
         loc1,
         scale1,
+        retry_fit,
         assert_good_fit,
         pick_best_model,
         alpha,
         method,
+        goodness_of_fit_kwargs,
     ):
         """Estimate distribution parameters."""
         if np.all(~np.isfinite(data)):
@@ -183,16 +173,38 @@ def fit_gev(
 
         # Use genextreme to get stationary distribution parameters
         if stationary or pick_best_model:
-            if dparams_i is None:
-                dparams_i = genextreme.fit(data)
+            if fitstart is None:
+                dparams = genextreme.fit(data)
             else:
                 dparams = genextreme.fit(
                     data, dparams_i[0], loc=dparams_i[1], scale=dparams_i[2]
                 )
             dparams = np.array([i for i in dparams], dtype="float64")
 
-            if assert_good_fit:
-                dparams = _assert_good_fit_1d(data, dparams, alpha, kwargs)
+            if retry_fit or assert_good_fit:
+                pvalue = check_gev_fit(data, dparams, **goodness_of_fit_kwargs)
+
+                if retry_fit and np.all(pvalue <= alpha):
+                    # Retry fit using alternative fitstart methods
+                    _kwargs = kwargs.copy()
+                    _kwargs["fitstart"] = _fitstart_1d(data[::2], fitstart)
+                    _kwargs["stationary"] = True
+                    for k in ["retry_fit", "assert_good_fit", "pick_best_model"]:
+                        _kwargs[k] = False  # Avoids recursion
+                    dparams_alt = _fit_1d(data, covariate, **_kwargs)
+
+                    # Test if the alternative fit is better
+                    L1 = _gev_nllf([-dparams[0], *dparams[1:]], data)
+                    L2 = _gev_nllf([-dparams_alt[0], *dparams_alt[1:]], data)
+                    if L2 < L1:
+                        dparams = dparams_alt
+                        pvalue = check_gev_fit(data, dparams, **goodness_of_fit_kwargs)
+                        warnings.warn("Better fit estimate using data[::2].")
+
+                if assert_good_fit and pvalue <= alpha:
+                    # Return NaNs
+                    dparams = dparams * np.nan
+                    warnings.warn("Data fit failed.")
 
         if not stationary or pick_best_model:
             # Temporarily reverse shape sign (scipy uses different sign convention)
@@ -210,7 +222,7 @@ def fit_gev(
 
             # Minimise the negative log-likelihood function to get optimal dparams
             res = minimize(
-                nllf,
+                _gev_nllf,
                 dparams_ns_i,
                 args=(data, covariate),
                 method=method,
@@ -300,8 +312,8 @@ def penalised_sum(x):
     return total + penalty
 
 
-def nllf(dparams, x, covariate=None):
-    """Penalised negative log-likelihood function.
+def _gev_nllf(dparams, x, covariate=None):
+    """GEV penalised negative log-likelihood function.
 
     Parameters
     ----------
@@ -389,6 +401,16 @@ def _fitstart_1d(data, method):
     -----
     - Use `scipy_fitstart` to reproduce the scipy fit in `fit_gev`.
     - The LMM shape sign is reversed for consistency with scipy.stats results.
+    scipy_fitstart:
+    >>> shape = skew(data) / 2
+    >>> scale = np.std(data) / np.sqrt(6)
+    >>> location = np.mean(data) - (scale * (0.5772 + np.log(2)))
+    >>> dparams_i = (-shape, location, scale) # + or - shape?
+
+    xclim_fitstart:
+    >>> scale = np.sqrt(6 * np.var(data)) / np.pi
+    >>> location = np.mean(data) - 0.57722 * scale
+    >>> dparams_i = [-0.1, location, scale]
     """
 
     if method == "LMM":
@@ -464,8 +486,8 @@ def _format_covariate(data, covariate, core_dim):
     return covariate
 
 
-def check_gev_fit(data, dparams, core_dim=[], **kwargs):
-    """Test stationary GEV distribution goodness of fit.
+def check_gev_fit(data, dparams, core_dim=[], test="ks", **kwargs):
+    """Perform a goodness of fit of GEV distribution with the given parameters.
 
     Parameters
     ----------
@@ -475,24 +497,35 @@ def check_gev_fit(data, dparams, core_dim=[], **kwargs):
         Shape, location and scale parameters
     core_dim : str, optional
         Data dimension to test over
+    test : {'ks', 'cvm'}, default 'ks'
+        Test to use for goodness of fit
     kwargs : dict, optional
-        Additional keyword arguments to pass to `goodness_of_fit`.
+        Additional keyword arguments to pass to the stats function.
 
     Returns
     -------
-    pvalue : scipy.stats._fit.GoodnessOfFitResult.pvalue
+    pvalue : float
         Goodness of fit p-value
-    """
 
-    def _goodness_of_fit(data, dparams, **kwargs):
+    Notes
+    -----
+    - CvM is more likely to detect small discrepancies that may not matter
+    practically in large datasets.
+    """
+    stats_func = {
+        "ks": ks_1samp,
+        "cvm": cramervonmises,
+    }
+
+    def _fit_test_genextreme(data, dparams, **kwargs):
         """Test GEV goodness of fit."""
         # Stationary parameters
-        shape, loc, scale = dparams
+        c, loc, scale = dparams
 
-        res = goodness_of_fit(
-            genextreme,
+        res = stats_func[test](
             data,
-            known_params=dict(c=shape, loc=loc, scale=scale),
+            genextreme.cdf,
+            args=(c, loc, scale),
             **kwargs,
         )
         return res.pvalue
@@ -501,7 +534,7 @@ def check_gev_fit(data, dparams, core_dim=[], **kwargs):
         core_dim = [core_dim]
 
     pvalue = apply_ufunc(
-        _goodness_of_fit,
+        _fit_test_genextreme,
         data,
         dparams,
         input_core_dims=[core_dim, ["dparams"]],
@@ -565,8 +598,8 @@ def get_best_GEV_model_1d(data, dparams, dparams_ns, covariate, alpha, test):
     shape, loc, scale = dparams
 
     # Negative log-likelihood of stationary and nonstationary models
-    L1 = nllf([-shape, loc, scale], data)
-    L2 = nllf([-dparams_ns[0], *dparams_ns[1:]], data, covariate)
+    L1 = _gev_nllf([-shape, loc, scale], data)
+    L2 = _gev_nllf([-dparams_ns[0], *dparams_ns[1:]], data, covariate)
 
     result = check_gev_relative_fit(data, L1, L2, test=test, alpha=alpha)
     if not result:
@@ -701,6 +734,104 @@ def get_return_level(return_period, dparams=None, covariate=None, **kwargs):
     return return_level
 
 
+def gev_confidence_interval(
+    data,
+    dparams=None,
+    return_period=None,
+    return_level=None,
+    bootstrap_method="non-parametric",
+    n_resamples=1000,
+    ci=0.95,
+    core_dim="time",
+    fit_kwargs={},
+):
+    """
+    Bootstrapped confidence intervals for return periods or return levels.
+
+    Parameters:
+    -----------
+
+    data : xarray.DataArray
+        Input data to fit GEV distribution
+    dparams : xarray.DataArray, optional
+        GEV distribution parameters. If None, the parameters are estimated.
+    return_period : float or xarray.DataArray, default None
+        Return period(s). Mutually exclusive with `return_level`.
+    return_level : float or xarray.DataArray, default None
+        Return level(s) Mutually exclusive with `return_period`.
+    bootstrap_method : {'parametric', 'non-parametric'}, default 'non-parametric'
+        Bootstrap method to use for resampling
+    n_resamples : int, optional
+        Number of bootstrap resamples to perform (default: 1000)
+    ci : float, optional
+        Confidence level (e.g., 0.95 for 95% confidence interval, default: 0.95)
+    core_dim : str, optional
+        The core dimension along which to apply GEV fitting (default: None, will auto-detect)
+    fit_kwargs : dict, optional
+        Additional keyword arguments to pass to `fit_gev`
+
+    Returns:
+    --------
+    ci_bounds : xarray.DataArray
+        Confidence intervals with lower and upper bounds along dim 'quantile'
+    """
+    # todo: max_shape_ratio
+    # Replace core dim with the one from the fit_kwargs if it exists
+    core_dim = fit_kwargs.pop("core_dim", core_dim)
+
+    rng = np.random.default_rng(seed=0)
+    if dparams is None:
+        dparams = fit_gev(data, core_dim=core_dim, **fit_kwargs)
+    shape, loc, scale = unpack_gev_params(dparams)
+
+    # Generate random indices for resampling
+    if bootstrap_method == "parametric":
+        boot_data = apply_ufunc(
+            genextreme.rvs,
+            shape,
+            loc,
+            scale,
+            input_core_dims=[[], [], []],
+            output_core_dims=[["k", core_dim]],
+            kwargs=dict(size=(n_resamples, data[core_dim].size)),
+            vectorize=True,
+            dask="parallelized",
+        )
+        boot_data = boot_data.transpose("k", core_dim, ...)
+
+    elif bootstrap_method == "non-parametric":
+        resample_indices = rng.integers(
+            0, data[core_dim].size, (n_resamples, data[core_dim].size)
+        )
+        indexer = DataArray(resample_indices, dims=("k", core_dim))
+        boot_data = data.isel({core_dim: indexer})
+
+    # Fit GEV parameters to resampled data
+    gev_params_resampled = fit_gev(boot_data, core_dim=core_dim, **fit_kwargs)
+
+    if return_period is not None:
+        result = get_return_level(
+            return_period, gev_params_resampled, core_dim=core_dim
+        )
+    elif return_level is not None:
+        result = get_return_period(
+            return_level, gev_params_resampled, core_dim=core_dim
+        )
+
+    # Bounds of confidence intervals
+    ci = ci * 100  # Avoid rounding errors
+    q = (100 - ci) * 0.5 / 100
+
+    # Calculate confidence intervals from resampled percentiles
+    ci_bounds = result.quantile([q, 1 - q], dim="k")
+
+    ci_bounds.attrs = {
+        "long_name": "Confidence interval",
+        "description": f"{ci:g}% confidence interval ({n_resamples} resamples)",
+    }
+    return ci_bounds
+
+
 def gev_return_curve(
     data,
     event_value,
@@ -708,6 +839,7 @@ def gev_return_curve(
     n_bootstraps=1000,
     max_return_period=4,
     max_shape_ratio=None,
+    ci=0.95,
     **fit_kwargs,
 ):
     """Return x and y data for a GEV return period curve.
@@ -733,7 +865,9 @@ def gev_return_curve(
     dparams = fit_gev(data, **fit_kwargs)
     shape, loc, scale = unpack_gev_params(dparams)
 
-    curve_return_periods = np.logspace(0, max_return_period, num=10000)
+    curve_return_periods = DataArray(
+        np.logspace(0, max_return_period, num=10000), dims="ari"
+    )
     curve_probabilities = 1.0 / curve_return_periods
     curve_values = genextreme.isf(curve_probabilities, shape, loc, scale)
 
@@ -748,24 +882,21 @@ def gev_return_curve(
             boot_data = genextreme.rvs(shape, loc=loc, scale=scale, size=len(data))
         elif bootstrap_method == "non-parametric":
             boot_data = rng.choice(data, size=data.shape, replace=True)
-        boot_shape, boot_loc, boot_scale = fit_gev(boot_data, fitstart="scipy_subet")
+
+        boot_dparams = fit_gev(boot_data, **fit_kwargs)
         if max_shape_ratio:
-            shape_ratio = abs(boot_shape) / abs(shape)
+            shape_ratio = abs(boot_dparams[0]) / abs(boot_dparams[0])
             if shape_ratio > max_shape_ratio:
                 continue
-        boot_value = genextreme.isf(
-            curve_probabilities, boot_shape, boot_loc, boot_scale
-        )
-        boot_values = np.vstack((boot_values, boot_value))
 
-        boot_event_probability = genextreme.sf(
-            event_value, boot_shape, loc=boot_loc, scale=boot_scale
-        )
-        boot_event_return_period = 1.0 / boot_event_probability
+        boot_value = get_return_level(curve_return_periods, boot_dparams)
+        boot_values = np.vstack((boot_values, boot_value))
+        boot_event_return_period = get_return_period(event_value, boot_dparams)
         boot_event_return_periods.append(boot_event_return_period)
 
-    curve_values_lower_ci = np.quantile(boot_values, 0.025, axis=0)
-    curve_values_upper_ci = np.quantile(boot_values, 0.975, axis=0)
+    q = (100 - ci * 100) * 0.5 / 100  # Quantile for lower and upper bounds
+    curve_values_lower_ci = np.quantile(boot_values, q, axis=0)
+    curve_values_upper_ci = np.quantile(boot_values, 1 - q, axis=0)
     curve_data = (
         curve_return_periods,
         curve_values,
@@ -777,8 +908,8 @@ def gev_return_curve(
     boot_event_return_periods = boot_event_return_periods[
         np.isfinite(boot_event_return_periods)
     ]
-    event_return_period_lower_ci = np.quantile(boot_event_return_periods, 0.025)
-    event_return_period_upper_ci = np.quantile(boot_event_return_periods, 0.975)
+    event_return_period_lower_ci = np.quantile(boot_event_return_periods, q)
+    event_return_period_upper_ci = np.quantile(boot_event_return_periods, q - 1)
     event_data = (
         event_return_period,
         event_return_period_lower_ci,
@@ -1181,10 +1312,16 @@ def _parse_command_line():
         help="Initial guess method (or estimate) of the GEV parameters",
     )
     parser.add_argument(
+        "--retry_fit",
+        action="store_true",
+        default=False,
+        help="Return NaNs if fit doesn't pass the goodness of fit test",
+    )
+    parser.add_argument(
         "--assert_good_fit",
         action="store_true",
         default=False,
-        help="Test fit goodness",
+        help="Return NaNs if fit doesn't pass the goodness of fit test",
     )
     parser.add_argument(
         "--pick_best_model",
@@ -1216,12 +1353,6 @@ def _parse_command_line():
         action=general_utils.store_dict,
         help="Minimum lead time file",
     )
-    # parser.add_argument(
-    #     "--confidence_interval",
-    #     type=float,
-    #     default=0.95,
-    #     help="Confidence interval e.g., --confidence_interval 0.95",
-    # )
     parser.add_argument(
         "--ensemble_dim",
         type=str,
@@ -1303,6 +1434,7 @@ def _main():
         stationary=args.stationary,
         fitstart=args.fitstart,
         covariate=covariate,
+        retry_fit=args.retry_fit,
         assert_good_fit=args.assert_good_fit,
         pick_best_model=args.pick_best_model,
     )

@@ -71,7 +71,7 @@ def fit_gev(
     method="Nelder-Mead",
     goodness_of_fit_kwargs=dict(test="ks"),
 ):
-    """Estimate stationary or nonstationary GEV distributionß parameters.
+    """Estimate stationary or nonstationary GEV distribution parameters.
 
     Parameters
     ----------

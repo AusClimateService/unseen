@@ -64,7 +64,7 @@ def fit_gev(
     fitstart="LMM",
     loc1=0,
     scale1=0,
-    retry_fit=False,
+    retry_fit=True,
     assert_good_fit=False,
     pick_best_model=False,
     alpha=0.05,
@@ -83,20 +83,21 @@ def fit_gev(
         Fit as a stationary GEV using `fit_stationary_gev`
     covariate : array_like, optional
         A nonstationary covariate array with the same `core_dim` as `data`
-    fitstart : {array-like, 'LMM', 'MM', 'scipy', 'scipy_fitstart',
+    fitstart : {array-like, 'LMM', 'scipy_fitstart', 'scipy',
     'scipy_subset', 'xclim_fitstart', 'xclim'}, default 'scipy_fitstart'
         Initial guess method/estimate of the shape, loc and scale parameters
     loc1, scale1 : float or None, default 0
         Initial guess of trend parameters. If None, the trend is fixed at zero
     retry_fit : bool, default True
-        Retry fit using a fitstart(data[::2]) if the fit does not pass the
-        goodness of fit test (p-value > alpha).
+        Retry fit with different initial estimate if the fit does not pass the
+        goodness of fit test at the `alpha` level.
     assert_good_fit : bool, default False
         Return NaNs if data fails a GEV goodness of fit test at `alpha` level.
+        Mutually exclusive with `stationary=False` and `pick_best_model`.
     pick_best_model : {False, 'lrt', 'aic', 'bic'}, default False
         Method to test relative fit of stationary and nonstationary models.
-        Do not use if you don't want nonstationary parameters. The output will
-        have GEV 5 parameters even if stationary is True.
+        The output will have GEV 5 parameters even if stationary is True.
+        Mutually exclusive with `stationary` and/or `assert_good_fit`.
     alpha : float, default 0.05
         Fit test p-value threshold for stationary fit (relative/goodness of fit)
     method : {'Nelder-Mead', 'L-BFGS-B', 'TNC', 'SLSQP', 'Powell',
@@ -116,23 +117,23 @@ def fit_gev(
     Notes
     -----
     - Use `unpack_gev_params` to get the shape, location and scale parameters
-    as a separate array. If nonstationary, the output will still be three
+    as a separate array. If nonstationary, the output will also have three
     parameters that have an extra covariate dimension.
     - For stationary data the parameters are estimated using
-     `scipy.stats.genextreme.fit`.
+     `scipy.stats.genextreme.fit` with initial guess based on `fitstart` (use
+     fitstart 'scipy_fitstart' or None to use scipy defaults).
     - For nonstationary data, the parameters (including the linear location and
-    scale trend parameters are estimated by minimising a penalised negative
+    scale trend parameters) are estimated by minimising a penalised negative
     log-likelihood function.
     - The `covariate` must be numeric and have dimensions aligned with `data`.
-    - If `pick_best_model` is a method, the relative goodness of fit method is
-    used to determine if stationary or nonstationary parameters are returned.
-    - `assert_good_fit`: Return NaNs if the goodness of fit null hypothesis is
-    rejected (i.e., `p-value <= alpha`).
     - `retry_fit`: retry the fit using data[::2] to generate an initial
     guess (same fitstart method).
-
-
+    - If `pick_best_model` is a method, the relative goodness of fit method is
+    used to determine if stationary or nonstationary parameters are returned.
+    If the stationary fit is better, the nonstationary parameters are returned
+    with zero trends (see `check_gev_relative_fit` and `get_best_GEV_model_1d`).
     """
+
     kwargs = {
         k: v for k, v in locals().items() if k not in ["data", "covariate", "core_dim"]
     }
@@ -206,7 +207,7 @@ def fit_gev(
                     dparams = dparams * np.nan
                     warnings.warn("Data fit failed.")
 
-        if not stationary or pick_best_model:
+        if not stationary:
             # Temporarily reverse shape sign (scipy uses different sign convention)
             dparams_ns_i = [-dparams_i[0], dparams_i[1], loc1, dparams_i[2], scale1]
 
@@ -242,6 +243,13 @@ def fit_gev(
 
         return dparams
 
+    if stationary and pick_best_model:
+        raise ValueError(
+            f"Stationary must be false if pick_best_model={pick_best_model}."
+        )
+    if assert_good_fit and pick_best_model:
+        raise ValueError("pick_best_model and assert_good_fit are mutually exclusive.")
+
     if covariate is not None:
         covariate = _format_covariate(data, covariate, core_dim)
     else:
@@ -255,7 +263,7 @@ def fit_gev(
         # Covariate is a 1D array
         input_core_dims = [[core_dim], []]
 
-    n_params = 5 if (not stationary or pick_best_model) else 3
+    n_params = 3 if stationary else 5
     # Fit data to distribution parameters
     dparams = apply_ufunc(
         _fit_1d,
@@ -269,8 +277,9 @@ def fit_gev(
         output_dtypes=["float64"],
         dask_gufunc_kwargs={"output_sizes": {"dparams": n_params}},
     )
+
+    # Format output (consistent with xclim)
     if isinstance(data, DataArray):
-        # Format output (consistent with xclim)
         if n_params == 3:
             dparams.coords["dparams"] = ["c", "loc", "scale"]
         else:
@@ -417,7 +426,6 @@ def _fitstart_1d(data, method):
         # L-moments method
         dparams_i = distr.gev.lmom_fit(data)
         dparams_i = list(dparams_i.values())
-        dparams_i[0] = -dparams_i[0]
 
     elif method == "scipy_fitstart":
         # Moments method?
@@ -734,6 +742,28 @@ def get_return_level(return_period, dparams=None, covariate=None, **kwargs):
     return return_level
 
 
+def aep_to_ari(aep):
+    """Convert from aep (%) to ari (years)
+
+    Details: http://www.bom.gov.au/water/designRainfalls/ifd-arr87/glossary.shtml
+    Stolen from https://github.com/climate-innovation-hub/frequency-analysis/blob/master/eva.py
+    """
+
+    assert aep < 100, "aep to be expressed as a percentage (must be < 100)"
+    aep = aep / 100
+
+    return 1 / (-np.log(1 - aep))
+
+
+def ari_to_aep(ari):
+    """Convert from ari (years) to aep (%)
+
+    Details: http://www.bom.gov.au/water/designRainfalls/ifd-arr87/glossary.shtml
+    Stolen from https://github.com/climate-innovation-hub/frequency-analysis/blob/master/eva.py
+    """
+    return ((np.exp(1 / ari) - 1) / np.exp(1 / ari)) * 100
+
+
 def gev_confidence_interval(
     data,
     dparams=None,
@@ -775,7 +805,7 @@ def gev_confidence_interval(
     ci_bounds : xarray.DataArray
         Confidence intervals with lower and upper bounds along dim 'quantile'
     """
-    # todo: max_shape_ratio
+    # todo: add max_shape_ratio
     # Replace core dim with the one from the fit_kwargs if it exists
     core_dim = fit_kwargs.pop("core_dim", core_dim)
 
@@ -800,6 +830,7 @@ def gev_confidence_interval(
         boot_data = boot_data.transpose("k", core_dim, ...)
 
     elif bootstrap_method == "non-parametric":
+        # todo: replace with rng.choice
         resample_indices = rng.integers(
             0, data[core_dim].size, (n_resamples, data[core_dim].size)
         )
@@ -1288,14 +1319,20 @@ def _parse_command_line():
         type=str,
         nargs="*",
         default=["ensemble", "init_date", "lead_time"],
-        help="Dimensions to stack",
+        help="Dimensions to stack",  # todo: test this
     )
     parser.add_argument("--core_dim", type=str, default="time", help="Core dimension")
     parser.add_argument(
         "--stationary",
-        type=bool,
+        action="store_true",
         default=True,
-        help="Fit nonstationary GEV distribution",
+        help="Fit stationary GEV distribution",
+    )
+    parser.add_argument(
+        "--nonstationary",
+        action="store_true",
+        default=False,
+        help="Fit non-stationary GEV distribution",
     )
     parser.add_argument(
         "--fitstart",
@@ -1307,7 +1344,7 @@ def _parse_command_line():
             "scipy_subset",
             "xclim_MLE",
             "xclim",
-            ["shape", "loc", "scale"],
+            ["shape", "loc", "scale"],  # todo: test this
         ),
         help="Initial guess method (or estimate) of the GEV parameters",
     )
@@ -1315,7 +1352,7 @@ def _parse_command_line():
         "--retry_fit",
         action="store_true",
         default=False,
-        help="Return NaNs if fit doesn't pass the goodness of fit test",
+        help="Retry fit if it doesn't pass the goodness of fit test",
     )
     parser.add_argument(
         "--assert_good_fit",
@@ -1325,8 +1362,7 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--pick_best_model",
-        type=str,
-        default=None,
+        default=False,
         help="Relative fit test to pick stationary or nonstationary parameters",
     )
     parser.add_argument(
@@ -1341,7 +1377,7 @@ def _parse_command_line():
     )
     parser.add_argument(
         "--covariate_file", type=str, default=None, help="Covariate file"
-    )
+    )  # todo: test this
     parser.add_argument(
         "--min_lead", default=None, help="Minimum lead time (int or filename)"
     )
@@ -1351,7 +1387,7 @@ def _parse_command_line():
         nargs="*",
         default={},
         action=general_utils.store_dict,
-        help="Minimum lead time file",
+        help="Keyword arguments for opening min_lead file",
     )
     parser.add_argument(
         "--ensemble_dim",
@@ -1372,33 +1408,30 @@ def _parse_command_line():
         help="Name of lead time dimension",
     )
     parser.add_argument(
-        "--output_chunks",
+        "--file_kwargs",
         type=str,
         nargs="*",
-        action=general_utils.store_dict,
         default={},
-        help="Output chunks",
-    )
-    parser.add_argument(
-        "--dask_config", type=str, help="YAML file specifying dask client configuration"
+        action=general_utils.store_dict,
+        help="Keyword arguments for opening the data file",
     )
     args = parser.parse_args()
-
     return args
 
 
 def _main():
-    """Run the command line program."""
+    """Run the command line program to save GEV distribution parameters."""
 
     args = _parse_command_line()
+    args.stationary = False if args.nonstationary else True
 
-    ds = fileio.open_dataset(args.file, variables=[args.var])
+    ds = fileio.open_dataset(args.file, **args.file_kwargs)
 
     if args.covariate_file is not None:
-        # Add covariate to dataset (to ensure all operations are aligned)
         ds_covariate = fileio.open_dataset(
             args.covariate_file, variables=[args.covariate]
         )
+        # Add covariate to dataset (to ensure all operations are aligned)
         ds[args.covariate] = ds_covariate[args.covariate]
 
     # Filter data by reference time period
@@ -1420,10 +1453,10 @@ def _main():
 
     # Stack dimensions along new "sample" dimension
     if all([dim in ds[args.var].dims for dim in args.stack_dims]):
-        ds = ds.stack(**{"sample": args.stack_dims})
+        ds = ds.stack(**{"sample": args.stack_dims}, create_index=False)
         args.core_dim = "sample"
 
-    if not args.stationary:
+    if args.nonstationary:
         covariate = _format_covariate(ds[args.var], ds[args.covariate], args.core_dim)
     else:
         covariate = None
@@ -1440,20 +1473,20 @@ def _main():
     )
 
     # Format outfile
-    dparams = dparams.to_dataset()
+    dparams = dparams.to_dataset(name=args.var)
 
     # Add the covariate variable
-    if not args.stationary or args.pick_best_model:
-        dparams[args.covariate] = covariate
+    if args.nonstationary:
+        dparams["covariate"] = covariate
 
+    # Add metadata
+    dparams.attrs = ds.attrs
     infile_logs = {args.file: ds.attrs["history"]}
     if isinstance(args.min_lead, str):
         infile_logs[args.min_lead] = ds_min_lead.attrs["history"]
     dparams.attrs["history"] = fileio.get_new_log(infile_logs=infile_logs)
 
-    if args.output_chunks:
-        dparams = dparams.chunk(args.output_chunks)
-
+    # Save to file
     if "zarr" in args.outfile:
         fileio.to_zarr(dparams, args.outfile)
     else:

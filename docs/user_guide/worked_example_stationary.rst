@@ -438,12 +438,12 @@ to see the effect of the bias correction.
     model_da_bc_stacked = model_da_bc.dropna('lead_time').stack({'sample': ['ensemble', 'init_date', 'lead_time']})
 
     model_da_indep.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:blue')
-    model_raw_shape, model_raw_loc, model_raw_scale = eva.fit_gev(model_da_indep_stacked.values, generate_estimates=True)
+    model_raw_shape, model_raw_loc, model_raw_scale = eva.fit_gev(model_da_indep_stacked.values, fitstart='scipy_subet')
     model_raw_pdf = gev.pdf(xvals, model_raw_shape, model_raw_loc, model_raw_scale)
     plt.plot(xvals, model_raw_pdf, color='tab:blue', linewidth=4.0, label='model')
 
     model_da_bc.plot.hist(bins=50, density=True, alpha=0.7, facecolor='tab:orange')
-    model_bc_shape, model_bc_loc, model_bc_scale = eva.fit_gev(model_da_bc_stacked.values, generate_estimates=True)
+    model_bc_shape, model_bc_loc, model_bc_scale = eva.fit_gev(model_da_bc_stacked.values, fitstart='scipy_subet')
     model_bc_pdf = gev.pdf(xvals, model_bc_shape, model_bc_loc, model_bc_scale)
     plt.plot(xvals, model_bc_pdf, color='tab:orange', linewidth=4.0, label='model (corrected)')
 

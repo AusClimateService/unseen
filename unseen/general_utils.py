@@ -164,12 +164,10 @@ def plot_timeseries_scatter(
             units = ""
 
     if ax is None:
-        fig, ax = plt.subplots(1, 1, figsize=(10, 4))
+        fig, ax = plt.subplots(1, 1, figsize=(12, 5))
     if title is not None:
         ax.set_title(title, loc="left")
 
-    # Plot ensemble data
-    ax.scatter(da[time_dim], da, s=3, c="lightskyblue", label=label)
     # Plot observed data
     if da_obs is not None:
         ax.scatter(
@@ -179,7 +177,10 @@ def plot_timeseries_scatter(
             c="k",
             marker="x",
             label=obs_label,
+            zorder=10,
         )
+    # Plot ensemble data
+    ax.scatter(da[time_dim], da, s=5, c="deepskyblue", label=label)
 
     ax.set_ylabel(units)
     ax.set_xmargin(1e-2)

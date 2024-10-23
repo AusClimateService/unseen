@@ -9,6 +9,7 @@ dependencies:
   - dask-jobqueue
   - geopandas
   - gitpython
+  - lmoments3
   - netcdf4
   - numpy
   - pip

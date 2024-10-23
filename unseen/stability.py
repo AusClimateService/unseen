@@ -105,7 +105,7 @@ def return_curve(data, method, params=[], **kwargs):
     params : list, default None
         shape, location and scale parameters (calculated if None)
     kwargs : dict, optional
-        kwargs passed to eva.fit_gev (N.B. used to use generate_estimates=True)
+        kwargs passed to eva.fit_gev
     """
 
     if method == "empirical":

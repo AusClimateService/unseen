@@ -118,6 +118,7 @@ def create_plot(
     init_dim="init_date",
     lead_dim="lead_time",
     infile_logs=None,
+    **kwargs,
 ):
     """Create a stability assessment plot.
 
@@ -149,7 +150,7 @@ def create_plot(
 
     dims = [ensemble_dim, init_dim, lead_dim]
     da_fcst_stacked = da_fcst.dropna(lead_dim).stack({"sample": dims})
-    moments_fcst = calc_moments(da_fcst_stacked, core_dim="sample")
+    moments_fcst = calc_moments(da_fcst_stacked, core_dim="sample", **kwargs)
 
     if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})

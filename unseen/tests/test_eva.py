@@ -149,9 +149,10 @@ def test_fit_gev_1d_assert_good_fit(example_da_gev):
 
 
 @pytest.mark.parametrize("example_da_gev", ["xarray"], indirect=True)
+@pytest.mark.parametrize("test", ["lrt", "aic", "bic"])
 @pytest.mark.parametrize("trend", [False, True])
-def test_fit_ns_gev_1d_pick_best_model_bic(example_da_gev, trend):
-    """Run non-stationary GEV fit & check 'BIC' test returns nonstationary params."""
+def test_fit_ns_gev_1d_pick_best_model(example_da_gev, test, trend):
+    """Run non-stationary GEV fit & check 'lrt' test returns nonstationary params."""
     data, _ = example_da_gev
     if trend:
         # Add a large positive linear trend
@@ -164,7 +165,7 @@ def test_fit_ns_gev_1d_pick_best_model_bic(example_da_gev, trend):
         stationary=False,
         core_dim="time",
         covariate=covariate,
-        pick_best_model="bic",
+        pick_best_model=test,
     )
     if trend:
         assert np.all(dparams[2] > 0)  # Positive trend in location

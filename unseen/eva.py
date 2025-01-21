@@ -1375,7 +1375,7 @@ def plot_stacked_histogram(
     if labels is None:
         # Labels show left side of each bin
         # labels = bins[:-1]
-        labels = [f"{bins[i]}-{bins[i+1] - 1}" for i in range(len(bins) - 1)]
+        labels = [f"{bins[i]}-{bins[i + 1] - 1}" for i in range(len(bins) - 1)]
 
     # Subset dv1 by bins
     dx_subsets = [

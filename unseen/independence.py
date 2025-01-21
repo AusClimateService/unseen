@@ -3,8 +3,11 @@
 import argparse
 import calendar
 from cartopy.crs import PlateCarree
+from cartopy.mpl.gridliner import LatitudeFormatter, LongitudeFormatter
+import dask
 import itertools
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,6 +18,7 @@ from . import fileio
 from . import general_utils
 
 rng = np.random.default_rng(seed=0)
+dask.config.set(**{"array.slicing.split_large_chunks": True})
 
 
 def run_tests(
@@ -137,6 +141,7 @@ def point_plot(
     dataset_name=None,
     lead_dim="lead_time",
     confidence_interval=0.95,
+    lgd_kwargs={},
     **kwargs,
 ):
     """Scatter plot of lead time dependence (for each init month).
@@ -185,10 +190,10 @@ def point_plot(
 
     ax.set_xlabel("Lead")
     ax.set_ylabel(ds["r"].attrs["long_name"])
-    ax.legend()
+    ax.legend(**lgd_kwargs)
 
     if dataset_name:
-        fig.suptitle(dataset_name, x=0.6, y=1.02)
+        ax.set_title(dataset_name)
 
     if outfile:
         plt.tight_layout()
@@ -215,6 +220,8 @@ def spatial_plot(ds, dataset_name=None, outfile=None, kwargs=dict(figsize=[8, 5]
     cbar_ticks = np.arange(ds.min_lead.min(), ds.min_lead.max() + 2)
     # Convert integer to month names for plot titles
     titles = [f"{calendar.month_name[m]} starts" for m in ds.month.values]
+    if dataset_name:
+        titles = [f"{dataset_name} {title}" for title in titles]
 
     cm = ds.min_lead.plot.pcolormesh(
         col="month",
@@ -222,30 +229,29 @@ def spatial_plot(ds, dataset_name=None, outfile=None, kwargs=dict(figsize=[8, 5]
         transform=PlateCarree(),
         subplot_kws=dict(projection=PlateCarree()),
         levels=cbar_ticks,
-        cbar_kwargs=dict(ticks=cbar_ticks[:-1]),
+        cbar_kwargs=dict(ticks=cbar_ticks[:-1], fraction=0.046, pad=0.04),
         add_colorbar=False,
         **kwargs,
     )
     # Fix hidden axis ticks and labels
     for i, ax in enumerate(cm.axs.flat):
+        ax.set_title(titles[i])
+        ax.coastlines()
+        ax.xaxis.set_major_formatter(LongitudeFormatter())
+        ax.yaxis.set_major_formatter(LatitudeFormatter())
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        ax.set_xlabel(None)
+        ax.set_ylabel(None)
+
         subplotspec = ax.get_subplotspec()
-        if subplotspec.is_last_row():
-            ax.xaxis.set_visible(True)
+        ax.xaxis.set_visible(True)
         if subplotspec.is_first_col():
             ax.yaxis.set_visible(True)
-        ax.coastlines()
-        ax.set_title(titles[i])
+
     cm.fig.set_constrained_layout(True)
     cm.fig.get_layout_engine().set(h_pad=0.2)
     cm.add_colorbar()
-
-    if dataset_name:
-        cm.fig.suptitle(dataset_name, x=0.6, y=1.02)
-
-    # Fix lat/lon axis labels
-    if all([dim in ds.dims for dim in ["lat", "lon"]]):
-        cm.set_xlabels(f"{ds.lon.attrs['long_name']} [{ds.lon.attrs['units']}]")
-        cm.set_ylabels(f"{ds.lat.attrs['long_name']} [{ds.lat.attrs['units']}]")
     if outfile:
         plt.savefig(outfile, bbox_inches="tight", facecolor="white", dpi=200)
     else:
@@ -354,7 +360,8 @@ def _random_sample(ds, sample_dim, sample_size):
 
     n_population = len(ds[sample_dim])
     random_indexes = rng.choice(n_population, size=sample_size, replace=False)
-    ds_random_sample = ds.isel({sample_dim: random_indexes})
+    indexer = xr.DataArray(random_indexes, dims=sample_dim)
+    ds_random_sample = ds.isel({sample_dim: indexer})
 
     return ds_random_sample
 

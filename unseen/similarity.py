@@ -2,8 +2,11 @@
 
 import argparse
 from cartopy.crs import PlateCarree
+from cartopy.mpl.gridliner import LatitudeFormatter, LongitudeFormatter
 import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
+from matplotlib.ticker import AutoMinorLocator
+import numpy as np
 import xarray as xr
 import xstatstests
 
@@ -33,6 +36,25 @@ def ks_test(obs_ds, fcst_ds):
     return ks
 
 
+def _mask_invalid(da):
+    """Get a mask where there is less than one distinct sample."""
+
+    def count_unique_1d(x):
+        return np.unique(x).size
+
+    count = xr.apply_ufunc(
+        count_unique_1d,
+        da,
+        input_core_dims=[["sample"]],
+        output_core_dims=[[]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=["int"],
+    )
+    mask = count > 1
+    return mask
+
+
 def anderson_darling_test(obs_ds, fcst_ds):
     """Calculate Anderson Darling test statistic and p-value.
 
@@ -45,9 +67,20 @@ def anderson_darling_test(obs_ds, fcst_ds):
     -------
     ad : xarray.Dataset
         Dataset with Anderson Darling statistic and p-value variables
-    """
 
-    ad = xstatstests.anderson_ksamp(obs_ds, fcst_ds, dim="sample")
+    """
+    # Temporarily replace non-unique samples with unique integers
+    obs_mask = _mask_invalid(obs_ds[list(obs_ds.data_vars)[0]])
+    fcst_mask = _mask_invalid(fcst_ds[list(fcst_ds.data_vars)[0]])
+
+    x = xr.where(obs_mask, obs_ds, np.arange(obs_ds.sample.size))
+    y = xr.where(fcst_mask, fcst_ds, np.arange(fcst_ds.sample.size))
+
+    ad = xstatstests.anderson_ksamp(x, y, dim="sample")
+
+    # Mask dummy results
+    ad = xr.where(obs_mask | fcst_mask, ad, np.nan)
+
     ad = ad.rename({"statistic": "ad_statistic"})
     ad = ad.rename({"pvalue": "ad_pval"})
 
@@ -180,21 +213,38 @@ def similarity_spatial_plot(ds, dataset_name=None, outfile=None, alpha=0.05):
     for ax, var in zip(axes.flat, ds.data_vars):
         if "statistic" in var:
             long_name = ds[var].attrs["long_name"].replace("_", " ").title()
-            kwargs = {}
+            if ds[var].min() < 0:
+                kwargs = dict(cmap=plt.cm.coolwarm)
+            else:
+                kwargs = dict(cmap=plt.cm.viridis)
         elif "pval" in var:
             long_name = f"{long_name} p-value"
             kwargs = dict(
                 cmap=plt.cm.seismic,
                 norm=TwoSlopeNorm(vcenter=alpha, vmin=0, vmax=0.4),
             )
+        kwargs["cmap"].set_bad("gray")
 
         ds[var].plot(
-            ax=ax, transform=PlateCarree(), cbar_kwargs=dict(label=long_name), **kwargs
+            ax=ax,
+            transform=PlateCarree(),
+            cbar_kwargs=dict(label=long_name),
+            robust=True,
+            **kwargs,
         )
         ax.coastlines()
         ax.set_title(long_name)
+        ax.set_xlabel(None)
+        ax.set_ylabel(None)
+        ax.xaxis.set_major_formatter(LongitudeFormatter())
+        ax.yaxis.set_major_formatter(LatitudeFormatter())
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+
+        subplotspec = ax.get_subplotspec()
         ax.xaxis.set_visible(True)
-        ax.yaxis.set_visible(True)
+        if subplotspec.is_first_col():
+            ax.yaxis.set_visible(True)
 
     if dataset_name:
         fig.suptitle(dataset_name, y=1.02)

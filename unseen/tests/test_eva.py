@@ -149,7 +149,7 @@ def test_fit_gev_1d_assert_good_fit(example_da_gev):
 
 
 @pytest.mark.parametrize("example_da_gev", ["xarray"], indirect=True)
-@pytest.mark.parametrize("test", ["lrt", "aic", "bic"])
+@pytest.mark.parametrize("test", ["lrt", "aic", "aicc", "bic"])
 @pytest.mark.parametrize("trend", [False, True])
 def test_fit_ns_gev_1d_pick_best_model(example_da_gev, test, trend):
     """Run non-stationary GEV fit & check 'lrt' test returns nonstationary params."""

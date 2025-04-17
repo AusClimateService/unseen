@@ -29,9 +29,13 @@ def get_agg_dates(ds, var, target_freq, agg_method, time_dim="time"):
     -------
     event_datetimes_str : xarray.DataArray
         Event dates (YYYY-MM-DD) for the resampled array
+
+    todo: replace loop with
+        ds.resample(index=target_freq, label="left").map(xr.DataArray.idxmax, dim=time_dim, keep_attrs=True)
     """
 
-    ds_arg = ds[var].resample(time=target_freq, label="left")
+    da = ds[var] if isinstance(ds, xr.Dataset) else ds
+    ds_arg = da.resample({time_dim: target_freq}, label="left")
     if agg_method == "max":
         dates = [da.idxmax(time_dim) for _, da in ds_arg]
     elif agg_method == "min":
@@ -111,10 +115,12 @@ def temporal_aggregation(
         start_time = ds[time_dim]
 
     if min_tsteps:
-        counts = ds[variables[0]].resample(time=target_freq).count(dim=time_dim)
+        # Count the number of time steps in each resampled group
+        counts = ds[variables[0]].resample({time_dim: target_freq}).count(dim=time_dim)
 
     if input_freq == target_freq[0]:
         pass
+
     elif agg_method in ["max", "min"]:
         if agg_dates:
             # Record the date of each time aggregated event (e.g. annual max)
@@ -122,20 +128,22 @@ def temporal_aggregation(
                 ds, variables[0], target_freq, agg_method, time_dim=time_dim
             )
         if agg_method == "max":
-            ds = ds.resample(time=target_freq).max(dim=time_dim, keep_attrs=True)
+            ds = ds.resample({time_dim: target_freq}).max(dim=time_dim, keep_attrs=True)
         else:
-            ds = ds.resample(time=target_freq).min(dim=time_dim, keep_attrs=True)
+            ds = ds.resample({time_dim: target_freq}).min(dim=time_dim, keep_attrs=True)
 
         if agg_dates:
             # Add the event time to the resampled array
             ds = ds.assign(event_time=agg_dates_var)
     elif agg_method == "sum":
-        ds = ds.resample(time=target_freq).sum(dim=time_dim, keep_attrs=True)
+        ds = ds.resample({time_dim: target_freq}).sum(dim=time_dim, keep_attrs=True)
         for var in variables:
             ds[var].attrs["units"] = _update_rate(ds[var], input_freq, target_freq)
     elif agg_method == "mean":
         if input_freq == "D":
-            ds = ds.resample(time=target_freq).mean(dim=time_dim, keep_attrs=True)
+            ds = ds.resample({time_dim: target_freq}).mean(
+                dim=time_dim, keep_attrs=True
+            )
         elif input_freq == "M":
             ds = _monthly_downsample_mean(ds, target_freq, variables, time_dim=time_dim)
         else:
@@ -172,15 +180,16 @@ def temporal_aggregation(
         assert np.unique(ds[time_dim].dt.month)[0] == month
 
     if min_tsteps:
-        # First and last time points likely have insufficient time steps
-        counts = counts.isel({time_dim: [0, -1]})
-        # Check the minimum count for the first and last time points
-        counts = counts.min([dim for dim in ds[variables[0]].dims if dim != time_dim])
-        # Remove first and/or last time if they have insufficient time steps
-        if counts[0] < min_tsteps:
-            ds = ds.isel({time_dim: slice(1, None)})
-        if counts[-1] < min_tsteps:
-            ds = ds.isel({time_dim: slice(None, -1)})
+        # Find resampled groups with fewer than min_tsteps
+        invalid_mask = counts < min_tsteps
+        # Reduce the mask to the time dimension (if there are other dimensions)
+        dims = [dim for dim in ds.dims if dim != time_dim]
+        if len(dims) > 0:
+            invalid_mask = invalid_mask.any(dims)
+        # Convert boolean mask to array indexes
+        invalid_inds = np.arange(counts[time_dim].size)[invalid_mask]
+        # Drop the invalid time steps
+        ds = ds.drop_isel({time_dim: invalid_inds})
 
     if reindexed:
         ds = ds.compute()
@@ -377,9 +386,9 @@ def _monthly_downsample_mean(ds, target_freq, variables, time_dim="time"):
     """
 
     days_in_month = ds[time_dim].dt.days_in_month
-    weighted_mean = (ds * days_in_month).resample(time=target_freq).sum(
+    weighted_mean = (ds * days_in_month).resample({time_dim: target_freq}).sum(
         dim=time_dim, keep_attrs=True
-    ) / days_in_month.resample(time=target_freq).sum(dim=time_dim)
+    ) / days_in_month.resample({time_dim: target_freq}).sum(dim=time_dim)
     weighted_mean.attrs = ds.attrs
     for var in variables:
         weighted_mean[var].attrs = ds[var].attrs

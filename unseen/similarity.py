@@ -200,6 +200,7 @@ def similarity_spatial_plot(ds, dataset_name=None, outfile=None, alpha=0.05):
     outfile : str, optional
         Filename to save the plot
     """
+
     fig, axes = plt.subplots(
         2,
         2,
@@ -210,21 +211,25 @@ def similarity_spatial_plot(ds, dataset_name=None, outfile=None, alpha=0.05):
         constrained_layout=True,
     )
 
+    # Iterate through vars: ks_statistic, ks_pval, ad_statistic, ad_pval
     for ax, var in zip(axes.flat, ds.data_vars):
+
+        kwargs = {}
         if "statistic" in var:
             long_name = ds[var].attrs["long_name"].replace("_", " ").title()
-            if ds[var].min() < 0:
-                kwargs = dict(cmap=plt.cm.coolwarm)
+            if ds[var].min() > 0:
+                kwargs["cmap"] = plt.cm.viridis
             else:
-                kwargs = dict(cmap=plt.cm.viridis)
-        elif "pval" in var:
-            long_name = f"{long_name} p-value"
-            kwargs = dict(
-                cmap=plt.cm.seismic,
-                norm=TwoSlopeNorm(vcenter=alpha, vmin=0, vmax=0.4),
-            )
-        kwargs["cmap"].set_bad("gray")
+                kwargs["cmap"] = plt.cm.RdBu_r
 
+        elif "pval" in var:
+            long_name = f"{long_name} p-value"  # use previous long_name
+            # Centre the colormap at alpha
+            kwargs["cmap"] = plt.cm.coolwarm_r
+            vmax = 0.5 if var == "ks_pval" else 0.25
+            kwargs["norm"] = TwoSlopeNorm(vcenter=alpha, vmin=0, vmax=vmax)
+
+        kwargs["cmap"].set_bad("gray")
         ds[var].plot(
             ax=ax,
             transform=PlateCarree(),

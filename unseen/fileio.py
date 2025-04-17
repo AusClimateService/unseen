@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import shutil
 import yaml
+import warnings
 import xarray as xr
 import zipfile
 
@@ -219,7 +220,7 @@ def open_dataset(
     if no_leap_days:
         ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
     if rolling_sum_window:
-        ds = ds.rolling({time_dim: rolling_sum_window}).sum()
+        ds = ds.rolling({time_dim: rolling_sum_window}).sum(dim=time_dim)
     if time_freq:
         assert time_agg, "Provide a time_agg"
         assert variables, "Variables argument is required for temporal aggregation"
@@ -496,7 +497,8 @@ def _fix_metadata(ds, metadata_file):
 
     if "round_coords" in metadata_dict:
         for coord in metadata_dict["round_coords"]:
-            ds = ds.assign_coords({coord: ds[coord].round(decimals=6)})
+            ds = ds.assign_coords({coord: ds[coord].round(decimals=3)})
+            warnings.warn(f"Rounded {coord} to 3 decimal places")
 
     if "units" in metadata_dict:
         for var, units in metadata_dict["units"].items():
@@ -837,6 +839,12 @@ def _parse_command_line():
         default=False,
         help="Force a standard calendar when opening each file",
     )
+    parser.add_argument(
+        "--lead_dim_max_size",
+        type=int,
+        default=None,
+        help="Maximum size of the lead dimension (e.g. 9) [default=None]",
+    )
     args = parser.parse_args()
 
     return args
@@ -897,6 +905,12 @@ def _main():
             **kwargs,
         )
         temporal_dim = "lead_time"
+
+        if args.lead_dim_max_size is not None:
+            if ds["lead_time"].size > args.lead_dim_max_size:
+                # Drop the leads after the max size
+                ds = ds.isel(lead_time=slice(0, args.lead_dim_max_size))
+
     else:
         ds = open_dataset(args.infiles, **kwargs)
         temporal_dim = args.time_dim

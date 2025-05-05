@@ -1,12 +1,13 @@
 """Functions and command line program for stability testing."""
 
 import argparse
-
+import functools
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import genextreme
+from scipy.stats import genextreme, _resampling
 import seaborn as sns
+import xarray as xr
 
 from . import fileio
 from . import eva
@@ -269,6 +270,128 @@ def plot_return_by_time(
     if ylim:
         ax.set_ylim(ylim)
     ax.legend()
+
+
+def statistic_by_lead_confidence_interval(
+    da,
+    statistic,
+    sample_size=None,
+    n_resamples=9999,
+    confidence_level=0.95,
+    method="percentile",
+    rng=np.random.default_rng(0),
+    ensemble_dim="ensemble",
+    init_dim="init_date",
+    lead_dim="lead_time",
+    **kwargs,
+):
+    """Estimate confidence intervals for a statistic using bootstrapping.
+
+    Similar to `scipy.stats.bootstrap`, with optional sample size of resamples.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Data with dimensions (ensemble_dim, init_dim, lead_dim, ...)
+    statistic : callable
+        Function to calculate the statistic (e.g. np.median)
+    sample_size : int, optional
+        Size of the resample. If None, based on ensemble * init dim sizes
+    n_resamples : int, default 1000
+        Number of bootstrap resamples
+    confidence_level : float, default 0.95
+        Confidence level for the confidence intervals
+    method : {"percentile", "bca"}, default "percentile"
+        Method for calculating the confidence intervals
+    rng : numpy.random.Generator, optional
+    ensemble_dim : str, default "ensemble"
+    init_dim : str, default "init_date"
+    lead_dim : str, default "lead_time"
+    kwargs : dict, optional
+        Additional keyword arguments passed to the statistic function
+
+    Returns
+    -------
+    ci : xarray.DataArray
+        Confidence intervals stacked along dimension "bounds" (lower and upper).
+
+    Notes
+    -----
+    The statistic function should accept a 1D array and return a scalar.
+    If method is "bca", the statistic function should also accept kw `axis`.
+    """
+
+    def bootstrap_1d(
+        data, statistic, sample_size, n_resamples, confidence_level, method
+    ):
+        """Bootstrap confidence interval for a statistic function."""
+
+        # Resample the data
+        theta_hat_b = []
+        for _ in range(n_resamples):
+            resample = rng.choice(data, size=sample_size, replace=True)
+            theta_hat_b.append(statistic(resample))
+        theta_hat_b = np.array(theta_hat_b)
+
+        alpha = (1 - confidence_level) / 2
+
+        if method == "percentile":
+            interval = (alpha, 1 - alpha)
+            percentile_func = np.percentile
+
+        elif method.lower() == "bca":
+            interval = _resampling._bca_interval(
+                (data,),
+                statistic,
+                axis=-1,
+                alpha=alpha,
+                theta_hat_b=theta_hat_b,
+                batch=None,
+            )[:2]
+            percentile_func = _resampling._percentile_along_axis
+
+        ci_l = percentile_func(theta_hat_b, interval[0] * 100)
+        ci_u = percentile_func(theta_hat_b, interval[1] * 100)
+        return np.array([ci_l, ci_u])
+
+    if sample_size is None:
+        # Calculate the size of the resample (# samples per lead)
+        sample_size = da[ensemble_dim].size * da[init_dim].size
+
+    # Pass kwargs to the statistic function
+    if kwargs:
+        statistic = functools.partial(statistic, **kwargs)
+
+    # Stack the data along the sample dimension
+    da_stacked = da.stack(
+        sample=[ensemble_dim, init_dim, lead_dim], create_index=False
+    ).dropna("sample", how="all")
+
+    # Ensure sample dim is on axis -1 for vectorization
+    da_stacked = da_stacked.transpose(..., "sample")
+
+    ci = xr.apply_ufunc(
+        bootstrap_1d,
+        da_stacked,
+        input_core_dims=[["sample"]],
+        output_core_dims=[["bounds"]],
+        vectorize=True,
+        dask="parallelized",
+        kwargs=dict(
+            statistic=statistic,
+            sample_size=sample_size,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+        ),
+        output_dtypes=[float],
+        dask_gufunc_kwargs={"output_sizes": {"bounds": 2}},
+    )
+
+    # Assign the "bounds" dimension labels
+    ci = ci.assign_coords(bounds=["lower", "upper"])
+    ci.attrs["long_name"] = f"{confidence_level:%} Confidence Interval"
+    return ci
 
 
 def create_plot(

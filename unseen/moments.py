@@ -154,6 +154,7 @@ def create_plot(
 
     if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})
+        moments_bc_fcst = calc_moments(da_bc_fcst_stacked, core_dim="sample", **kwargs)
 
     bootstrap_values = {}
     bootstrap_lower_ci = {}
@@ -245,6 +246,9 @@ def create_plot(
         ax.axvline(
             moments_obs[moment], linewidth=4.0, color="tab:gray", label="observations"
         )
+        ax.axvline(
+            moments_fcst[moment], linewidth=4.0, color="tab:blue"
+        )
         if da_bc_fcst is not None:
             ax.hist(
                 bc_bootstrap_values[moment],
@@ -264,6 +268,11 @@ def create_plot(
                 color="tab:orange",
                 linestyle="--",
                 linewidth=3.0,
+            )
+            ax.axvline(
+                moments_bc_fcst[moment],
+                linewidth=4.0,
+                color="tab:orange"
             )
         ax.set_ylabel("count", fontsize="large")
         ax.set_xlabel(units[moment], fontsize="large")

@@ -4,6 +4,7 @@ import argparse
 from matplotlib.ticker import AutoMinorLocator
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 from xarray import Dataset
 from xclim.core import units
 from xesmf import Regridder
@@ -74,6 +75,67 @@ def convert_units(da, target_units):
             raise e
 
     return da
+
+
+def create_grid(grid_name):
+    """Create a regular lat/lon grid.
+
+    Parameters
+    ----------
+    grid_name : str
+        Name of the grid.
+
+    Returns
+    -------
+    ds_grid : xarray.Dataset
+        Dataset with desired lat/lon axes.
+
+    Notes
+    -----
+    The only valid grids are in the AUSXXi format. e.g:
+      - AUS005i is a 0.05 x 0.05 grid across Australia.
+      - AUS050i is a 0.50 x 0.50 grid across Australia.
+      - AUS300i is a 3.00 x 3.00 grid across Australia.
+    """
+
+    assert len(grid_name) == 7, "grid_name must be AUSXXXi format"
+    assert grid_name[0:3] == "AUS", "AUSXXXi grids only"
+    # AGCD bounds
+    south_lat = -44.5
+    north_lat = -10
+    west_lon = 112
+    east_lon = 156.25
+
+    step_start = grid_name[3]
+    step_end = grid_name[4:6]
+    step = float(f"{step_start}.{step_end}")
+
+    ds_grid = xr.Dataset(
+        {
+            "lat": (
+                ["lat"],
+                np.round(np.arange(south_lat, north_lat + step, step), decimals=2),
+            ),
+            "lon": (
+                ["lon"],
+                np.round(np.arange(west_lon, east_lon + step, step), decimals=2),
+            ),
+        }
+    )
+    ds_grid["lat"].attrs = {
+        "standard_name": "latitude",
+        "long_name": "latitude",
+        "units": "degrees_north",
+        "axis": "Y",
+    }
+    ds_grid["lon"].attrs = {
+        "standard_name": "longitude",
+        "long_name": "longitude",
+        "units": "degrees_east",
+        "axis": "X",
+    }
+
+    return ds_grid
 
 
 def regrid(ds, ds_grid, method="conservative", **kwargs):

@@ -122,17 +122,17 @@ def create_grid(grid_name):
             ),
         }
     )
-    ds_grid['lat'].attrs = {
-        'standard_name': 'latitude',
-        'long_name': 'latitude',
-        'units': 'degrees_north',
-        'axis': 'Y',
+    ds_grid["lat"].attrs = {
+        "standard_name": "latitude",
+        "long_name": "latitude",
+        "units": "degrees_north",
+        "axis": "Y",
     }
-    ds_grid['lon'].attrs = {
-        'standard_name': 'longitude',
-        'long_name': 'longitude',
-        'units': 'degrees_east',
-        'axis': 'X',
+    ds_grid["lon"].attrs = {
+        "standard_name": "longitude",
+        "long_name": "longitude",
+        "units": "degrees_east",
+        "axis": "X",
     }
 
     return ds_grid

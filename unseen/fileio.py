@@ -28,6 +28,8 @@ def open_dataset(
     metadata_file=None,
     variables=[],
     regrid_name=None,
+    regrid_lat_offset=0.0,
+    regrid_lon_offset=0.0,
     regrid_method="conservative",
     point_selection=None,
     lat_bnds=None,
@@ -78,6 +80,10 @@ def open_dataset(
         Name of grid for sptial regridding in AUSXXXi format.
         e.g. AUS005i is a 0.05 x 0.05 lat/lon grid
         e.g. AUS300i is a 3.00 x 3.00 lat/lon grid
+    regrid_lat_offset : float, optional
+        Add latitude offset to named grid latitude axis
+    regrid_lon_offset : float, optional
+        Add longitude offset to named grid longitude axis
     regrid_method : {"conservative", "bilinear", "nearest_s2d", "nearest_d2s"}, default "conservative"
         Name of grid for sptial regridding in AUSXXXi format.
     point_selection : list, optional
@@ -192,7 +198,9 @@ def open_dataset(
 
     # Spatial regridding
     if regrid_name:
-        new_grid = general_utils.create_grid(regrid_name)
+        new_grid = general_utils.create_grid(
+            regrid_name, lat_offset=regrid_lat_offset, lon_offset=regrid_lon_offset
+        )
         ds = general_utils.regrid(ds, new_grid, method=regrid_method)
 
     # Spatial subsetting and aggregation
@@ -729,6 +737,18 @@ def _parse_command_line():
         help="Name of grid for sptial regridding in AUSXXXi format",
     )
     parser.add_argument(
+        "--regrid_lat_offset",
+        type=float,
+        default=0.0,
+        help="Latitude offset to add to named grid latitude axis",
+    )
+    parser.add_argument(
+        "--regrid_lon_offset",
+        type=float,
+        default=0.0,
+        help="Longitude offset to add to named grid longitude axis",
+    )
+    parser.add_argument(
         "--regrid_method",
         type=str,
         default="conservative",
@@ -882,6 +902,8 @@ def _main():
         "metadata_file": args.metadata_file,
         "variables": args.variables,
         "regrid_name": args.regrid_name,
+        "regrid_lat_offset": args.regrid_lat_offset,
+        "regrid_lon_offset": args.regrid_lon_offset,
         "regrid_method": args.regrid_method,
         "point_selection": args.point_selection,
         "lat_bnds": args.lat_bnds,

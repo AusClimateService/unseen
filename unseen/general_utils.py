@@ -77,13 +77,17 @@ def convert_units(da, target_units):
     return da
 
 
-def create_grid(grid_name):
+def create_grid(grid_name, lat_offset=0.0, lon_offset=0.0):
     """Create a regular lat/lon grid.
 
     Parameters
     ----------
     grid_name : str
         Name of the grid.
+    lat_offset : float, optional
+        Add latitude offset to named grid latitude axis
+    lon_offset : float, optional
+        Add longitude offset to named grid longitude axis
 
     Returns
     -------
@@ -92,7 +96,7 @@ def create_grid(grid_name):
 
     Notes
     -----
-    The only valid grids are in the AUSXXi format. e.g:
+    The only valid grids are in the AUSXXXi format. e.g:
       - AUS005i is a 0.05 x 0.05 grid across Australia.
       - AUS050i is a 0.50 x 0.50 grid across Australia.
       - AUS300i is a 3.00 x 3.00 grid across Australia.
@@ -115,18 +119,9 @@ def create_grid(grid_name):
     west_lon = agcd_west_limit + offset
     east_lon = agcd_east_limit - offset
 
-    ds_grid = xr.Dataset(
-        {
-            "lat": (
-                ["lat"],
-                np.round(np.arange(south_lat, north_lat, step), decimals=2),
-            ),
-            "lon": (
-                ["lon"],
-                np.round(np.arange(west_lon, east_lon, step), decimals=2),
-            ),
-        }
-    )
+    lats = np.round(np.arange(south_lat, north_lat, step), decimals=2) + lat_offset
+    lons = np.round(np.arange(west_lon, east_lon, step), decimals=2) + lon_offset
+    ds_grid = xr.Dataset({"lat": (["lat"], lats), "lon": (["lon"], lons)})
     ds_grid["lat"].attrs = {
         "standard_name": "latitude",
         "long_name": "latitude",

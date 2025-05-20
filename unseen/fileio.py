@@ -34,6 +34,7 @@ def open_dataset(
     shapefile=None,
     shapefile_label_header=None,
     shape_overlap=None,
+    shape_buffer=None,
     combine_shapes=False,
     spatial_agg="none",
     time_dim="time",
@@ -201,6 +202,7 @@ def open_dataset(
             overlap_fraction=shape_overlap,
             header=shapefile_label_header,
             combine_shapes=combine_shapes,
+            shape_buffer=shape_buffer,
             lat_dim=lat_dim,
             lon_dim=lon_dim,
         )
@@ -742,6 +744,12 @@ def _parse_command_line():
         help="Fraction that a grid cell must overlap with a shape to be included",
     )
     parser.add_argument(
+        "--shp_buffer",
+        type=float,
+        default=None,
+        help="Buffer the shape by this amount (in degrees)",
+    )
+    parser.add_argument(
         "--shp_header",
         type=str,
         default=None,
@@ -869,6 +877,7 @@ def _main():
         "shapefile": args.shapefile,
         "shapefile_label_header": args.shp_header,
         "shape_overlap": args.shp_overlap,
+        "shape_buffer": args.shp_buffer,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,

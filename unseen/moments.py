@@ -62,9 +62,9 @@ def calc_moments(sample_da, **kwargs):
     moments["skew"] = float(scipy.stats.skew(sample_da))
     moments["kurtosis"] = float(scipy.stats.kurtosis(sample_da))
     gev_shape, gev_loc, gev_scale = eva.fit_gev(sample_da, **kwargs)
-    moments["GEV shape"] = gev_shape
-    moments["GEV location"] = gev_loc
-    moments["GEV scale"] = gev_scale
+    moments["GEV shape"] = float(gev_shape)
+    moments["GEV location"] = float(gev_loc)
+    moments["GEV scale"] = float(gev_scale)
 
     return moments
 

@@ -28,6 +28,10 @@ def open_dataset(
     chunks=None,
     metadata_file=None,
     variables=[],
+    regrid_name=None,
+    regrid_lat_offset=0.0,
+    regrid_lon_offset=0.0,
+    regrid_method="conservative",
     point_selection=None,
     lat_bnds=None,
     lon_bnds=None,
@@ -74,6 +78,16 @@ def open_dataset(
         YAML file path specifying required file metadata changes
     variables : list, optional
         Subset of variables of interest
+    regrid_name : str, optional
+        Name of grid for sptial regridding in AUSXXXi format.
+        e.g. AUS005i is a 0.05 x 0.05 lat/lon grid
+        e.g. AUS300i is a 3.00 x 3.00 lat/lon grid
+    regrid_lat_offset : float, optional
+        Add latitude offset to named grid latitude axis
+    regrid_lon_offset : float, optional
+        Add longitude offset to named grid longitude axis
+    regrid_method : {"conservative", "bilinear", "nearest_s2d", "nearest_d2s"}, default "conservative"
+        Name of grid for sptial regridding in AUSXXXi format.
     point_selection : list, optional
         Point coordinates: [lat, lon]
     lat_bnds : list, optional
@@ -183,6 +197,13 @@ def open_dataset(
     if units and (units_timing == "start"):
         for var, target_units in units.items():
             ds[var] = general_utils.convert_units(ds[var], target_units)
+
+    # Spatial regridding
+    if regrid_name:
+        new_grid = general_utils.create_grid(
+            regrid_name, lat_offset=regrid_lat_offset, lon_offset=regrid_lon_offset
+        )
+        ds = general_utils.regrid(ds, new_grid, method=regrid_method)
 
     # Spatial subsetting and aggregation
     if point_selection:
@@ -714,6 +735,31 @@ def _parse_command_line():
         help="Anomaly can monthly (month) or all times (none)",
     )
     parser.add_argument(
+        "--regrid_name",
+        type=str,
+        default=None,
+        help="Name of grid for sptial regridding in AUSXXXi format",
+    )
+    parser.add_argument(
+        "--regrid_lat_offset",
+        type=float,
+        default=0.0,
+        help="Latitude offset to add to named grid latitude axis",
+    )
+    parser.add_argument(
+        "--regrid_lon_offset",
+        type=float,
+        default=0.0,
+        help="Longitude offset to add to named grid longitude axis",
+    )
+    parser.add_argument(
+        "--regrid_method",
+        type=str,
+        default="conservative",
+        choices=["conservative", "bilinear", "nearest_s2d", "nearest_d2s"],
+        help="Regridding method",
+    )
+    parser.add_argument(
         "--point_selection",
         type=float,
         nargs=2,
@@ -871,6 +917,10 @@ def _main():
         "chunks": args.input_chunks,
         "metadata_file": args.metadata_file,
         "variables": args.variables,
+        "regrid_name": args.regrid_name,
+        "regrid_lat_offset": args.regrid_lat_offset,
+        "regrid_lon_offset": args.regrid_lon_offset,
+        "regrid_method": args.regrid_method,
         "point_selection": args.point_selection,
         "lat_bnds": args.lat_bnds,
         "lon_bnds": args.lon_bnds,

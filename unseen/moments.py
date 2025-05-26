@@ -62,9 +62,9 @@ def calc_moments(sample_da, **kwargs):
     moments["skew"] = float(scipy.stats.skew(sample_da))
     moments["kurtosis"] = float(scipy.stats.kurtosis(sample_da))
     gev_shape, gev_loc, gev_scale = eva.fit_gev(sample_da, **kwargs)
-    moments["GEV shape"] = gev_shape
-    moments["GEV location"] = gev_loc
-    moments["GEV scale"] = gev_scale
+    moments["GEV shape"] = float(gev_shape)
+    moments["GEV location"] = float(gev_loc)
+    moments["GEV scale"] = float(gev_scale)
 
     return moments
 
@@ -154,6 +154,7 @@ def create_plot(
 
     if da_bc_fcst is not None:
         da_bc_fcst_stacked = da_bc_fcst.dropna(lead_dim).stack({"sample": dims})
+        moments_bc_fcst = calc_moments(da_bc_fcst_stacked, core_dim="sample", **kwargs)
 
     bootstrap_values = {}
     bootstrap_lower_ci = {}
@@ -245,6 +246,7 @@ def create_plot(
         ax.axvline(
             moments_obs[moment], linewidth=4.0, color="tab:gray", label="observations"
         )
+        ax.axvline(moments_fcst[moment], linewidth=4.0, color="tab:blue")
         if da_bc_fcst is not None:
             ax.hist(
                 bc_bootstrap_values[moment],
@@ -265,6 +267,7 @@ def create_plot(
                 linestyle="--",
                 linewidth=3.0,
             )
+            ax.axvline(moments_bc_fcst[moment], linewidth=4.0, color="tab:orange")
         ax.set_ylabel("count", fontsize="large")
         ax.set_xlabel(units[moment], fontsize="large")
         letter = letters[plotnum]

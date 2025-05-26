@@ -349,6 +349,11 @@ def fit_gev(
             f"Stationary must be false if pick_best_model={pick_best_model}."
         )
 
+    if stationary and use_basinhopping:
+        loc1 = None
+        scale1 = None
+        stationary = False
+
     if covariate is not None:
         covariate = _format_covariate(data, covariate, core_dim)
     else:
@@ -389,6 +394,12 @@ def fit_gev(
         output_dtypes=["float64"],
         dask_gufunc_kwargs={"output_sizes": {"dparams": n_params}},
     )
+
+    if loc1 is None and scale1 is None:
+        # Remove trend parameters if not used
+        stationary = True
+        n_params == 3
+        dparams = dparams.isel(dparams=[0, 1, 3])
 
     # Format output (consistent with xclim)
     if isinstance(data, DataArray):

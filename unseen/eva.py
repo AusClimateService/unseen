@@ -349,19 +349,19 @@ def fit_gev(
             f"Stationary must be false if pick_best_model={pick_best_model}."
         )
 
-    if stationary and use_basinhopping:
-        loc1 = None
-        scale1 = None
-        stationary = False
-
     if covariate is not None:
         covariate = _format_covariate(data, covariate, core_dim)
     else:
-        # check if stationary or loca1 and scale1 are None using np.all
-        assert stationary is True or (
-            loc1 is None and scale1 is None
-        ), "Covariate must be provided for a nonstationary fit."
+        # Check if stationary or loc1 and scale1 are None using np.all
+        assert stationary is True, "Covariate must be provided for a nonstationary fit."
         covariate = 0  # No covariate (can't be None)
+
+    if stationary and use_basinhopping:
+        # Restrict the trend parameters to zero if stationary
+        stationary = False
+        loc1, scale1 = None, None
+        kwargs.update({"stationary": False, "loc1": loc1, "scale1": scale1})
+
     if bounds is None:
         kwargs["bounds"] = ns_gev_parameter_bounds()
 
@@ -381,6 +381,7 @@ def fit_gev(
         input_core_dims = [[core_dim], []]
 
     n_params = 3 if stationary else 5
+
     # Fit data to distribution parameters
     dparams = apply_ufunc(
         _fit_1d,
@@ -395,19 +396,26 @@ def fit_gev(
         dask_gufunc_kwargs={"output_sizes": {"dparams": n_params}},
     )
 
+    # Format output
     if loc1 is None and scale1 is None:
-        # Remove trend parameters if not used
+        # Remove both trend parameters if not used
         stationary = True
-        n_params == 3
-        dparams = dparams.isel(dparams=[0, 1, 3])
-
-    # Format output (consistent with xclim)
-    if isinstance(data, DataArray):
-        if n_params == 3:
-            # todo: change loc to location
-            dparams.coords["dparams"] = ["c", "loc", "scale"]
+        if hasattr(dparams, "isel"):
+            dparams = dparams.isel(dparams=[0, 1, 3], drop=True)
         else:
-            dparams.coords["dparams"] = ["c", "loc0", "loc1", "scale0", "scale1"]
+            dparams = dparams[[0, 1, 3]]
+
+    if isinstance(data, DataArray):
+        if dparams["dparams"].size == 3:
+            dparams.coords["dparams"] = ["c", "location", "scale"]
+        else:
+            dparams.coords["dparams"] = [
+                "c",
+                "location_0",
+                "location_1",
+                "scale_0",
+                "scale_1",
+            ]
 
         # Add coordinates for the distribution parameters
         dist_name = "genextreme" if stationary else "nonstationary genextreme"
@@ -587,8 +595,8 @@ class RandomDisplacementBounds(object):
         """take a random step but ensure the new position is within the bounds"""
         min_step = np.maximum(self.xmin - x, -self.stepsize)
         max_step = np.minimum(self.xmax - x, self.stepsize)
+        x = x + self.rng.uniform(low=min_step, high=max_step, size=x.shape)
 
-        x += self.rng.uniform(low=min_step, high=max_step, size=x.shape)
         return x
 
 

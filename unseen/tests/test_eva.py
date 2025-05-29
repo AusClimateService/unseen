@@ -175,6 +175,35 @@ def test_fit_ns_gev_1d_pick_best_model(example_da_gev, test, trend):
 
 
 @pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)
+def test_fit_gev_1d_basinhopping(example_da_gev):
+    """Run stationary GEV fit using 1D array with `use_basinhopping=True`."""
+    data, dparams_i = example_da_gev
+    dparams = fit_gev(data, stationary=True, use_basinhopping=True)
+
+    assert dparams.shape == (3,)  # Should return 3 parameters
+
+    # Check fitted params match params used to create data
+    npt.assert_allclose(dparams, dparams_i, rtol=rtol)
+
+
+@pytest.mark.parametrize("example_da_gev", ["xarray", "dask"], indirect=True)
+def test_fit_ns_gev_1d_basinhopping(example_da_gev):
+    """Run non-stationary GEV fit using 1D array & check results."""
+    data, _ = example_da_gev
+    data = add_example_gev_trend(data)
+    covariate = xr.DataArray(np.arange(data.time.size), dims="time")
+
+    dparams = fit_gev(
+        data,
+        stationary=False,
+        core_dim="time",
+        covariate=covariate,
+        use_basinhopping=True,
+    )
+    assert np.all(dparams[2] > 0)  # Positive trend in location
+
+
+@pytest.mark.parametrize("example_da_gev", ["xarray", "numpy", "dask"], indirect=True)
 def test_get_return_period(example_da_gev):
     """Run get_return_period for a single event using 1d data."""
     data, _ = example_da_gev

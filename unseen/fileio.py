@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import shutil
 import yaml
+import warnings
 import xarray as xr
 import zipfile
 
@@ -37,6 +38,7 @@ def open_dataset(
     shapefile=None,
     shapefile_label_header=None,
     shape_overlap=None,
+    shape_buffer=None,
     combine_shapes=False,
     spatial_agg="none",
     time_dim="time",
@@ -221,6 +223,7 @@ def open_dataset(
             overlap_fraction=shape_overlap,
             header=shapefile_label_header,
             combine_shapes=combine_shapes,
+            shape_buffer=shape_buffer,
             lat_dim=lat_dim,
             lon_dim=lon_dim,
         )
@@ -240,7 +243,7 @@ def open_dataset(
     if no_leap_days:
         ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
     if rolling_sum_window:
-        ds = ds.rolling({time_dim: rolling_sum_window}).sum()
+        ds = ds.rolling({time_dim: rolling_sum_window}).sum(dim=time_dim)
     if time_freq:
         assert time_agg, "Provide a time_agg"
         assert variables, "Variables argument is required for temporal aggregation"
@@ -517,7 +520,8 @@ def _fix_metadata(ds, metadata_file):
 
     if "round_coords" in metadata_dict:
         for coord in metadata_dict["round_coords"]:
-            ds = ds.assign_coords({coord: ds[coord].round(decimals=6)})
+            ds = ds.assign_coords({coord: ds[coord].round(decimals=3)})
+            warnings.warn(f"Rounded {coord} to 3 decimal places")
 
     if "units" in metadata_dict:
         for var, units in metadata_dict["units"].items():
@@ -786,6 +790,12 @@ def _parse_command_line():
         help="Fraction that a grid cell must overlap with a shape to be included",
     )
     parser.add_argument(
+        "--shp_buffer",
+        type=float,
+        default=None,
+        help="Buffer the shape by this amount (in degrees)",
+    )
+    parser.add_argument(
         "--shp_header",
         type=str,
         default=None,
@@ -883,6 +893,12 @@ def _parse_command_line():
         default=False,
         help="Force a standard calendar when opening each file",
     )
+    parser.add_argument(
+        "--lead_dim_max_size",
+        type=int,
+        default=None,
+        help="Maximum size of the lead dimension (e.g. 9) [default=None]",
+    )
     args = parser.parse_args()
 
     return args
@@ -911,6 +927,7 @@ def _main():
         "shapefile": args.shapefile,
         "shapefile_label_header": args.shp_header,
         "shape_overlap": args.shp_overlap,
+        "shape_buffer": args.shp_buffer,
         "combine_shapes": args.combine_shapes,
         "spatial_agg": args.spatial_agg,
         "lat_dim": args.lat_dim,
@@ -947,6 +964,12 @@ def _main():
             **kwargs,
         )
         temporal_dim = "lead_time"
+
+        if args.lead_dim_max_size is not None:
+            if ds["lead_time"].size > args.lead_dim_max_size:
+                # Drop the leads after the max size
+                ds = ds.isel(lead_time=slice(0, args.lead_dim_max_size))
+
     else:
         ds = open_dataset(args.infiles, **kwargs)
         temporal_dim = args.time_dim

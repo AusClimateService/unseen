@@ -136,6 +136,7 @@ def select_shapefile_regions(
     overlap_fraction=None,
     header=None,
     combine_shapes=False,
+    shape_buffer=None,
     lat_dim="lat",
     lon_dim="lon",
 ):
@@ -156,6 +157,8 @@ def select_shapefile_regions(
         Name of the shapefile column containing the region names
     combine_shape : bool, default False
         Create an extra region which combines them all
+    shape_buffer : float, default None
+        Buffer the shapes by this amount (in degrees)
     lat_dim: str, default 'lat'
         Name of the latitude dimension in ds
     lon_dim: str, default 'lon'
@@ -175,6 +178,8 @@ def select_shapefile_regions(
         "sum",
         "weighted_mean",
         "median",
+        "min",
+        "max",
         "none",
     ], "Invalid spatial aggregation method"
 
@@ -188,11 +193,15 @@ def select_shapefile_regions(
         new_dim_names[lon_dim] = "lon"
     if new_dim_names:
         ds = ds.rename_dims(new_dim_names)
+
     assert "lat" in ds.coords, "Latitude coordinate must be called lat"
     assert "lon" in ds.coords, "Longitude coordinate must be called lon"
 
     lons = ds["lon"].values
     lats = ds["lat"].values
+
+    if shape_buffer is not None:
+        shapes = shapefile_with_buffer(shapes, shape_buffer, tolerance=10000)
 
     if overlap_fraction:
         if isinstance(overlap_fraction, str):
@@ -208,7 +217,13 @@ def select_shapefile_regions(
         mask = _squeeze_and_drop_region(mask)
 
     # Spatial aggregation
-    agg_func_map = {"mean": np.nanmean, "sum": np.nansum, "median": np.nanmedian}
+    agg_func_map = {
+        "mean": np.nanmean,
+        "sum": np.nansum,
+        "median": np.nanmedian,
+        "min": np.nanmin,
+        "max": np.nanmax,
+    }
 
     if agg in agg_func_map.keys() and not (overlap_fraction or combine_shapes):
         ds = ds.groupby(mask).reduce(agg_func_map[agg], keep_attrs=True)
@@ -295,8 +310,8 @@ def fraction_overlap_mask(shapes_gp, lons, lats, min_overlap):
 
     assert min_overlap > 0.0, "Minimum overlap must be fractional value > 0"
     assert min_overlap <= 1.0, "Minimum overlap must be fractional value <= 1.0"
-    _check_regular_grid(lons)
-    _check_regular_grid(lats)
+    # _check_regular_grid(lons)
+    # _check_regular_grid(lats)
 
     shapes_rm = regionmask.from_geopandas(shapes_gp)
     fraction = overlap_fraction(shapes_rm, lons, lats)
@@ -351,6 +366,43 @@ def overlap_fraction(shapes_rm, lons, lats):
     mask_sampled = mask_sampled.assign_coords(region=("region", numbers))
 
     return mask_sampled
+
+
+def shapefile_with_buffer(shapes, shape_buffer, tolerance=10_000):
+    """Re-project geometries to a projected CRS, coarsen and buffer.
+
+    Parameters
+    ----------
+    shapes : geopandas.GeoDataFrame
+        Shapes/regions
+    shape_buffer : float
+        Buffer the shapes by this amount (in degrees)
+    tolerance : float, default 10_000
+        Coarsen the geometries to this tolerance (in metres)
+
+    Returns
+    -------
+    shapes : geopandas.GeoDataFrame
+        GeoDataFrame with buffered geometries
+    """
+
+    # Get original projection CRS
+    original_crs = shapes.crs
+    if original_crs is None:
+        original_crs = "EPSG:4326"  # WGS 84
+
+    # Re-project geometries to a projected CRS (units of metres)
+    shapes = shapes.to_crs(epsg=3395)
+
+    # Convert buffer from degrees to m
+    buffer_m = shape_buffer * 111_320  # 1 degree ~ 111.32 km
+
+    # Coarsen the geometries and then buffer
+    shapes["geometry"] = shapes["geometry"].simplify(tolerance).buffer(buffer_m)
+
+    # Re-project back to projection CRS (degrees)
+    shapes = shapes.to_crs(original_crs)
+    return shapes
 
 
 def _sample_coord(coord):

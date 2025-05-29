@@ -4,6 +4,7 @@ import argparse
 from matplotlib.ticker import AutoMinorLocator
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
 import xarray as xr
 from xarray import Dataset
 from xclim.core import units
@@ -160,8 +161,10 @@ def regrid(ds, ds_grid, method="conservative", **kwargs):
     Notes
     -----
     - The input and target grids should have the same coordinate names.
-    - Recommended using the "conservative" method for regridding from fine to course and "bilinear" for the opposite.
+    - Recommended using the "conservative" method for regridding from fine to
+    coarse and "bilinear" for the opposite.
     """
+
     # Copy attributes
     global_attrs = ds.attrs
     if isinstance(ds, Dataset):
@@ -178,6 +181,51 @@ def regrid(ds, ds_grid, method="conservative", **kwargs):
             ds_regrid[var].attrs.update(var_attrs[var])
 
     return ds_regrid
+
+
+def get_model_makefile_dict(cwd, project_details, model, model_details, obs_details):
+    """Get dictionary of variables defined in config files and makefile.
+
+    Parameters
+    ----------
+    cwd : str
+        Directory of makefile
+    project_details : str
+        Project details file
+    model : str
+        Model name
+    model_details : str
+        Model details file
+    obs_details : str
+        Observed data details file
+
+    Returns
+    -------
+    model_var_dict : dict
+        Dictionary of model variables defined in the makefile and details files
+    """
+
+    args = [
+        "make",
+        "print_file_vars",
+        f"PROJECT_DETAILS={project_details}",
+        f"MODEL={model}",
+        f"MODEL_DETAILS={model_details}",
+        f"OBS_DETAILS={obs_details}",
+    ]
+
+    result = subprocess.run(args, capture_output=True, text=True, cwd=cwd)
+
+    # Read stdout into dictionary
+    model_var_dict = {}
+    for line in result.stdout.splitlines():
+        if "=" in line:
+            key, value = line.split("=", 1)
+            model_var_dict[key.lower()] = value
+
+    # Sort dictionary by key
+    model_var_dict = dict(sorted(model_var_dict.items()))
+    return model_var_dict
 
 
 def plot_timeseries_scatter(
@@ -219,6 +267,7 @@ def plot_timeseries_scatter(
     ax : matplotlib.axes.Axes
         Axis object
     """
+
     if units is None:
         if "units" in da.attrs:
             units = da.attrs["units"]
@@ -297,7 +346,8 @@ def plot_timeseries_box_plot(
 
     Notes
     -----
-    Ensure all time dimensions are set to the correct frequency before calling this function.
+    Ensure all time dimensions are set to the correct frequency before calling
+    this function.
 
     Examples
     --------
@@ -308,6 +358,7 @@ def plot_timeseries_box_plot(
         da = da.stack({"sample": ["ensemble", "init_date", "lead_time"]})
         plot_timeseries_box_plot(da, time_dim="time")
     """
+
     if units is None:
         if "units" in da.attrs:
             units = da.attrs["units"]

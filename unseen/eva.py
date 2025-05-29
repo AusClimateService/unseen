@@ -219,7 +219,7 @@ def fit_gev(
             # Drop NaNs in data
             mask = np.isfinite(data)
             data = data[mask]
-            if not stationary:
+            if not stationary and not np.isscalar(covariate):
                 covariate = covariate[mask]
 
         # Initial estimates of distribution parameters for MLE
@@ -1586,9 +1586,9 @@ def spatial_plot_gev_parameters(
         )
         # Add coastlines and lat/lon labels
         ax.coastlines()
-        ax.set_title(f"{params[i]}")
         ax.set_xlabel(None)
         ax.set_ylabel(None)
+        ax.set_title(f"{params[i].title()} parameter")
         ax.xaxis.set_major_formatter(LongitudeFormatter())
         ax.yaxis.set_major_formatter(LatitudeFormatter())
         ax.xaxis.set_minor_locator(AutoMinorLocator())
@@ -1601,9 +1601,7 @@ def spatial_plot_gev_parameters(
             ax.yaxis.set_visible(True)
 
     if dataset_name:
-        fig.suptitle(
-            f"{dataset_name} GEV parameters"
-        )  # , y=0.8 if stationary else 0.99
+        fig.suptitle(f"{dataset_name} GEV parameters", y=0.75 if stationary else 0.97)
 
     # Hide empty subplots
     for ax in [ax for ax in axes if not ax.collections]:

@@ -193,6 +193,7 @@ def select_shapefile_regions(
         new_dim_names[lon_dim] = "lon"
     if new_dim_names:
         ds = ds.rename_dims(new_dim_names)
+
     assert "lat" in ds.coords, "Latitude coordinate must be called lat"
     assert "lon" in ds.coords, "Longitude coordinate must be called lon"
 
@@ -200,12 +201,7 @@ def select_shapefile_regions(
     lats = ds["lat"].values
 
     if shape_buffer is not None:
-        # Re-project geometries to a projected CRS (units of degrees)
-        shapes = shapes.to_crs("GDA2020")
-
-        # Coarsen the geometries and then buffer
-        tolerance = 0.1  # Coarsen to 0.1 degrees
-        shapes = shapes.simplify(tolerance).buffer(shape_buffer)
+        shapes = shapefile_with_buffer(shapes, shape_buffer, tolerance=10000)
 
     if overlap_fraction:
         if isinstance(overlap_fraction, str):
@@ -370,6 +366,43 @@ def overlap_fraction(shapes_rm, lons, lats):
     mask_sampled = mask_sampled.assign_coords(region=("region", numbers))
 
     return mask_sampled
+
+
+def shapefile_with_buffer(shapes, shape_buffer, tolerance=10_000):
+    """Re-project geometries to a projected CRS, coarsen and buffer.
+
+    Parameters
+    ----------
+    shapes : geopandas.GeoDataFrame
+        Shapes/regions
+    shape_buffer : float
+        Buffer the shapes by this amount (in degrees)
+    tolerance : float, default 10_000
+        Coarsen the geometries to this tolerance (in metres)
+
+    Returns
+    -------
+    shapes : geopandas.GeoDataFrame
+        GeoDataFrame with buffered geometries
+    """
+
+    # Get original projection CRS
+    original_crs = shapes.crs
+    if original_crs is None:
+        original_crs = "EPSG:4326"  # WGS 84
+
+    # Re-project geometries to a projected CRS (units of metres)
+    shapes = shapes.to_crs(epsg=3395)
+
+    # Convert buffer from degrees to m
+    buffer_m = shape_buffer * 111_320  # 1 degree ~ 111.32 km
+
+    # Coarsen the geometries and then buffer
+    shapes["geometry"] = shapes["geometry"].simplify(tolerance).buffer(buffer_m)
+
+    # Re-project back to projection CRS (degrees)
+    shapes = shapes.to_crs(original_crs)
+    return shapes
 
 
 def _sample_coord(coord):

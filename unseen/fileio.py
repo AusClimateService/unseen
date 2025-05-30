@@ -12,6 +12,7 @@ import shutil
 import yaml
 import xarray as xr
 import zipfile
+import zarr
 
 from . import array_handling
 from . import dask_setup
@@ -67,8 +68,8 @@ def open_dataset(
     ----------
     infiles : str or list
         Input file path/s
-    file_format : str, optional
-        Formats/engines accepted by xarray.open_dataset (e.g. netcdf4, zarr, cfgrid).
+    file_format : {"netcdf4", "zarr", "zarr.zip"}, optional
+        Formats/engines accepted by xarray.open_dataset.
         Estimated if not provided.
     chunks : dict, optional
         Chunks for xarray.open_mfdataset
@@ -158,8 +159,17 @@ def open_dataset(
 
     preprocess = time_utils.switch_calendar if standard_calendar else None
     engine = file_format if file_format else _guess_file_format(infiles)
+    if engine == "zarr.zip":
+        if isinstance(infiles, list):
+            infiles_io = [zarr.storage.ZipStore(infile, mode="r") for infile in infiles]
+        else:
+            infiles_io = zarr.storage.ZipStore(infiles, mode="r")
+        engine = "zarr"
+    else:
+        infiles_io = infiles
+
     ds = xr.open_mfdataset(
-        infiles, engine=engine, preprocess=preprocess, use_cftime=True, chunks=chunks
+        infiles_io, engine=engine, preprocess=preprocess, use_cftime=True, chunks=chunks
     )
 
     # Metadata
@@ -537,7 +547,7 @@ def _guess_file_format(file_names):
 
     Returns
     -------
-    file_format : {'netcdf4', 'zarr'}
+    file_format : {'netcdf4', 'zarr', 'zarr.zip'}
 
     Raises
     ------
@@ -553,6 +563,8 @@ def _guess_file_format(file_names):
 
     if ".nc" in file_name:
         file_format = "netcdf4"
+    elif ".zarr.zip" in file_name:
+        file_format = "zarr.zip"
     elif ".zarr" in file_name:
         file_format = "zarr"
     else:

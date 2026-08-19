@@ -253,6 +253,7 @@ def open_dataset(
     if no_leap_days:
         ds = ds.sel(time=~((ds[time_dim].dt.month == 2) & (ds[time_dim].dt.day == 29)))
     if rolling_sum_window:
+        ds = ds.compute()
         ds = ds.rolling({time_dim: rolling_sum_window}).sum(dim=time_dim)
     if time_freq:
         assert time_agg, "Provide a time_agg"

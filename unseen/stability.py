@@ -197,6 +197,11 @@ def plot_return_by_lead(
     ax.set_ylabel(units_label)
     if ylim:
         ax.set_ylim(ylim)
+    else:
+        ymin, ymax = ax.get_ylim()
+        if ymin < 0:
+            ymin = 0
+        ax.set_ylim([ymin, ymax])
     ax.legend()
 
 
@@ -269,6 +274,11 @@ def plot_return_by_time(
     ax.set_ylabel(units_label)
     if ylim:
         ax.set_ylim(ylim)
+    else:
+        ymin, ymax = ax.get_ylim()
+        if ymin < 0:
+            ymin = 0
+        ax.set_ylim([ymin, ymax])
     ax.legend()
 
 

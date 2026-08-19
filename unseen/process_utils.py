@@ -60,7 +60,7 @@ def get_event_seasonality(event_time, core_dim="time"):
     return counts
 
 
-def plot_event_seasonality(ds, ax=None, core_dim=None, outfile=None):
+def plot_event_seasonality(ds, ax=None, core_dim="time", outfile=None):
     """Plot event seasonality
 
     Parameters

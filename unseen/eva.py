@@ -1065,7 +1065,7 @@ def gev_confidence_interval(
 
     if bootstrap_method == "parametric":
         # Generate bootstrapped data using the GEV distribution
-        shape, loc, scale = unpack_gev_params(dparams, covariate)
+        shape, loc, scale = unpack_gev_params(dparams, return_covariate)
         if stationary:
             input_core_dims = [[], [], []]
         else:
